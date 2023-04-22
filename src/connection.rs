@@ -8,14 +8,31 @@ use chrono::{Timelike, Utc};
 use socket2::{Domain, SockAddr, Socket, Type};
 
 pub struct Connection {
-    socket_address: SocketAddr,
     socket: Socket,
     connected: bool
 }
 
 impl Connection {
 
-    pub(crate) fn new(ipv6: &str, port: u16) -> Result<Connection, String>{
+    pub(crate) fn new() -> Connection{
+        let socket = Socket::new(Domain::IPV6, Type::STREAM, None).unwrap();
+
+        let bind_ipv6 = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0)), 0);
+        socket.bind(&SockAddr::from(bind_ipv6)).unwrap();
+
+        return Connection {
+            socket,
+            connected: false
+        };
+    }
+
+    pub fn get_port(&self) -> u16{
+        return self.socket.local_addr().unwrap().as_socket().unwrap().port();
+    }
+
+    pub async fn connect(&mut self, ipv6: &str, port: u16, attempts: u8) -> Result<(),String> {
+        println!("{}", port);
+
         let mut parts_str = ipv6.split(":").into_iter();
         let mut parts: [u16; 8] = [0; 8];
 
@@ -34,35 +51,20 @@ impl Connection {
 
         let ipv6_addr = Ipv6Addr::from(parts);
         let socket_address = SocketAddr::new(IpAddr::from(ipv6_addr), port);
-        let socket = Socket::new(Domain::IPV6, Type::STREAM, None).unwrap();
-
-        let bind_ipv6 = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0)), 0);
-        socket.bind(&SockAddr::from(bind_ipv6)).unwrap();
-
-        return Ok( Connection {
-            socket_address,
-            socket,
-            connected: false
-        });
-    }
-
-    pub fn get_port(&self) -> u16{
-        return self.socket.local_addr().unwrap().as_socket().unwrap().port();
-    }
-
-    pub async fn connect(&mut self, attempts: u8) -> Result<(),String> {
-        let now = Utc::now();
 
         for _ in 0..attempts {
+            let now = Utc::now();
             let target = now.with_nanosecond(0).unwrap() + Duration::seconds(1);
             let diff = target - now;
 
             Timer::after(time::Duration::from_nanos(diff.num_nanoseconds().unwrap() as u64)).await;
 
-            if self.socket.connect(&SockAddr::from( self.socket_address)).is_ok() {
+            if self.socket.connect(&SockAddr::from(socket_address)).is_ok() {
                 self.connected = true;
                 return Ok(());
             }
+
+            println!("Connecting {}", Utc::now());
         }
 
 
