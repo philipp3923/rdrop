@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Port to connect to:");
     let b1 = std::io::stdin().read_line(&mut line).unwrap();
 
-    connection.connect("0:0:0:0:0:0:0:1",u16::from_str_radix(&(line.lines().next().unwrap()), 10).unwrap(),100).await.unwrap();
+    connection.connect("2001:7c7:2159:2f00:ef63:6075:2285:7367",u16::from_str_radix(&(line.lines().next().unwrap()), 10).unwrap(),100).await.unwrap();
 
     return Ok(());
 }

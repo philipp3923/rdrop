@@ -1,6 +1,6 @@
 use chrono::Duration;
-use std::io::{empty, Empty, Error};
-use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::io::{empty, Empty, Error, Read, Write};
+use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
 use std::num::ParseIntError;
 use std::time;
 use async_io::Timer;
@@ -30,7 +30,7 @@ impl Connection {
         return self.socket.local_addr().unwrap().as_socket().unwrap().port();
     }
 
-    pub async fn connect(&mut self, ipv6: &str, port: u16, attempts: u8) -> Result<(),String> {
+    pub async fn connect(mut self, ipv6: &str, port: u16, attempts: u8) -> Result<(),String> {
         println!("{}", port);
 
         let mut parts_str = ipv6.split(":").into_iter();
@@ -61,6 +61,20 @@ impl Connection {
 
             if self.socket.connect(&SockAddr::from(socket_address)).is_ok() {
                 self.connected = true;
+
+                // Send some data
+                let mut stream = TcpStream::from(self.socket);
+
+                stream.write_all("hello\n".as_bytes()).unwrap();
+                let mut buf = [0u8; 1024];
+                while let Ok(cnt) = stream.read(&mut buf) {
+                    if cnt == 0 {
+                        break;
+                    }
+
+                    println!("Received: {:02X?}", &buf[0..cnt]);
+                }
+
                 return Ok(());
             }
 
