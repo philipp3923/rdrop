@@ -1,9 +1,10 @@
 mod client;
 mod protocol;
+mod package;
 
 extern crate core;
 
-use std::{env, io};
+use std::{env, fs, io};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
@@ -28,18 +29,12 @@ fn main() {
 
     let port = u16::from_str_radix(&(line.lines().next().unwrap()), 10).expect("invalid port");
 
-    let mut client = client.connect("0:0:0:0:0:0:0:0", port).expect("unable to connect");
+    let client = client.connect("0:0:0:0:0:0:0:0", port).expect("unable to connect");
 
-    let mut file = File::open("/home/philipp/Desktop/test.pdf").unwrap();
-
-    let mut buffer: [u8; 1050447] = [0;1050447];
-
-    file.read_exact(buffer.as_mut_slice()).unwrap();
-
-    client.write(&buffer);
-
-    let msg = client.read();
-    let mut file = std::fs::OpenOptions::new().append(true).create(true).open(format!("/home/philipp/Desktop/test{}", thread_rng().gen_range(0..1000))).unwrap();
+    //client.write(fs::read("/home/philipp/Desktop/test516.tar.gz").unwrap().as_slice());
+    let (mut reader, mut writer) = client.split();
+    let msg = reader.read();
+    let mut file = std::fs::OpenOptions::new().append(true).create(true).open(format!("/home/philipp/Desktop/test{}.tar.gz", thread_rng().gen_range(0..1000))).unwrap();
     file.write_all(&msg).expect("TODO: panic message");
 
     loop  {

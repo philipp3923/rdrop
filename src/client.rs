@@ -86,7 +86,6 @@ impl WaitingClient {
 
 pub struct ActiveClient {
     tcp_stream: TcpStream,
-    role: Role,
     decrypt_stream: DryocStream<Pull>,
     encrypt_stream: DryocStream<Push>
 }
@@ -96,36 +95,28 @@ impl ActiveClient{
     pub fn new(mut tcp_stream: TcpStream) -> ActiveClient {
         let my_role : Role = negotiate_roles(&mut tcp_stream);
         let (decrypt_key, encrypt_key) = exchange_keys(&mut tcp_stream, &my_role);
-        let (mut pull_stream, mut push_stream) = generate_streams(&mut tcp_stream, decrypt_key, encrypt_key);
-
-        return ActiveClient {tcp_stream, role: my_role, decrypt_stream: pull_stream, encrypt_stream: push_stream};
+        let (pull_stream, push_stream) = generate_streams(&mut tcp_stream, decrypt_key, encrypt_key);
+        return ActiveClient {tcp_stream, decrypt_stream: pull_stream, encrypt_stream: push_stream};
     }
 
-    pub fn write(&mut self, content: &[u8]) {
-        let max2power24 = 65535;
-
-        if content.len() <= max2power24 {
-            let package = self.build_package(&content, Tag::PUSH);
-            self.tcp_stream.write_all(package.as_slice()).unwrap();
-            return;
-        }
-
-        let overhead = content.len() % max2power24;
-
-        for i in (0..content.len() - max2power24 - overhead).step_by(max2power24){
-            let package = self.build_package(&content[i..i+max2power24], Tag::MESSAGE);
-            self.tcp_stream.write_all(package.as_slice()).unwrap();
-        }
-
-        let package = self.build_package(&content[content.len()-max2power24-overhead..content.len()-overhead], if overhead == 0 {Tag::PUSH } else {Tag::MESSAGE});
-        self.tcp_stream.write_all(package.as_slice()).unwrap();
-
-        if overhead > 0 {
-            let package = self.build_package(&content[content.len()-overhead..content.len()], Tag::PUSH);
-            self.tcp_stream.write_all(package.as_slice()).unwrap();
-        }
+    pub fn split(self) -> (ClientReader, ClientWriter) {
+        let tcp_stream_clone = self.tcp_stream.try_clone().unwrap();
+        return (ClientReader {tcp_stream: self.tcp_stream, decrypt_stream: self.decrypt_stream}, ClientWriter {tcp_stream: tcp_stream_clone,encrypt_stream: self.encrypt_stream});
     }
+}
 
+pub struct ClientReader {
+    tcp_stream: TcpStream,
+    decrypt_stream: DryocStream<Pull>,
+}
+
+pub struct ClientWriter {
+    tcp_stream: TcpStream,
+    encrypt_stream: DryocStream<Push>
+}
+
+
+impl ClientReader {
     pub fn read(&mut self) -> Vec<u8> {
         let mut message = Vec::new();
 
@@ -171,6 +162,32 @@ impl ActiveClient{
 
         return (message, tag);
     }
+}
+
+impl ClientWriter {
+    pub fn write(&mut self, content: &[u8]) {
+        let max2power24 = 65535;
+        if content.len() <= max2power24 {
+            let package = self.build_package(&content, Tag::PUSH);
+            self.tcp_stream.write_all(package.as_slice()).unwrap();
+            return;
+        }
+
+        let overhead = content.len() % max2power24;
+
+        for i in (0..content.len() - max2power24 - overhead).step_by(max2power24){
+            let package = self.build_package(&content[i..i+max2power24], Tag::MESSAGE);
+            self.tcp_stream.write_all(package.as_slice()).unwrap();
+        }
+
+        let package = self.build_package(&content[content.len()-max2power24-overhead..content.len()-overhead], if overhead == 0 {Tag::PUSH } else {Tag::MESSAGE});
+        self.tcp_stream.write_all(package.as_slice()).unwrap();
+
+        if overhead > 0 {
+            let package = self.build_package(&content[content.len()-overhead..content.len()], Tag::PUSH);
+            self.tcp_stream.write_all(package.as_slice()).unwrap();
+        }
+    }
 
     fn build_package(&mut self, content: &[u8], tag: Tag) -> Vec<u8> {
         let size = content.len().to_be_bytes();
@@ -207,5 +224,4 @@ impl ActiveClient{
 
         return package;
     }
-
 }
