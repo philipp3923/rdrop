@@ -5,6 +5,7 @@ use std::time::Duration;
 
 pub(crate) struct Synchronizer {
     delta: Duration,
+    signum: i8,
 }
 
 impl Synchronizer {
@@ -15,15 +16,35 @@ impl Synchronizer {
             Err(_) => return Err(format!("failed to synchronize with sntp server")),
         };
 
-        let delta: Duration = result.clock_offset().abs_as_std_duration().unwrap();
+        let signum = result.clock_offset().signum() as i8;
+        let delta: Duration = match result.clock_offset().abs_as_std_duration() {
+            Ok(d) => d,
+            Err(_) => return Err(format!("failed to convert sntp server result")),
+        };
 
-        return Ok(Synchronizer { delta });
+        println!("delta:  {}", delta.as_secs_f32());
+        println!("signum: {}", signum);
+
+        return Ok(Synchronizer { delta, signum });
     }
 
-    pub fn wait_time(&self) -> Duration {
-        let now = Utc::now();
+    pub fn wait_time(&mut self) -> Duration {
+        let mut now = Utc::now();
+
+        if self.signum < 0 {
+            now -= chrono::Duration::from_std(self.delta).unwrap();
+        } else {
+            now += chrono::Duration::from_std(self.delta).unwrap();
+        }
+
         let target = now.with_nanosecond(0).unwrap() + chrono::Duration::seconds(1);
         let diff = target - now;
-        return diff.to_std().unwrap() + self.delta;
+
+        /*println!("NOW-SYS: {}", Utc::now());
+        println!("NOW:     {}", now);
+        println!("TARGET:  {}", target);
+        println!("DIFF:    {}", diff.to_std().unwrap().as_nanos());
+        println!("DELTA:    {}", self.delta.as_nanos());*/
+        return diff.to_std().unwrap();
     }
 }

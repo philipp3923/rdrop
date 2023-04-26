@@ -72,7 +72,7 @@ impl<A: Address> WaitingClient<A> {
         port: u16,
     ) -> Result<(ClientReader, ClientWriter), WaitingClient<A>> {
         let socket_address = SocketAddr::new(ip.to_socket_addr(), port);
-        let synchronizer = match Synchronizer::new() {
+        let mut synchronizer = match Synchronizer::new() {
             Ok(t) => t,
             Err(_) => return Err(self),
         };
