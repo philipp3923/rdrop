@@ -1,39 +1,34 @@
-use std::fmt::format;
-use std::io::{Read, Write};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
-use std::ops::Range;
-use chrono::{Duration, Timelike, Utc};
-use dryoc::dryocbox::Bytes;
-use dryoc::dryocstream::{DryocStream, Header, MutBytes, Pull, Push, Tag};
-use dryoc::kx::{KeyPair, PublicKey, Session, SessionKey};
-use rand::{Rng, thread_rng};
-use socket2::{Domain, SockAddr, Socket, Type};
-use crate::{CONNECT_ATTEMPTS, IPV4_URL, IPV6_URL, PORT_RANGE};
-use crate::ip::{Address, Ipv4, Ipv6};
+use crate::ip::Address;
 use crate::protocol::{exchange_keys, generate_streams, negotiate_roles, Role};
+use crate::{CONNECT_ATTEMPTS, PORT_RANGE};
+use chrono::{Duration, Timelike, Utc};
+use dryoc::dryocstream::{DryocStream, Pull, Push, Tag};
+use socket2::{SockAddr, Socket, Type};
+use std::io::{Read, Write};
+use std::net::{SocketAddr, TcpStream};
+use std::ops::Range;
 
 #[derive(Debug)]
 pub struct WaitingClient<A: Address> {
     socket: Socket,
-    address: A
+    address: A,
 }
 
 impl<A: Address> WaitingClient<A> {
-
     pub fn new() -> Result<WaitingClient<A>, String> {
         let mut socket = Socket::new(A::get_domain(), Type::STREAM, None).unwrap();
 
         match WaitingClient::<A>::bind_port(&mut socket, PORT_RANGE) {
             Ok(_) => {}
-            Err(e) => {return Err(e)}
+            Err(e) => return Err(e),
         }
 
-        let address = match A::from_public(){
-            Ok(a) => {a}
-            Err(e) => {return Err(e)}
+        let address = match A::from_public() {
+            Ok(a) => a,
+            Err(e) => return Err(e),
         };
 
-        return Ok(WaitingClient::<A>{socket, address});
+        return Ok(WaitingClient::<A> { socket, address });
     }
 
     fn bind_port(socket: &mut Socket, port_range: Range<u16>) -> Result<(), String> {
@@ -45,22 +40,37 @@ impl<A: Address> WaitingClient<A> {
                 Ok(_) => {
                     return Ok(());
                 }
-                Err(_) => { continue 'port_loop; }
+                Err(_) => {
+                    continue 'port_loop;
+                }
             }
         }
 
-        return Err(format!("no available port found in range {}-{}", port_range.start, port_range.end));
+        return Err(format!(
+            "no available port found in range {}-{}",
+            port_range.start, port_range.end
+        ));
     }
 
     pub fn get_port(&self) -> u16 {
-        return self.socket.local_addr().unwrap().as_socket().unwrap().port();
+        return self
+            .socket
+            .local_addr()
+            .unwrap()
+            .as_socket()
+            .unwrap()
+            .port();
     }
 
     pub fn get_address(&self) -> &A {
         return &self.address;
     }
 
-    pub fn connect(self, ip: A, port: u16) -> Result<(ClientReader, ClientWriter), WaitingClient<A>> {
+    pub fn connect(
+        self,
+        ip: A,
+        port: u16,
+    ) -> Result<(ClientReader, ClientWriter), WaitingClient<A>> {
         let socket_address = SocketAddr::new(ip.to_socket_addr(), port);
 
         for _ in 0..CONNECT_ATTEMPTS {
@@ -74,17 +84,20 @@ impl<A: Address> WaitingClient<A> {
                 let mut tcp_stream = TcpStream::from(self.socket);
                 let my_role: Role = negotiate_roles(&mut tcp_stream);
                 let (decrypt_key, encrypt_key) = exchange_keys(&mut tcp_stream, &my_role);
-                let (pull_stream, push_stream) = generate_streams(&mut tcp_stream, decrypt_key, encrypt_key);
+                let (pull_stream, push_stream) =
+                    generate_streams(&mut tcp_stream, decrypt_key, encrypt_key);
                 let tcp_stream_clone = tcp_stream.try_clone().unwrap();
 
-                return Ok((ClientReader::new(tcp_stream, pull_stream), ClientWriter::new(tcp_stream_clone, push_stream)));
+                return Ok((
+                    ClientReader::new(tcp_stream, pull_stream),
+                    ClientWriter::new(tcp_stream_clone, push_stream),
+                ));
             }
         }
 
         return Err(self);
     }
 }
-
 
 pub struct ClientReader {
     tcp_stream: TcpStream,
@@ -93,14 +106,15 @@ pub struct ClientReader {
 
 pub struct ClientWriter {
     tcp_stream: TcpStream,
-    encrypt_stream: DryocStream<Push>
+    encrypt_stream: DryocStream<Push>,
 }
 
-
 impl ClientReader {
-
-    pub fn new(tcp_stream: TcpStream, decrypt_stream: DryocStream<Pull>) -> ClientReader{
-        ClientReader{tcp_stream, decrypt_stream}
+    pub fn new(tcp_stream: TcpStream, decrypt_stream: DryocStream<Pull>) -> ClientReader {
+        ClientReader {
+            tcp_stream,
+            decrypt_stream,
+        }
     }
 
     pub fn read(&mut self) -> Vec<u8> {
@@ -111,7 +125,7 @@ impl ClientReader {
             message.extend_from_slice(data.as_slice());
 
             if tag == Tag::PUSH {
-                break
+                break;
             }
         }
 
@@ -124,11 +138,15 @@ impl ClientReader {
 
         self.tcp_stream.read_exact(&mut header_buffer).unwrap();
 
-        let (mut header, mut tag) = self.decrypt_stream.pull_to_vec(&header_buffer, None).unwrap();
+        let (mut header, tag) = self
+            .decrypt_stream
+            .pull_to_vec(&header_buffer, None)
+            .unwrap();
 
-        let package_size: u16 = (header.pop().unwrap() as u16) + ((header.pop().unwrap() as u16) << 8);
+        let package_size: u16 =
+            (header.pop().unwrap() as u16) + ((header.pop().unwrap() as u16) << 8);
 
-        for _ in 0..package_size/1024 {
+        for _ in 0..package_size / 1024 {
             let mut part_buffer: [u8; 1024 + 17] = [0; 1024 + 17];
             self.tcp_stream.read_exact(&mut part_buffer).unwrap();
             let (part, _) = self.decrypt_stream.pull_to_vec(&part_buffer, None).unwrap();
@@ -136,7 +154,7 @@ impl ClientReader {
         }
 
         if package_size % 1024 != 0 {
-            let size = (package_size % 1024 +17) as usize;
+            let size = (package_size % 1024 + 17) as usize;
             let mut part_buffer: Vec<u8> = Vec::with_capacity(size);
             for _ in 0..size {
                 part_buffer.push(0);
@@ -151,9 +169,11 @@ impl ClientReader {
 }
 
 impl ClientWriter {
-
-    pub fn new(tcp_stream: TcpStream, encrypt_stream: DryocStream<Push>) -> ClientWriter{
-        ClientWriter{tcp_stream, encrypt_stream}
+    pub fn new(tcp_stream: TcpStream, encrypt_stream: DryocStream<Push>) -> ClientWriter {
+        ClientWriter {
+            tcp_stream,
+            encrypt_stream,
+        }
     }
 
     pub fn write(&mut self, content: &[u8]) {
@@ -166,16 +186,24 @@ impl ClientWriter {
 
         let overhead = content.len() % max2power24;
 
-        for i in (0..content.len() - max2power24 - overhead).step_by(max2power24){
-            let package = self.build_package(&content[i..i+max2power24], Tag::MESSAGE);
+        for i in (0..content.len() - max2power24 - overhead).step_by(max2power24) {
+            let package = self.build_package(&content[i..i + max2power24], Tag::MESSAGE);
             self.tcp_stream.write_all(package.as_slice()).unwrap();
         }
 
-        let package = self.build_package(&content[content.len()-max2power24-overhead..content.len()-overhead], if overhead == 0 {Tag::PUSH } else {Tag::MESSAGE});
+        let package = self.build_package(
+            &content[content.len() - max2power24 - overhead..content.len() - overhead],
+            if overhead == 0 {
+                Tag::PUSH
+            } else {
+                Tag::MESSAGE
+            },
+        );
         self.tcp_stream.write_all(package.as_slice()).unwrap();
 
         if overhead > 0 {
-            let package = self.build_package(&content[content.len()-overhead..content.len()], Tag::PUSH);
+            let package =
+                self.build_package(&content[content.len() - overhead..content.len()], Tag::PUSH);
             self.tcp_stream.write_all(package.as_slice()).unwrap();
         }
     }
@@ -189,7 +217,8 @@ impl ClientWriter {
         assert_eq!(size[4], 0);
         assert_eq!(size[5], 0);
 
-        let mut package: Vec<u8> = Vec::with_capacity(content.len() + 2 + 17 + (content.len()/1024 + 1) * 17 );
+        let mut package: Vec<u8> =
+            Vec::with_capacity(content.len() + 2 + 17 + (content.len() / 1024 + 1) * 17);
         let mut header: [u8; 2] = [0; 2];
 
         header[0] = size[6];
@@ -201,15 +230,18 @@ impl ClientWriter {
 
         let overhead = content.len() % 1024;
 
-        for i in(0..content.len() - overhead).step_by(1024) {
-            let part = &content[i..i+1024];
+        for i in (0..content.len() - overhead).step_by(1024) {
+            let part = &content[i..i + 1024];
             let encrypted_part = self.encrypt_stream.push_to_vec(&part, None, tag).unwrap();
             package.extend_from_slice(&encrypted_part);
         }
 
         if overhead > 0 {
-            let overhead_part = &content[content.len()-overhead..content.len()];
-            let encrypted_part = self.encrypt_stream.push_to_vec(&overhead_part, None, tag).unwrap();
+            let overhead_part = &content[content.len() - overhead..content.len()];
+            let encrypted_part = self
+                .encrypt_stream
+                .push_to_vec(&overhead_part, None, tag)
+                .unwrap();
             package.extend_from_slice(&encrypted_part);
         }
 
