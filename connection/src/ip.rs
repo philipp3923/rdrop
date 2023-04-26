@@ -5,18 +5,10 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 pub trait Address: Sized + Display + Debug {
     fn get_string(&self) -> String;
-    fn from_str(address: &str) -> Result<Self, String>
-    where
-        Self: Sized;
-    fn from_local() -> Self
-    where
-        Self: Sized;
-    fn from_standard() -> Self
-    where
-        Self: Sized;
-    fn from_public() -> Result<Self, String>
-    where
-        Self: Sized;
+    fn from_str(address: &str) -> Result<Self, String>;
+    fn from_local() -> Self;
+    fn from_standard() -> Self;
+    fn from_public() -> Result<Self, String>;
     fn to_socket_addr(self) -> IpAddr;
     fn get_domain() -> Domain;
 }
@@ -83,10 +75,7 @@ impl Address for Ipv4 {
         return Ipv4::new([0, 0, 0, 0]);
     }
 
-    fn from_public() -> Result<Ipv4, String>
-    where
-        Self: Sized,
-    {
+    fn from_public() -> Result<Ipv4, String> {
         let response = match reqwest::blocking::get(IPV4_URL) {
             Ok(result) => result,
             Err(_) => return Err(format!("Http Get Request failed")),

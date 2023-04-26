@@ -1,7 +1,7 @@
 use crate::ip::Address;
 use crate::protocol::{exchange_keys, generate_streams, negotiate_roles, Role};
+use crate::time::Synchronizer;
 use crate::{CONNECT_ATTEMPTS, PORT_RANGE};
-use chrono::{Duration, Timelike, Utc};
 use dryoc::dryocstream::{DryocStream, Pull, Push, Tag};
 use socket2::{SockAddr, Socket, Type};
 use std::io::{Read, Write};
@@ -72,13 +72,13 @@ impl<A: Address> WaitingClient<A> {
         port: u16,
     ) -> Result<(ClientReader, ClientWriter), WaitingClient<A>> {
         let socket_address = SocketAddr::new(ip.to_socket_addr(), port);
+        let synchronizer = match Synchronizer::new() {
+            Ok(t) => t,
+            Err(_) => return Err(self),
+        };
 
         for _ in 0..CONNECT_ATTEMPTS {
-            let now = Utc::now();
-            let target = now.with_nanosecond(0).unwrap() + Duration::seconds(1);
-            let diff = target - now;
-
-            std::thread::sleep(diff.to_std().unwrap());
+            std::thread::sleep(synchronizer.wait_time());
 
             if self.socket.connect(&SockAddr::from(socket_address)).is_ok() {
                 let mut tcp_stream = TcpStream::from(self.socket);

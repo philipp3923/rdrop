@@ -1109,6 +1109,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rsntp"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95538ef5297284300da4c3048a60309027e33bc25d96220429609f3fdb01e188"
+dependencies = [
+ "chrono",
+ "tokio",
+]
+
+[[package]]
 name = "rust-drop"
 version = "0.1.0"
 dependencies = [
@@ -1119,6 +1129,7 @@ dependencies = [
  "rand",
  "reqwest",
  "rsa",
+ "rsntp",
  "sha2",
  "socket2 0.5.2",
 ]
