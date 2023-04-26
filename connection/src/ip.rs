@@ -1,16 +1,24 @@
-use std::fmt::{Debug, Display, Error, Formatter};
-use std::future::Future;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use reqwest::get;
-use socket2::Domain;
-use crate::{IPV4_URL, IPV6_URL};
+use std::fmt::{Debug, Display, Formatter};
 
-pub trait Address : Sized + Display + Debug{
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+use crate::{IPV4_URL, IPV6_URL};
+use socket2::Domain;
+
+pub trait Address: Sized + Display + Debug {
     fn get_string(&self) -> String;
-    fn from_str(address: &str) -> Result<Self, String> where Self: Sized;
-    fn from_local() -> Self where Self: Sized;
-    fn from_standard() -> Self where Self: Sized;
-    fn from_public() -> Result<Self, String> where Self: Sized;
+    fn from_str(address: &str) -> Result<Self, String>
+    where
+        Self: Sized;
+    fn from_local() -> Self
+    where
+        Self: Sized;
+    fn from_standard() -> Self
+    where
+        Self: Sized;
+    fn from_public() -> Result<Self, String>
+    where
+        Self: Sized;
     fn to_socket_addr(self) -> IpAddr;
     fn get_domain() -> Domain;
 }
@@ -40,7 +48,6 @@ impl Ipv6 {
 }
 
 impl Address for Ipv4 {
-
     fn get_string(&self) -> String {
         return format!("{}.{}.{}.{}", self.0[0], self.0[1], self.0[2], self.0[3]);
     }
@@ -53,12 +60,17 @@ impl Address for Ipv4 {
         for i in 0..4 as usize {
             let next_str = match parts_str.next() {
                 None => return Err(format!("address is too small {}/{}", i, 8)),
-                Some(num) => num
+                Some(num) => num,
             };
 
             parts[i] = match u8::from_str_radix(next_str, 10) {
                 Ok(num) => num,
-                Err(_) => return Err(format!("parse failed at position {}. '{}' is not decimal.", i, next_str))
+                Err(_) => {
+                    return Err(format!(
+                        "parse failed at position {}. '{}' is not decimal.",
+                        i, next_str
+                    ))
+                }
             };
         }
 
@@ -66,14 +78,17 @@ impl Address for Ipv4 {
     }
 
     fn from_local() -> Ipv4 {
-        return Ipv4::new([127,0,0,1]);
+        return Ipv4::new([127, 0, 0, 1]);
     }
 
     fn from_standard() -> Ipv4 {
-        return Ipv4::new([0,0,0,0]);
+        return Ipv4::new([0, 0, 0, 0]);
     }
 
-    fn from_public() -> Result<Ipv4, String> where Self: Sized {
+    fn from_public() -> Result<Ipv4, String>
+    where
+        Self: Sized,
+    {
         let response = match reqwest::blocking::get(IPV4_URL) {
             Ok(result) => result,
             Err(_) => return Err(format!("Http Get Request failed")),
@@ -97,9 +112,11 @@ impl Address for Ipv4 {
 }
 
 impl Address for Ipv6 {
-
     fn get_string(&self) -> String {
-        return format!("{:X}:{:X}:{:X}:{:X}:{:X}:{:X}:{:X}:{:X}", self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], self.0[6], self.0[7]);
+        return format!(
+            "{:X}:{:X}:{:X}:{:X}:{:X}:{:X}:{:X}:{:X}",
+            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], self.0[6], self.0[7]
+        );
     }
 
     fn from_str(address: &str) -> Result<Ipv6, String> {
@@ -110,12 +127,17 @@ impl Address for Ipv6 {
         for i in 0..8 as usize {
             let next_str = match parts_str.next() {
                 None => return Err(format!("address is too small {}/{}", i, 8)),
-                Some(num) => num
+                Some(num) => num,
             };
 
             parts[i] = match u16::from_str_radix(next_str, 16) {
                 Ok(num) => num,
-                Err(_) => return Err(format!("parse failed at position {}. '{}' is not hexadecimal.", i, next_str))
+                Err(_) => {
+                    return Err(format!(
+                        "parse failed at position {}. '{}' is not hexadecimal.",
+                        i, next_str
+                    ))
+                }
             };
         }
 
@@ -123,12 +145,11 @@ impl Address for Ipv6 {
     }
 
     fn from_local() -> Ipv6 {
-        return Ipv6::new([0,0,0,0,0,0,0,1]);
+        return Ipv6::new([0, 0, 0, 0, 0, 0, 0, 1]);
     }
 
-    fn from_standard() -> Ipv6  {
-        return Ipv6::new([0,0,0,0,0,0,0,0]);
-
+    fn from_standard() -> Ipv6 {
+        return Ipv6::new([0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
     fn from_public() -> Result<Ipv6, String> {
@@ -156,12 +177,16 @@ impl Address for Ipv6 {
 
 impl Display for Ipv4 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}.{}.{}", self.0[0],self.0[1],self.0[2],self.0[3])
+        write!(f, "{}.{}.{}.{}", self.0[0], self.0[1], self.0[2], self.0[3])
     }
 }
 
 impl Display for Ipv6 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:X}:{:X}:{:X}:{:X}:{:X}:{:X}:{:X}:{:X}", self.0[0],self.0[1],self.0[2],self.0[3],self.0[4],self.0[5],self.0[6],self.0[7])
+        write!(
+            f,
+            "{:X}:{:X}:{:X}:{:X}:{:X}:{:X}:{:X}:{:X}",
+            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], self.0[6], self.0[7]
+        )
     }
 }
