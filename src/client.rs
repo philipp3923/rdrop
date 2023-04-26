@@ -1,5 +1,5 @@
 use std::io::{Read, Write};
-use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use chrono::{Duration, Timelike, Utc};
 use dryoc::dryocbox::Bytes;
 use dryoc::dryocstream::{DryocStream, Header, MutBytes, Pull, Push, Tag};
@@ -8,19 +8,101 @@ use rand::{Rng, thread_rng};
 use socket2::{Domain, SockAddr, Socket, Type};
 use crate::protocol::{exchange_keys, generate_streams, negotiate_roles, Role};
 
-#[derive(Debug)]
-pub struct WaitingClient {
-    socket: Socket
+pub trait Address {
+    fn get_bytes(&self) -> &[u8];
+    fn get_string(&self) -> String;
+    fn from_str(a: &str) -> Result<dyn Address, String>;
 }
 
-impl WaitingClient {
+pub trait IpResolution {
+    fn get_ipv6() -> Result<Ipv6, String>;
+    fn get_ipv4() -> Result<Ipv4, String>;
+}
 
-    pub fn new() -> Result<WaitingClient, String> {
-        let socket = Socket::new(Domain::IPV6, Type::STREAM, None).unwrap();
+pub struct Standard;
+
+impl IpResolution for Standard {
+    fn get_ipv6() -> Result<Ipv6, String> {
+        return Ok(Ipv6([0,0,0,0,0,0,0,0]));
+    }
+
+    fn get_ipv4() -> Result<Ipv4, String> {
+        return Ok(Ipv4([0,0,0,0]));
+    }
+}
+
+pub struct Localhost;
+
+impl IpResolution for Localhost {
+    fn get_ipv6() -> Result<Ipv6, String> {
+        return Ok(Ipv6([0,0,0,0,0,0,0,1]));
+    }
+
+    fn get_ipv4() -> Result<Ipv4, String> {
+        return Ok(Ipv4([127,0,0,1]));
+    }
+}
+
+pub struct Ipv4([u8; 4]);
+
+pub struct Ipv6([u8; 8]);
+
+impl Ipv4 {
+    fn new(address: [u8; 4]) -> Ipv4 {
+        return Ipv4(address);
+    }
+}
+
+impl Ipv6 {
+    fn new(address: [u8; 8]) -> Ipv6 {
+        return Ipv6(address);
+    }
+}
+
+impl  Address for Ipv4 {
+    fn get_bytes(&self) -> &[u8] {
+        return self.0.as_slice();
+    }
+
+    fn get_string(&self) -> String {
+        return format!("{}.{}.{}.{}", self.0[0], self.0[1], self.0[2], self.0[3]);
+    }
+
+    fn from_str(a: &str) -> Result<dyn Address, String> {
+        todo!()
+    }
+}
+
+impl Address for Ipv6 {
+    fn get_bytes(&self) -> &[u8] {
+        return self.0.as_slice();
+    }
+
+    fn get_string(&self) -> String {
+        return format!("{:X}:{:X}:{:X}:{:X}:{:X}:{:X}:{:X}:{:X}", self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], self.0[6], self.0[7]);
+    }
+
+    fn from_str(a: &str) -> Result<dyn Address, String> {
+        todo!()
+    }
+}
+
+#[derive(Debug)]
+pub struct WaitingClient<Address>{
+    socket: Socket,
+    port: u16,
+    address: Address
+}
+
+impl WaitingClient<Ipv6> {
+
+    pub fn new() -> Result<WaitingClient<Ipv6>, String> {
+        let socket = Socket::new(Domain::IPV4, Type::STREAM, None).unwrap();
         let mut bind_success = false;
 
         'port_loop: for port in 2000..3000 {
             let bind_ipv6 = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0)), port);
+            let bind_ipv4 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0,0,0,0)), port);
             match socket.bind(&SockAddr::from(bind_ipv6)) {
                 Ok(_) => {
                     bind_success = true;
@@ -59,7 +141,8 @@ impl WaitingClient {
         }
 
         let ipv6_addr = Ipv6Addr::from(parts);
-        let socket_address = SocketAddr::new(IpAddr::from(ipv6_addr), port);
+        let ipv4_addr = Ipv4Addr::new(144,91,91,75);
+        let socket_address = SocketAddr::new(IpAddr::from(ipv4_addr), port);
 
         for _ in 0..1000 {
             let now = Utc::now();

@@ -31,10 +31,9 @@ fn main() {
 
     let client = client.connect("0:0:0:0:0:0:0:0", port).expect("unable to connect");
 
-    //client.write(fs::read("/home/philipp/Desktop/test516.tar.gz").unwrap().as_slice());
     let (mut reader, mut writer) = client.split();
     let msg = reader.read();
-    let mut file = std::fs::OpenOptions::new().append(true).create(true).open(format!("/home/philipp/Desktop/test{}.tar.gz", thread_rng().gen_range(0..1000))).unwrap();
+    let mut file = std::fs::OpenOptions::new().append(true).create(true).open(format!("/home/philipp/Desktop/test{}", thread_rng().gen_range(0..1000))).unwrap();
     file.write_all(&msg).expect("TODO: panic message");
 
     loop  {
