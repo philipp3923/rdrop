@@ -1,17 +1,11 @@
-use crate::address::test;
+use std::ops::Range;
 
-pub fn add(left: usize, right: usize) -> usize {
-    test();
-    left + right
-}
+pub mod ip;
+pub mod client;
+mod protocol;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+const PORT_RANGE: Range<u16> = 2000..3000;
+const CONNECT_ATTEMPTS: u16 = 60;
+const IPV6_URL: &str = "https://api64.ipify.org";
+const IPV4_URL: &str = "https://api.ipify.org";
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}

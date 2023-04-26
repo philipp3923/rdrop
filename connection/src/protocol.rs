@@ -9,12 +9,12 @@ use rand::{Rng, thread_rng};
 
 
 #[derive(Debug)]
-pub enum Role {
+pub(crate) enum Role {
     Server,
     Client,
 }
 
-pub fn negotiate_roles(stream: &mut TcpStream) -> Role {
+pub(crate) fn negotiate_roles(stream: &mut TcpStream) -> Role {
     let mut rng = thread_rng();
     std::thread::sleep(core::time::Duration::new(0,rng.gen_range(0..1000)));
 
@@ -28,8 +28,8 @@ pub fn negotiate_roles(stream: &mut TcpStream) -> Role {
 
     let partner_timestamp = i64::from_be_bytes(buffer);
 
-    println!("my_timestamp:      {}",my_timestamp);
-    println!("partner_timestamp: {}",partner_timestamp);
+    //println!("my_timestamp:      {}",my_timestamp);
+    //println!("partner_timestamp: {}",partner_timestamp);
 
     if partner_timestamp == my_timestamp{
         return negotiate_roles(stream);
@@ -42,7 +42,7 @@ pub fn negotiate_roles(stream: &mut TcpStream) -> Role {
     return Role::Client;
 }
 
-pub fn exchange_keys(stream: &mut TcpStream, role: &Role) -> (SessionKey, SessionKey) {
+pub(crate) fn exchange_keys(stream: &mut TcpStream, role: &Role) -> (SessionKey, SessionKey) {
     let my_keypair = KeyPair::gen();
 
     stream.write_all(my_keypair.public_key.as_slice()).expect("writing public_key failed");
@@ -64,7 +64,7 @@ pub fn exchange_keys(stream: &mut TcpStream, role: &Role) -> (SessionKey, Sessio
     return my_session_keys.into_parts();
 }
 
-pub fn generate_streams(stream: &mut TcpStream, decryption_key: SessionKey, encryption_key: SessionKey) -> (DryocStream<Pull>, DryocStream<Push>) {
+pub(crate) fn generate_streams(stream: &mut TcpStream, decryption_key: SessionKey, encryption_key: SessionKey) -> (DryocStream<Pull>, DryocStream<Push>) {
     let (push_stream, mut header): (_, Header) = DryocStream::init_push(&encryption_key);
 
     stream.write_all(header.as_slice()).unwrap();
