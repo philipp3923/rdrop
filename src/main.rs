@@ -2,7 +2,7 @@ mod client;
 mod package;
 extern crate core;
 use connection::client::WaitingClient;
-use connection::ip::{Address, Ipv4};
+use connection::ip::{Address, Ipv4, Ipv6};
 use std::io;
 use std::io::Write;
 

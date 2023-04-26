@@ -1,5 +1,5 @@
 use crate::SNTP_SERVER;
-use chrono::{Timelike, Utc};
+use chrono::{DateTime, Timelike, Utc};
 use rsntp::SntpClient;
 use std::time::Duration;
 
@@ -38,13 +38,12 @@ impl Synchronizer {
         }
 
         let target = now.with_nanosecond(0).unwrap() + chrono::Duration::seconds(1);
-        let diff = target - now;
 
-        /*println!("NOW-SYS: {}", Utc::now());
+
+        let diff = (target - now).to_std().unwrap();
+
         println!("NOW:     {}", now);
         println!("TARGET:  {}", target);
-        println!("DIFF:    {}", diff.to_std().unwrap().as_nanos());
-        println!("DELTA:    {}", self.delta.as_nanos());*/
-        return diff.to_std().unwrap();
+        return diff;
     }
 }
