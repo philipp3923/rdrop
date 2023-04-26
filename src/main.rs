@@ -7,7 +7,7 @@ use std::io;
 use std::io::Write;
 
 fn main() {
-    example::<Ipv4>();
+    example::<Ipv6>();
 }
 
 fn example<A: Address>() {
@@ -32,6 +32,8 @@ fn example<A: Address>() {
         u16::from_str_radix(&(line.lines().next().unwrap()), 10).expect("failed to parse port");
 
     let (mut reader, mut writer) = client.connect(ip, port).expect("connection failed");
+
+    println!("Connected.");
 
     writer.write("Hallo!".as_bytes());
 

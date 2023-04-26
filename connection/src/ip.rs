@@ -11,6 +11,7 @@ pub trait Address: Sized + Display + Debug {
     fn from_public() -> Result<Self, String>;
     fn to_socket_addr(self) -> IpAddr;
     fn get_domain() -> Domain;
+    fn as_bytes(&self) -> Vec<u8>;
 }
 
 #[derive(Debug)]
@@ -96,6 +97,10 @@ impl Address for Ipv4 {
     fn get_domain() -> Domain {
         return Domain::IPV4;
     }
+
+    fn as_bytes(&self) -> Vec<u8> {
+        Vec::from(self.0)
+    }
 }
 
 impl Address for Ipv6 {
@@ -159,6 +164,14 @@ impl Address for Ipv6 {
 
     fn get_domain() -> Domain {
         return Domain::IPV6;
+    }
+
+    fn as_bytes(&self) -> Vec<u8> {
+        let mut result: Vec<u8> = Vec::with_capacity(16);
+        for n in self.0 {
+            result.extend_from_slice(&n.to_be_bytes());
+        }
+        return result;
     }
 }
 

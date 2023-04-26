@@ -9,7 +9,11 @@ pub(crate) struct Synchronizer {
 }
 
 impl Synchronizer {
-    pub fn new() -> Result<Synchronizer, String> {
+    pub fn new(with_delta: bool) -> Result<Synchronizer, String> {
+        if !with_delta {
+            return Ok(Synchronizer {delta: Duration::new(0,0), signum: 1});
+        }
+
         let client = SntpClient::new();
         let result = match client.synchronize(SNTP_SERVER) {
             Ok(value) => value,

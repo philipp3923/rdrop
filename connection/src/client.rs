@@ -71,8 +71,10 @@ impl<A: Address> WaitingClient<A> {
         ip: A,
         port: u16,
     ) -> Result<(ClientReader, ClientWriter), WaitingClient<A>> {
+        let with_delta = ip.as_bytes() != A::from_local().as_bytes() && ip.as_bytes() != self.address.as_bytes();
+        println!("{}", with_delta);
         let socket_address = SocketAddr::new(ip.to_socket_addr(), port);
-        let mut synchronizer = match Synchronizer::new() {
+        let mut synchronizer = match Synchronizer::new(with_delta) {
             Ok(t) => t,
             Err(_) => return Err(self),
         };
@@ -82,6 +84,7 @@ impl<A: Address> WaitingClient<A> {
 
             if self.socket.connect(&SockAddr::from(socket_address)).is_ok() {
                 let mut tcp_stream = TcpStream::from(self.socket);
+
                 let my_role: Role = negotiate_roles(&mut tcp_stream);
                 let (decrypt_key, encrypt_key) = exchange_keys(&mut tcp_stream, &my_role);
                 let (pull_stream, push_stream) =
