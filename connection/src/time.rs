@@ -1,5 +1,5 @@
 use crate::SNTP_SERVER;
-use chrono::{DateTime, Timelike, Utc};
+use chrono::{Timelike, Utc};
 use rsntp::SntpClient;
 use std::time::Duration;
 
@@ -11,7 +11,10 @@ pub(crate) struct Synchronizer {
 impl Synchronizer {
     pub fn new(with_delta: bool) -> Result<Synchronizer, String> {
         if !with_delta {
-            return Ok(Synchronizer {delta: Duration::new(0,0), signum: 1});
+            return Ok(Synchronizer {
+                delta: Duration::new(0, 0),
+                signum: 1,
+            });
         }
 
         let client = SntpClient::new();
@@ -42,7 +45,6 @@ impl Synchronizer {
         }
 
         let target = now.with_nanosecond(0).unwrap() + chrono::Duration::seconds(1);
-
 
         let diff = (target - now).to_std().unwrap();
 

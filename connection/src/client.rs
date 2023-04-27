@@ -71,8 +71,14 @@ impl<A: Address> WaitingClient<A> {
         ip: A,
         port: u16,
     ) -> Result<(ClientReader, ClientWriter), WaitingClient<A>> {
-        let with_delta = ip.as_bytes() != A::from_local().as_bytes() && ip.as_bytes() != self.address.as_bytes();
+        let with_delta =
+            ip.as_bytes() != A::from_local().as_bytes() && ip.as_bytes() != self.address.as_bytes();
         println!("{}", with_delta);
+
+        if !with_delta && self.get_port() == port {
+            return Err(self);
+        }
+
         let socket_address = SocketAddr::new(ip.to_socket_addr(), port);
         let mut synchronizer = match Synchronizer::new(with_delta) {
             Ok(t) => t,

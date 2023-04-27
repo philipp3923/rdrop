@@ -1,13 +1,12 @@
-mod client;
-mod package;
-extern crate core;
+mod cli;
+
 use connection::client::WaitingClient;
-use connection::ip::{Address, Ipv4, Ipv6};
+use connection::ip::{Address, Ipv4};
 use std::io;
 use std::io::Write;
 
 fn main() {
-    example::<Ipv6>();
+    example::<Ipv4>();
 }
 
 fn example<A: Address>() {

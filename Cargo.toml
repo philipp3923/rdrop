@@ -1,22 +1,7 @@
-[package]
-name = "rust-drop"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[lib]
-name = "connection"
-path = "connection/src/lib.rs"
-
-[dependencies]
-async-io = "1.13.0"
-chrono = "0.4.24"
-crc = "3.0.1"
-dryoc = "0.5.0"
-rand = "0.8.5"
-reqwest = { version = "0.11.16", features = ["blocking"] }
-rsa = "0.8.2"
-rsntp = "3.0.2"
-sha2 = "0.10.6"
-socket2 = "0.5.2"
+members = [
+    "connection",
+    "gui",
+    "cli"
+]
