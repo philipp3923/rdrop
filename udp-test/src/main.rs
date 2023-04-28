@@ -6,7 +6,7 @@ use connection::time::Synchronizer;
 fn main() {
     let bind = IpAddr::from(Ipv6Addr::new(0,0,0,0,0,0,0,0));
     let socket = UdpSocket::bind(SocketAddr::new(bind, 2000)).expect("binding socket failed");
-    let address = IpAddr::from_str("2A02:3031:20B:B72C:6A6E:EEF7:D49D:A1A2").expect("failed to parse ip");
+    let address = IpAddr::from_str("2003:F4:71A:B504:1014:BE5A:29F4:800D").expect("failed to parse ip");
     let socket_address = SocketAddr::new(address, 2000);
     let mut synchro = Synchronizer::new(false).expect("failed to create synchronizer");
     let mut count: u8 = 0;
@@ -17,7 +17,10 @@ fn main() {
     loop {
         std::thread::sleep(synchro.wait_time());
 
-        socket.send_to([count].as_slice(), socket_address).expect("failed to send");
+        match socket.send_to([count].as_slice(), socket_address) {
+            Ok(_) => {},
+            Err(_) => continue,
+        }
 
         count+=1;
         println!("Sent: {}",count);
