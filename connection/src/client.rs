@@ -5,6 +5,7 @@ use crate::{CONNECT_ATTEMPTS, PORT_RANGE};
 use dryoc::dryocstream::{DryocStream, Pull, Push, Tag};
 use socket2::{SockAddr, Socket, Type};
 use std::io::{Read, Write};
+use std::marker::PhantomData;
 use std::net::{SocketAddr, TcpStream};
 use std::ops::Range;
 use std::time::Duration;
@@ -13,7 +14,7 @@ use chrono::Utc;
 #[derive(Debug)]
 pub struct WaitingClient<A: Address> {
     socket: Socket,
-    address: A,
+    phantom: PhantomData<A>,
 }
 
 impl<A: Address> WaitingClient<A> {
@@ -25,12 +26,23 @@ impl<A: Address> WaitingClient<A> {
             Err(e) => return Err(e),
         }
 
-        let address = match A::from_public() {
-            Ok(a) => a,
-            Err(e) => return Err(e),
-        };
+        return Ok(WaitingClient::<A> { socket, phantom: PhantomData });
+    }
 
-        return Ok(WaitingClient::<A> { socket, address });
+    pub fn with_port(port: u16) -> Result<WaitingClient<A>, String> {
+        let socket = Socket::new(A::get_domain(), Type::STREAM, None).unwrap();
+        let ip = A::from_standard().to_socket_addr();
+
+        let bind = SocketAddr::new(ip, port);
+
+        return match socket.bind(&SockAddr::from(bind)) {
+            Ok(_) => {
+                Ok(WaitingClient::<A> { socket, phantom: PhantomData })
+            }
+            Err(_) => {
+                Err(format!("port unavailable"))
+            }
+        }
     }
 
     fn bind_port(socket: &mut Socket, port_range: Range<u16>) -> Result<(), String> {
@@ -64,17 +76,13 @@ impl<A: Address> WaitingClient<A> {
             .port();
     }
 
-    pub fn get_address(&self) -> &A {
-        return &self.address;
-    }
-
     pub fn connect(
         self,
         ip: A,
         port: u16,
     ) -> Result<(ClientReader, ClientWriter), WaitingClient<A>> {
         let with_delta =
-            ip.as_bytes() != A::from_local().as_bytes() && ip.as_bytes() != self.address.as_bytes();
+            ip.as_bytes() != A::from_local().as_bytes() && ip.as_bytes() != A::from_standard().as_bytes();
         println!("{}", with_delta);
 
         if !with_delta && self.get_port() == port {
@@ -87,12 +95,16 @@ impl<A: Address> WaitingClient<A> {
             Err(_) => return Err(self),
         };
 
+        self.socket.set_nonblocking(false).unwrap();
+
         for _ in 0..CONNECT_ATTEMPTS {
             std::thread::sleep(synchronizer.wait_time());
 
             let now = Utc::now();
 
-            if self.socket.connect_timeout(&SockAddr::from(socket_address), Duration::from_millis(990)).is_ok() {
+            let connect = self.socket.connect(&SockAddr::from(socket_address));
+
+            if connect.is_ok() {
                 let mut tcp_stream = TcpStream::from(self.socket);
 
                 let my_role: Role = negotiate_roles(&mut tcp_stream);
@@ -105,13 +117,20 @@ impl<A: Address> WaitingClient<A> {
                     ClientReader::new(tcp_stream, pull_stream),
                     ClientWriter::new(tcp_stream_clone, push_stream),
                 ));
+            } else {
+                match connect {
+                    Ok(_) => {},
+                    Err(_e) => println!("{}",_e),
+                }
             }
 
             let now_2 = Utc::now();
 
-            println!("{}", now_2 - now);
+            println!("{}", (now_2 - now).to_std().unwrap().as_nanos());
         }
+        //2.247.244.126
 
+        //141.31.66.41
         return Err(self);
     }
 }
