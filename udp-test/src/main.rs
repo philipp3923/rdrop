@@ -1,12 +1,12 @@
-use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::str::FromStr;
 use std::time::Duration;
 use connection::time::Synchronizer;
 
 fn main() {
-    let bind = IpAddr::from(Ipv6Addr::new(0,0,0,0,0,0,0,0));
+    let bind = IpAddr::from(Ipv4Addr::new(0,0,0,0));
     let socket = UdpSocket::bind(SocketAddr::new(bind, 2000)).expect("binding socket failed");
-    let address = IpAddr::from_str("2003:F4:71A:B504:1014:BE5A:29F4:800D").expect("failed to parse ip");
+    let address = IpAddr::from(Ipv4Addr::new(0,0,0,0));
     let socket_address = SocketAddr::new(address, 2000);
     let mut synchro = Synchronizer::new(false).expect("failed to create synchronizer");
     let mut count: u8 = 0;
