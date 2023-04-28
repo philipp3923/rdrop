@@ -3,5 +3,6 @@
 members = [
     "connection",
     "gui",
-    "cli"
+    "cli",
+    "udp-test"
 ]

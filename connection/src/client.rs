@@ -3,7 +3,7 @@ use crate::protocol::{exchange_keys, generate_streams, negotiate_roles, Role};
 use crate::time::Synchronizer;
 use crate::{CONNECT_ATTEMPTS, PORT_RANGE};
 use dryoc::dryocstream::{DryocStream, Pull, Push, Tag};
-use socket2::{SockAddr, Socket, Type};
+use socket2::{Protocol, SockAddr, Socket, Type};
 use std::io::{Read, Write};
 use std::marker::PhantomData;
 use std::net::{SocketAddr, TcpStream};
@@ -30,7 +30,7 @@ impl<A: Address> WaitingClient<A> {
     }
 
     pub fn with_port(port: u16) -> Result<WaitingClient<A>, String> {
-        let socket = Socket::new(A::get_domain(), Type::STREAM, None).unwrap();
+        let socket = Socket::new(A::get_domain(), Type::STREAM, Some(Protocol::TCP)).unwrap();
         let ip = A::from_standard().to_socket_addr();
 
         let bind = SocketAddr::new(ip, port);
@@ -95,7 +95,6 @@ impl<A: Address> WaitingClient<A> {
             Err(_) => return Err(self),
         };
 
-        self.socket.set_nonblocking(false).unwrap();
 
         for _ in 0..CONNECT_ATTEMPTS {
             std::thread::sleep(synchronizer.wait_time());

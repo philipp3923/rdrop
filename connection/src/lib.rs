@@ -3,7 +3,7 @@ use std::ops::Range;
 pub mod client;
 pub mod ip;
 mod protocol;
-mod time;
+pub mod time;
 
 const PORT_RANGE: Range<u16> = 2000..3000;
 const CONNECT_ATTEMPTS: u16 = 60;

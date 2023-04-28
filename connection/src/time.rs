@@ -3,13 +3,14 @@ use chrono::{Timelike, Utc};
 use rsntp::SntpClient;
 use std::time::Duration;
 
-pub(crate) struct Synchronizer {
+pub struct Synchronizer {
     delta: Duration,
     signum: i8,
 }
 
 impl Synchronizer {
     pub fn new(with_delta: bool) -> Result<Synchronizer, String> {
+        // #TODO
         if !with_delta {
             return Ok(Synchronizer {
                 delta: Duration::new(0, 0),
