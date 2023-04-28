@@ -7,6 +7,8 @@ use socket2::{SockAddr, Socket, Type};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::ops::Range;
+use std::time::Duration;
+use chrono::Utc;
 
 #[derive(Debug)]
 pub struct WaitingClient<A: Address> {
@@ -88,7 +90,9 @@ impl<A: Address> WaitingClient<A> {
         for _ in 0..CONNECT_ATTEMPTS {
             std::thread::sleep(synchronizer.wait_time());
 
-            if self.socket.connect(&SockAddr::from(socket_address)).is_ok() {
+            let now = Utc::now();
+
+            if self.socket.connect_timeout(&SockAddr::from(socket_address), Duration::from_millis(990)).is_ok() {
                 let mut tcp_stream = TcpStream::from(self.socket);
 
                 let my_role: Role = negotiate_roles(&mut tcp_stream);
@@ -102,6 +106,10 @@ impl<A: Address> WaitingClient<A> {
                     ClientWriter::new(tcp_stream_clone, push_stream),
                 ));
             }
+
+            let now_2 = Utc::now();
+
+            println!("{}", now_2 - now);
         }
 
         return Err(self);
