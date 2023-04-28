@@ -53,6 +53,8 @@ fn send_msg<A: Address>(ip: A, port: u16, bind_port: Option<u16>, msg: String) {
         Err(e) => {println!("{}",e); return;}
     };
 
+    println!("Connected.");
+
     writer.write(msg.as_bytes());
 
     println!("Message sent.");
@@ -63,6 +65,8 @@ fn read_msg<A: Address>(ip: A, port: u16, bind_port: Option<u16>) {
         Ok(rw) => rw,
         Err(e) => {println!("{}",e); return;}
     };
+
+    println!("Connected.");
 
     let message = match String::from_utf8(reader.read()) {
         Ok(m) => m,
