@@ -1342,6 +1342,8 @@ name = "udp-test"
 version = "0.1.0"
 dependencies = [
  "connection",
+ "rand",
+ "socket2 0.5.2",
 ]
 
 [[package]]

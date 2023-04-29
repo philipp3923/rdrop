@@ -1,34 +1,29 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
+mod protocol;
+
+use std::env;
+use std::fmt::format;
+use std::fs::read;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream, UdpSocket};
 use std::str::FromStr;
-use std::time::Duration;
+use std::sync::mpsc;
+use std::time::{Duration, Instant, SystemTime};
 use connection::time::Synchronizer;
+use rand::{Rng, thread_rng};
+use socket2::Socket;
+use crate::protocol::{connect, handshake};
 
 fn main() {
-    let bind = IpAddr::from(Ipv4Addr::new(0,0,0,0));
-    let socket = UdpSocket::bind(SocketAddr::new(bind, 2000)).expect("binding socket failed");
-    let address = IpAddr::from(Ipv4Addr::new(0,0,0,0));
-    let socket_address = SocketAddr::new(address, 2000);
-    let mut synchro = Synchronizer::new(false).expect("failed to create synchronizer");
-    let mut count: u8 = 0;
+    let args: Vec<String> = env::args().collect();
+    let src_port: u16 = args[1].parse().unwrap();
+    let dst_port: u16 = args[2].parse().unwrap();
 
-    socket.set_read_timeout(Some(Duration::from_millis(10))).expect("failed to change timeout");
-    socket.set_nonblocking(false).expect("failed to set blocking");
+    let bind_addr = IpAddr::from(Ipv6Addr::from(0));
+    let local_addr = SocketAddr::new(bind_addr, src_port);
+    let mut udp_socket = UdpSocket::bind(&local_addr).unwrap();
 
-    loop {
-        std::thread::sleep(synchro.wait_time());
+    let connect_addr = SocketAddr::new(bind_addr, dst_port);
+    udp_socket.connect(connect_addr).unwrap();
 
-        match socket.send_to([count].as_slice(), socket_address) {
-            Ok(_) => {},
-            Err(_) => continue,
-        }
-
-        count+=1;
-        println!("Sent: {}",count);
-        let mut buf = [0u8; 1];
-
-        match socket.recv_from(buf.as_mut_slice()) {
-            Ok(_) => println!("Received: {}",buf[0]),
-            Err(_) => continue,
-        }
-    }
+    connect(&mut udp_socket).unwrap();
+    let tcp_stream = handshake(udp_socket).unwrap();
 }

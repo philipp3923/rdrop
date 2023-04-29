@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 connection = {path = "../connection"}
+rand = "0.8.5"
+socket2 = "0.5.2"
