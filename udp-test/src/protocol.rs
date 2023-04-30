@@ -57,6 +57,7 @@ pub fn handshake(mut udp_socket: UdpSocket) -> Result<TcpStream, String> {
         Ok(role) => role,
         Err(_) => return Err(format!("negotiating roles failed")),
     };
+    //let role = Server;
 
     let bind_addr = IpAddr::from(Ipv6Addr::from(0));
     let local_addr = SocketAddr::new(bind_addr, 0);
@@ -86,7 +87,7 @@ pub fn handshake(mut udp_socket: UdpSocket) -> Result<TcpStream, String> {
         }
         Role::Server => {
             println!("Server");
-            let (diff, delay) = match sync_server(& mut udp_socket, 25) {
+            let (diff, delay) = match sync_server(& mut udp_socket, 10) {
                 Ok(d) => d,
                 Err(_) => return Err(format!("syncing failed")),
             };
@@ -102,6 +103,10 @@ enum Role{
 }
 
 fn upgrade_server(udp_socket: UdpSocket, tcp_socket: Socket, port: u16, diff: i128, delay: u128) -> Result<TcpStream, String> {
+    println!("now:   {}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos());
+    println!("diff:  {}", diff);
+    println!("delay: {}", delay);
+
     let mut buf = [0; 1];
     let mut partner_address = udp_socket.peer_addr().unwrap();
     partner_address.set_port(port);
@@ -111,13 +116,13 @@ fn upgrade_server(udp_socket: UdpSocket, tcp_socket: Socket, port: u16, diff: i1
         return Err(format!("receiving failed"));
     }
 
-    let connect_time = (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() + delay*10) as i128 + diff + 1000000 * 20;
+    let connect_time = (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() + delay*10) as i128 - diff + 1000000 * 60;
 
     if udp_socket.send(&connect_time.to_be_bytes()).is_err() {
         return Err(format!("sending failed"));
     }
 
-    sleep(Duration::from_nanos((delay*10 + 1000000 * 20) as u64));
+    sleep(Duration::from_nanos((delay*10 + 1000000 * 60) as u64));
 
     println!("Local: {}", Local::now().timestamp_nanos());
 
@@ -219,6 +224,8 @@ fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u12
     let mut diff: i128 = 0;
     for _ in 0..samples {
         let mut buf = [0u8; 16];
+        let start = SystemTime::now();
+        let start_nanos = start.duration_since(UNIX_EPOCH).unwrap().as_nanos();
 
         if udp_socket.send(&[0xBB]).is_err() {
             return Err(format!("sending failed"));
@@ -231,11 +238,14 @@ fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u12
         let now = SystemTime::now();
         let now_nanos = now.duration_since(UNIX_EPOCH).unwrap().as_nanos();
 
-        let elapsed = now.elapsed().unwrap().as_nanos();
+        let elapsed = start.elapsed().unwrap().as_nanos();
 
         let mut partner_now_nanos = u128::from_be_bytes(buf);
-        partner_now_nanos -= elapsed / 2;
-        diff += (now_nanos as i128 - partner_now_nanos as i128) / samples as i128;;
+        println!("{}, {}", now_nanos as i128, partner_now_nanos as i128);
+        println!("diff: {}", (now_nanos as i128 - partner_now_nanos as i128));
+        println!("elap: {}", elapsed);
+        diff += (((partner_now_nanos as i128- start_nanos as i128) + (now_nanos as i128 - partner_now_nanos as i128)) / 2) / samples as i128;
+
 
         if elapsed > max {
             max = elapsed;
@@ -276,7 +286,6 @@ fn sync_client(udp_socket: &mut UdpSocket) -> Result<(), String> {
 
         let now = SystemTime::now();
         let now_nanos = now.duration_since(UNIX_EPOCH).unwrap().as_nanos();
-
         if udp_socket.send(&now_nanos.to_be_bytes()).is_err() {
             return Err(format!("sending failed"));
         }

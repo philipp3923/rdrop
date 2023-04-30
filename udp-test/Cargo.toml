@@ -9,4 +9,5 @@ edition = "2021"
 chrono = "0.4.24"
 connection = {path = "../connection"}
 rand = "0.8.5"
+rsntp = "3.0.2"
 socket2 = "0.5.2"

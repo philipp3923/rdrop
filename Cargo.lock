@@ -1344,6 +1344,7 @@ dependencies = [
  "chrono",
  "connection",
  "rand",
+ "rsntp",
  "socket2 0.5.2",
 ]
 
