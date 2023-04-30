@@ -18,10 +18,11 @@ fn main() {
     let dst_port: u16 = args[2].parse().unwrap();
 
     let bind_addr = IpAddr::from(Ipv6Addr::from(0));
+    let partner_addr = IpAddr::from(Ipv6Addr::from_str("0:0:0:0:0:0:0:1").unwrap());
     let local_addr = SocketAddr::new(bind_addr, src_port);
     let mut udp_socket = UdpSocket::bind(&local_addr).unwrap();
 
-    let connect_addr = SocketAddr::new(bind_addr, dst_port);
+    let connect_addr = SocketAddr::new(partner_addr, dst_port);
     udp_socket.connect(connect_addr).unwrap();
 
     connect(&mut udp_socket).unwrap();
