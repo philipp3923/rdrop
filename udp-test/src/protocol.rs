@@ -221,7 +221,7 @@ fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u12
     }
 
     let mut max: u128 = 0;
-    let mut diff: i128 = 0;
+    let mut total_diff: i128 = 0;
     for _ in 0..samples {
         let mut buf = [0u8; 16];
         let start = SystemTime::now();
@@ -241,10 +241,10 @@ fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u12
         let elapsed = start.elapsed().unwrap().as_nanos();
 
         let mut partner_now_nanos = u128::from_be_bytes(buf);
-        println!("{}, {}", now_nanos as i128, partner_now_nanos as i128);
-        println!("diff: {}", (now_nanos as i128 - partner_now_nanos as i128));
-        println!("elap: {}", elapsed);
-        diff += (((partner_now_nanos as i128- start_nanos as i128) + (now_nanos as i128 - partner_now_nanos as i128)) / 2) / samples as i128;
+        let mut diff = now_nanos as i128 - partner_now_nanos as i128; // Zeitdifferenz
+        diff -= (((now_nanos - start_nanos) / 2) as f64 * (diff as f64 / (partner_now_nanos as i128 - start_nanos as i128) as f64).abs()) as i128;
+        total_diff += diff / samples as i128;
+        println!("diff: {}", diff);
 
 
         if elapsed > max {
@@ -257,7 +257,7 @@ fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u12
         return Err(format!("sending failed"));
     }
 
-    return Ok((diff, max));
+    return Ok((total_diff, max));
 }
 
 fn sync_client(udp_socket: &mut UdpSocket) -> Result<(), String> {
