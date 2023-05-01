@@ -1,0 +1,125 @@
+.button {
+    @extend .no-select;
+
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    padding: 0 24px;
+
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 4px;
+    cursor: pointer;
+
+    &.icon {
+        display: flex;
+        align-items: center;
+        
+        svg {
+            color: var(--md-sys-color-on-background)
+        }
+    }
+
+    &.small {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+
+    &.hover {
+        transition: box-shadow var(--md-sys-motion-standard);
+
+        &:hover {
+            box-shadow: 0 4px 7px rgba(0, 0, 0, 0.15), 
+                0 100px 80px rgba(255, 255, 255, 0.02),
+                0 42px 33px rgba(255, 255, 255, 0.024), 
+                0 22px 18px rgba(255, 255, 255, 0.028),
+                0 12px 10px rgba(255, 255, 255, 0.034), 
+                0 7px 5px rgba(255, 255, 255, 0.04),
+                0 3px 2px rgba(255, 255, 255, 0.07);
+        }
+    }
+
+    .left {
+        margin-right: 8px;
+        margin-left: -8px;
+    }
+
+    .right {
+        margin-left: 8px;
+        margin-right: -8px;
+    }
+}
+
+.icon-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    transition: background-color var(--md-sys-motion-standard);
+
+    &:hover {
+        // background-color: var(--md-sys-color-surface-2);
+    }
+}
+
+.button.outlined,
+.icon-button.outlined {
+    background-color: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    border: 1px solid var(--md-sys-color-outline);
+    transition: all var(--md-sys-motion-standard);
+
+    &:hover {
+        background-color: var(--md-sys-color-surface-2);
+    }
+}
+
+.button.outlined-big,
+.icon-button.outlined-big {
+    background-color: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    border: 2px solid var(--md-sys-color-outline);
+    transition: all var(--md-sys-motion-standard);
+
+    &:hover {
+        background-color: var(--md-sys-color-outline);
+        color: var(--md-sys-color-background);
+    }
+}
+
+.button.tonal,
+.icon-button.tonal {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    transition: background-color var(--md-sys-motion-standard);
+
+    &:hover {
+        filter: brightness(1.02);
+    }
+}
+
+.button.text,
+.icon-button.text {
+    background-color: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    transition: background-color var(--md-sys-motion-standard);
+
+    &:hover {
+        background-color: var(--md-sys-color-surface-2);
+    }
+}
+
+.button.large,
+.icon-button.large {
+    height: 56px;
+    font-size: 16px;
+    border-radius: 16px;
+}

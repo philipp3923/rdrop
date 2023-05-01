@@ -1,0 +1,20 @@
+.home {
+    .connect-form {
+        display: flex;
+        width: 100%;
+        gap: 16px;
+
+        .input-field-container {
+            width: 100%;
+            flex-grow: 1;
+
+            &:nth-child(2) {
+                width: 200px;
+            }
+        }
+        
+        button {
+            margin-left: 100px;
+        }
+    }
+}

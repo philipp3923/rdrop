@@ -1,0 +1,56 @@
+$bpMobile: 850px;
+$bpTablet: 1130px;
+$bpPC: 1200px;
+$bpNavbar: 1480px;
+
+$navHeight: 100px;
+$navHeightMobile: 80px;
+$mobilePadding: 15px;
+$hBottomNav: 60px;
+
+@mixin breakpoint($width) {
+  @media (max-width: $width) { @content ; }
+}
+
+@mixin breakpointOther($width) {
+    @media (min-width: $width) { @content ; }
+  }
+
+@mixin blur($blur, $fallbackColor) {
+    
+    -webkit-backdrop-filter: blur($blur);
+    backdrop-filter: blur($blur);
+
+    @supports not ((-webkit-backdrop-filter: blur($blur)) or (backdrop-filter: blur($blur))) {
+        background-color: $fallbackColor;
+    }
+}
+
+@mixin noSelect() {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.no-select {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.break-word {
+    word-break: break-word;
+    hyphens: auto;
+}
+
+.text-numeric {
+    font-variant-numeric: tabular-nums;
+}

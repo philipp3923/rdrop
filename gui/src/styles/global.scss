@@ -1,0 +1,40 @@
+@import "./utils.scss";
+@import "./theme.scss";
+@import "./font.scss";
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    color: var(--md-sys-color-on-background);
+    background-color: var(--md-sys-color-surface-variant);
+    box-sizing: border-box;
+    font: "Google Sans";
+}
+
+#__next {
+    height: 100%;
+    width: 100%;
+}
+
+.main-page {
+    height: 100%;
+    width: 100%;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    position: relative;
+}
+
+main {
+    position: relative;
+    width: 100%;
+}
+
+@import "./layouts.scss";
+@import "./components/";
+@import "./pages/";

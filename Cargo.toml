@@ -2,7 +2,7 @@
 
 members = [
     "connection",
-    "gui",
+    "gui/src-tauri",
     "cli",
     "udp-test"
 ]
