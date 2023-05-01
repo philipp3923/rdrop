@@ -87,7 +87,7 @@ pub fn handshake(mut udp_socket: UdpSocket) -> Result<TcpStream, String> {
         }
         Role::Server => {
             println!("Server");
-            let (diff, delay) = match sync_server(& mut udp_socket, 10) {
+            let (diff, delay) = match sync_server(& mut udp_socket, 100) {
                 Ok(d) => d,
                 Err(_) => return Err(format!("syncing failed")),
             };
@@ -221,11 +221,10 @@ fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u12
     }
 
     let mut max: u128 = 0;
-    let mut total_diff: i128 = 0;
+    let mut diffs = Vec::new();
     for _ in 0..samples {
         let mut buf = [0u8; 16];
         let start = SystemTime::now();
-        let start_nanos = start.duration_since(UNIX_EPOCH).unwrap().as_nanos();
 
         if udp_socket.send(&[0xBB]).is_err() {
             return Err(format!("sending failed"));
@@ -240,13 +239,9 @@ fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u12
 
         let elapsed = start.elapsed().unwrap().as_nanos();
 
-        let mut partner_now_nanos = u128::from_be_bytes(buf);
-        let mut diff = now_nanos as i128 - partner_now_nanos as i128; // Zeitdifferenz
-        diff -= (((now_nanos - start_nanos) / 2) as f64 * (diff as f64 / (partner_now_nanos as i128 - start_nanos as i128) as f64).abs()) as i128;
-        total_diff += diff / samples as i128;
-        println!("diff: {}", diff);
-
-
+        let partner_now_nanos = u128::from_be_bytes(buf);
+        let diff = now_nanos as i128 - partner_now_nanos as i128 - elapsed as i128 / 2; // Zeitdifferenz symmetrischer Jitter
+        diffs.push(diff);
         if elapsed > max {
             max = elapsed;
         }
@@ -257,7 +252,17 @@ fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u12
         return Err(format!("sending failed"));
     }
 
-    return Ok((total_diff, max));
+    diffs.sort();
+
+    println!("{:#?}", diffs.as_slice());
+
+    let median_diff = if diffs.len() % 2 == 0 {
+        (diffs[diffs.len() / 2] + diffs[diffs.len() / 2 - 1]) / 2
+    } else {
+        diffs[diffs.len() / 2]
+    };
+    println!("med: {}", median_diff);
+    return Ok((median_diff, max));
 }
 
 fn sync_client(udp_socket: &mut UdpSocket) -> Result<(), String> {

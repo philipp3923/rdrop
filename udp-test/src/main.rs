@@ -1,4 +1,6 @@
 mod protocol;
+mod udp;
+mod udp2;
 
 use std::env;
 use std::fmt::format;
@@ -12,8 +14,10 @@ use rand::{Rng, thread_rng};
 use rsntp::SntpClient;
 use socket2::Socket;
 use crate::protocol::{connect, handshake};
+use crate::udp::UdpConnection;
 
 fn main() {
+    env::set_var("RUST_BACKTRACE", "full");
     let client = SntpClient::new();
     let result = client.synchronize("ntp1.m-online.net").unwrap();
 
@@ -28,7 +32,7 @@ fn main() {
     let dst_port: u16 = args[2].parse().unwrap();
 
     let bind_addr = IpAddr::from(Ipv6Addr::from(0)); // 2A02:3038:414:D662:3162:D4EC:B620:89BF
-    let partner_addr = IpAddr::from(Ipv6Addr::from_str("0:0:0:0:0:0:0:0").unwrap());
+    let partner_addr = IpAddr::from(Ipv6Addr::from_str("0:0:0:0:0:0:0:0").unwrap()); // 0:0:0:0:0:0:0:0
     let local_addr = SocketAddr::new(bind_addr, src_port);
     let mut udp_socket = UdpSocket::bind(&local_addr).unwrap();
 
@@ -37,4 +41,11 @@ fn main() {
 
     connect(&mut udp_socket).unwrap();
     let tcp_stream = handshake(udp_socket).unwrap();
+
+    /*let mut c = UdpConnection::new(Some(src_port)).unwrap();
+
+    c.connect(Ipv6Addr::from_str("0:0:0:0:0:0:0:0").unwrap(), dst_port).unwrap();
+
+    let answer = c.send_and_receive(b"Hallo").unwrap();
+    println!("{}", String::from_utf8(answer).unwrap());*/
 }
