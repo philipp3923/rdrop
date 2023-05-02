@@ -1,8 +1,8 @@
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, RecvError, RecvTimeoutError, Sender};
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::thread::{sleep, JoinHandle};
+use std::thread::{JoinHandle};
 use std::time::{Duration, Instant};
 
 const MSG_RESEND_DELAY: Duration = Duration::from_millis(100);

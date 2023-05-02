@@ -1,12 +1,12 @@
-use crate::protocol::Role::Server;
-use chrono::{Local, Utc};
+
+use chrono::{Local};
 use rand::{thread_rng, Rng};
 use socket2::{Domain, SockAddr, Socket, Type};
-use std::fmt::format;
-use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpListener, TcpStream, UdpSocket};
+
+use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream, UdpSocket};
 use std::thread::sleep;
-use std::time;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub fn connect(udp_socket: &mut UdpSocket) -> Result<(), String> {
     if udp_socket
@@ -213,7 +213,7 @@ fn exchange_ports(udp_socket: &mut UdpSocket, port: u16) -> Result<u16, String> 
 
 fn negotiate_roles(udp_socket: &mut UdpSocket) -> Result<Role, String> {
     let mut rng = thread_rng();
-    let mut my_number = [rng.gen(), rng.gen()];
+    let my_number = [rng.gen(), rng.gen()];
     let mut buf = [0u8; 2];
 
     loop {
@@ -237,7 +237,7 @@ fn negotiate_roles(udp_socket: &mut UdpSocket) -> Result<Role, String> {
     };
 }
 
-fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u128), String> {
+fn sync_server(udp_socket: &mut UdpSocket, samples: u8) -> Result<(i128, u128), String> {
     if samples == 0 {
         return Err(format!("samples cannot be 0"));
     }
