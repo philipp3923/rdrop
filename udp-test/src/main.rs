@@ -2,6 +2,12 @@ mod protocol;
 mod udp;
 mod udp2;
 
+use crate::protocol::{connect, handshake};
+use crate::udp::UdpConnection;
+use connection::time::Synchronizer;
+use rand::{thread_rng, Rng};
+use rsntp::SntpClient;
+use socket2::Socket;
 use std::env;
 use std::fmt::format;
 use std::fs::read;
@@ -9,12 +15,6 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream, UdpSocket};
 use std::str::FromStr;
 use std::sync::mpsc;
 use std::time::{Duration, Instant, SystemTime};
-use connection::time::Synchronizer;
-use rand::{Rng, thread_rng};
-use rsntp::SntpClient;
-use socket2::Socket;
-use crate::protocol::{connect, handshake};
-use crate::udp::UdpConnection;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "full");

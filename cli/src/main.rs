@@ -1,8 +1,8 @@
-use std::string::FromUtf8Error;
 use clap::{command, Parser, Subcommand};
 use connection::client;
 use connection::client::{ClientReader, ClientWriter, WaitingClient};
 use connection::ip::{Address, Ipv4, Ipv6};
+use std::string::FromUtf8Error;
 
 #[derive(Parser)]
 #[command(name = "rdrop")]
@@ -50,7 +50,10 @@ enum Commands {
 fn send_msg<A: Address>(ip: A, port: u16, bind_port: Option<u16>, msg: String) {
     let (_, mut writer) = match connect(ip, port, bind_port) {
         Ok(rw) => rw,
-        Err(e) => {println!("{}",e); return;}
+        Err(e) => {
+            println!("{}", e);
+            return;
+        }
     };
 
     println!("Connected.");
@@ -63,20 +66,30 @@ fn send_msg<A: Address>(ip: A, port: u16, bind_port: Option<u16>, msg: String) {
 fn read_msg<A: Address>(ip: A, port: u16, bind_port: Option<u16>) {
     let (mut reader, _) = match connect(ip, port, bind_port) {
         Ok(rw) => rw,
-        Err(e) => {println!("{}",e); return;}
+        Err(e) => {
+            println!("{}", e);
+            return;
+        }
     };
 
     println!("Connected.");
 
     let message = match String::from_utf8(reader.read()) {
         Ok(m) => m,
-        Err(_) => {println!("Decoding message failed."); return;}
+        Err(_) => {
+            println!("Decoding message failed.");
+            return;
+        }
     };
 
     println!("Received:\n{}", message);
 }
 
-fn connect<A: Address>(ip: A, port: u16, bind_port: Option<u16>) -> Result<(ClientReader, ClientWriter), String> {
+fn connect<A: Address>(
+    ip: A,
+    port: u16,
+    bind_port: Option<u16>,
+) -> Result<(ClientReader, ClientWriter), String> {
     let client = match bind_port {
         Some(p) => WaitingClient::<A>::with_port(p),
         None => WaitingClient::<A>::new(),
@@ -101,20 +114,25 @@ pub(crate) fn main() {
     let args = Args::parse();
 
     match args.command {
-        Commands::Send { ip, bind_port, port, msg } => {
-            match (Ipv4::from_str(&ip), Ipv6::from_str(&ip)) {
-                (Ok(ip), _ ) => send_msg::<Ipv4>(ip, port, bind_port, msg),
-                (_, Ok(ip)) => send_msg::<Ipv6>(ip, port, bind_port, msg),
-                (_, _ ) => println!("given ip address is invalid"),
-            }
-        }
-        Commands::Receive { ip, bind_port, port } => {
-            match (Ipv4::from_str(&ip), Ipv6::from_str(&ip)) {
-                (Ok(ip), _ ) => read_msg::<Ipv4>(ip, port, bind_port),
-                (_, Ok(ip)) => read_msg::<Ipv6>(ip, port, bind_port),
-                (_, _ ) => println!("given ip address is invalid"),
-            }
-        }
+        Commands::Send {
+            ip,
+            bind_port,
+            port,
+            msg,
+        } => match (Ipv4::from_str(&ip), Ipv6::from_str(&ip)) {
+            (Ok(ip), _) => send_msg::<Ipv4>(ip, port, bind_port, msg),
+            (_, Ok(ip)) => send_msg::<Ipv6>(ip, port, bind_port, msg),
+            (_, _) => println!("given ip address is invalid"),
+        },
+        Commands::Receive {
+            ip,
+            bind_port,
+            port,
+        } => match (Ipv4::from_str(&ip), Ipv6::from_str(&ip)) {
+            (Ok(ip), _) => read_msg::<Ipv4>(ip, port, bind_port),
+            (_, Ok(ip)) => read_msg::<Ipv6>(ip, port, bind_port),
+            (_, _) => println!("given ip address is invalid"),
+        },
         Commands::Show { .. } => {
             match WaitingClient::<Ipv4>::new() {
                 Ok(client) => println!("port: {}", client.get_port()),

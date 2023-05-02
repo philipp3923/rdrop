@@ -2,6 +2,7 @@ use crate::ip::Address;
 use crate::protocol::{exchange_keys, generate_streams, negotiate_roles, Role};
 use crate::time::Synchronizer;
 use crate::{CONNECT_ATTEMPTS, PORT_RANGE};
+use chrono::Utc;
 use dryoc::dryocstream::{DryocStream, Pull, Push, Tag};
 use socket2::{Protocol, SockAddr, Socket, Type};
 use std::io::{Read, Write};
@@ -9,7 +10,6 @@ use std::marker::PhantomData;
 use std::net::{SocketAddr, TcpStream};
 use std::ops::Range;
 use std::time::Duration;
-use chrono::Utc;
 
 #[derive(Debug)]
 pub struct WaitingClient<A: Address> {
@@ -26,7 +26,10 @@ impl<A: Address> WaitingClient<A> {
             Err(e) => return Err(e),
         }
 
-        return Ok(WaitingClient::<A> { socket, phantom: PhantomData });
+        return Ok(WaitingClient::<A> {
+            socket,
+            phantom: PhantomData,
+        });
     }
 
     pub fn with_port(port: u16) -> Result<WaitingClient<A>, String> {
@@ -36,13 +39,12 @@ impl<A: Address> WaitingClient<A> {
         let bind = SocketAddr::new(ip, port);
 
         return match socket.bind(&SockAddr::from(bind)) {
-            Ok(_) => {
-                Ok(WaitingClient::<A> { socket, phantom: PhantomData })
-            }
-            Err(_) => {
-                Err(format!("port unavailable"))
-            }
-        }
+            Ok(_) => Ok(WaitingClient::<A> {
+                socket,
+                phantom: PhantomData,
+            }),
+            Err(_) => Err(format!("port unavailable")),
+        };
     }
 
     fn bind_port(socket: &mut Socket, port_range: Range<u16>) -> Result<(), String> {
@@ -81,8 +83,8 @@ impl<A: Address> WaitingClient<A> {
         ip: A,
         port: u16,
     ) -> Result<(ClientReader, ClientWriter), WaitingClient<A>> {
-        let with_delta =
-            ip.as_bytes() != A::from_local().as_bytes() && ip.as_bytes() != A::from_standard().as_bytes();
+        let with_delta = ip.as_bytes() != A::from_local().as_bytes()
+            && ip.as_bytes() != A::from_standard().as_bytes();
         println!("{}", with_delta);
 
         if !with_delta && self.get_port() == port {
@@ -94,7 +96,6 @@ impl<A: Address> WaitingClient<A> {
             Ok(t) => t,
             Err(_) => return Err(self),
         };
-
 
         for _ in 0..CONNECT_ATTEMPTS {
             std::thread::sleep(synchronizer.wait_time());
@@ -118,8 +119,8 @@ impl<A: Address> WaitingClient<A> {
                 ));
             } else {
                 match connect {
-                    Ok(_) => {},
-                    Err(_e) => println!("{}",_e),
+                    Ok(_) => {}
+                    Err(_e) => println!("{}", _e),
                 }
             }
 

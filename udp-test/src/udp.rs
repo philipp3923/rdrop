@@ -8,17 +8,20 @@ pub struct UdpConnection {
 }
 
 impl UdpConnection {
-
     pub fn new(port: Option<u16>) -> Result<UdpConnection, ()> {
         let bind_addr = IpAddr::from(Ipv6Addr::from(0));
         let bind_addr = SocketAddr::new(bind_addr, port.unwrap_or(0));
         return match UdpSocket::bind(&bind_addr) {
-            Ok(socket) => Ok(UdpConnection {udp_socket: socket, send_count: 0, receive_count: 0 }),
-                Err(_) => Err(()),
-        }
+            Ok(socket) => Ok(UdpConnection {
+                udp_socket: socket,
+                send_count: 0,
+                receive_count: 0,
+            }),
+            Err(_) => Err(()),
+        };
     }
 
-    pub fn connect(&mut self, peer: Ipv6Addr, port: u16) -> Result<(),()> {
+    pub fn connect(&mut self, peer: Ipv6Addr, port: u16) -> Result<(), ()> {
         let peer_addr = IpAddr::from(peer);
         let peer_addr = SocketAddr::new(peer_addr, port);
 
@@ -30,7 +33,11 @@ impl UdpConnection {
     }
 
     pub fn send_and_receive(&mut self, msg: &[u8]) -> Result<Vec<u8>, ()> {
-        if self.udp_socket.set_read_timeout(Some(Duration::from_secs(2))).is_err() {
+        if self
+            .udp_socket
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .is_err()
+        {
             return Err(());
         }
 
@@ -59,14 +66,12 @@ impl UdpConnection {
                     }
 
                     return Ok(msg);
-
                 }
                 Err(_) => continue,
             }
         }
 
         return Err(());
-
     }
 
     fn prepare_msg(&mut self, msg: &[u8]) -> Vec<u8> {
@@ -82,11 +87,11 @@ impl UdpConnection {
         result
     }
 
-    fn parse_msg(&mut self) -> Result<(u32,Vec<u8>), ()> {
+    fn parse_msg(&mut self) -> Result<(u32, Vec<u8>), ()> {
         let mut msg = [0u8; 8];
         let len = match self.udp_socket.recv(msg.as_mut_slice()) {
             Ok(l) => l as u32,
-            Err(_) => return Err(())
+            Err(_) => return Err(()),
         };
 
         // message is too short
@@ -101,7 +106,7 @@ impl UdpConnection {
 
         let len = match self.udp_socket.recv(msg.as_mut_slice()) {
             Ok(l) => l as u32,
-            Err(_) => return Err(())
+            Err(_) => return Err(()),
         };
 
         // read message is shorter than given length

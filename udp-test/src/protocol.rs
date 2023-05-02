@@ -1,18 +1,20 @@
+use crate::protocol::Role::Server;
+use chrono::{Local, Utc};
+use rand::{thread_rng, Rng};
+use socket2::{Domain, SockAddr, Socket, Type};
 use std::fmt::format;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpListener, TcpStream, UdpSocket};
 use std::thread::sleep;
 use std::time;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use chrono::{Local, Utc};
-use rand::{Rng, thread_rng};
-use socket2::{Domain, SockAddr, Socket, Type};
-use crate::protocol::Role::Server;
 
 pub fn connect(udp_socket: &mut UdpSocket) -> Result<(), String> {
-    if udp_socket.set_read_timeout(Some(Duration::from_millis(50))).is_err() {
+    if udp_socket
+        .set_read_timeout(Some(Duration::from_millis(50)))
+        .is_err()
+    {
         return Err(format!("changing read timeout failed"));
     }
-
 
     let mut buf = [0u8; 1];
 
@@ -26,7 +28,6 @@ pub fn connect(udp_socket: &mut UdpSocket) -> Result<(), String> {
         match udp_socket.recv(buf.as_mut_slice()) {
             _ => continue,
         }
-
     }
 
     println!("CONNECTED");
@@ -61,7 +62,7 @@ pub fn handshake(mut udp_socket: UdpSocket) -> Result<TcpStream, String> {
 
     let bind_addr = IpAddr::from(Ipv6Addr::from(0));
     let local_addr = SocketAddr::new(bind_addr, 0);
-    let tcp_socket =  match Socket::new(Domain::IPV6, Type::STREAM, None) {
+    let tcp_socket = match Socket::new(Domain::IPV6, Type::STREAM, None) {
         Ok(socket) => socket,
         Err(_) => return Err(format!("creating tcp socket failed")),
     };
@@ -70,16 +71,23 @@ pub fn handshake(mut udp_socket: UdpSocket) -> Result<TcpStream, String> {
         return Err(format!("binding tcp socket failed"));
     }
 
-    let partner_port = match exchange_ports(&mut udp_socket, tcp_socket.local_addr().unwrap().as_socket().unwrap().port()) {
+    let partner_port = match exchange_ports(
+        &mut udp_socket,
+        tcp_socket.local_addr().unwrap().as_socket().unwrap().port(),
+    ) {
         Ok(p) => p,
         Err(_) => return Err(format!("exchanging ports failed")),
     };
 
-    println!("my port: {}\npartner port: {}", tcp_socket.local_addr().unwrap().as_socket().unwrap().port(), partner_port);
+    println!(
+        "my port: {}\npartner port: {}",
+        tcp_socket.local_addr().unwrap().as_socket().unwrap().port(),
+        partner_port
+    );
     return match role {
         Role::Client => {
             println!("Client");
-            if sync_client(& mut udp_socket).is_err() {
+            if sync_client(&mut udp_socket).is_err() {
                 return Err(format!("syncing failed"));
             }
 
@@ -87,7 +95,7 @@ pub fn handshake(mut udp_socket: UdpSocket) -> Result<TcpStream, String> {
         }
         Role::Server => {
             println!("Server");
-            let (diff, delay) = match sync_server(& mut udp_socket, 100) {
+            let (diff, delay) = match sync_server(&mut udp_socket, 100) {
                 Ok(d) => d,
                 Err(_) => return Err(format!("syncing failed")),
             };
@@ -97,13 +105,25 @@ pub fn handshake(mut udp_socket: UdpSocket) -> Result<TcpStream, String> {
     };
 }
 
-enum Role{
+enum Role {
     Client,
-    Server
+    Server,
 }
 
-fn upgrade_server(udp_socket: UdpSocket, tcp_socket: Socket, port: u16, diff: i128, delay: u128) -> Result<TcpStream, String> {
-    println!("now:   {}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos());
+fn upgrade_server(
+    udp_socket: UdpSocket,
+    tcp_socket: Socket,
+    port: u16,
+    diff: i128,
+    delay: u128,
+) -> Result<TcpStream, String> {
+    println!(
+        "now:   {}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
     println!("diff:  {}", diff);
     println!("delay: {}", delay);
 
@@ -116,23 +136,36 @@ fn upgrade_server(udp_socket: UdpSocket, tcp_socket: Socket, port: u16, diff: i1
         return Err(format!("receiving failed"));
     }
 
-    let connect_time = (SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos() + delay*10) as i128 - diff + 1000000 * 60;
+    let connect_time = (SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos()
+        + delay * 10) as i128
+        - diff
+        + 1000000 * 60;
 
     if udp_socket.send(&connect_time.to_be_bytes()).is_err() {
         return Err(format!("sending failed"));
     }
 
-    sleep(Duration::from_nanos((delay*10 + 1000000 * 60) as u64));
+    sleep(Duration::from_nanos((delay * 10 + 1000000 * 60) as u64));
 
     println!("Local: {}", Local::now().timestamp_nanos());
 
     return match tcp_socket.connect(&partner_address) {
         Ok(_) => Ok(TcpStream::from(tcp_socket)),
-        Err(_e) => { println!("{}", _e); Err(format!("connecting tcp socket failed"))},
-    }
+        Err(_e) => {
+            println!("{}", _e);
+            Err(format!("connecting tcp socket failed"))
+        }
+    };
 }
 
-fn upgrade_client(udp_socket: UdpSocket, tcp_socket: Socket, port: u16) -> Result<TcpStream, String> {
+fn upgrade_client(
+    udp_socket: UdpSocket,
+    tcp_socket: Socket,
+    port: u16,
+) -> Result<TcpStream, String> {
     let mut buf = [0; 16];
     let mut partner_address = udp_socket.peer_addr().unwrap();
     partner_address.set_port(port);
@@ -146,19 +179,25 @@ fn upgrade_client(udp_socket: UdpSocket, tcp_socket: Socket, port: u16) -> Resul
         return Err(format!("receiving failed"));
     }
 
-    let sleep_duration = u128::from_be_bytes(buf) - SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let sleep_duration = u128::from_be_bytes(buf)
+        - SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
     sleep(Duration::from_nanos(sleep_duration as u64));
 
     println!("Local: {}", Local::now().timestamp_nanos());
 
     return match tcp_socket.connect(&partner_address) {
         Ok(_) => Ok(TcpStream::from(tcp_socket)),
-        Err(_e) => { println!("{}", _e); Err(format!("connecting tcp socket failed"))},
-    }
-
+        Err(_e) => {
+            println!("{}", _e);
+            Err(format!("connecting tcp socket failed"))
+        }
+    };
 }
 
-fn exchange_ports(udp_socket: &mut UdpSocket, port: u16) -> Result<u16, String>{
+fn exchange_ports(udp_socket: &mut UdpSocket, port: u16) -> Result<u16, String> {
     if udp_socket.send(&port.to_be_bytes()).is_err() {
         return Err(format!("sending failed"));
     }
@@ -195,7 +234,7 @@ fn negotiate_roles(udp_socket: &mut UdpSocket) -> Result<Role, String> {
         Ok(Role::Server)
     } else {
         Ok(Role::Client)
-    }
+    };
 }
 
 fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u128), String> {
@@ -245,7 +284,6 @@ fn sync_server(udp_socket: &mut UdpSocket, mut samples: u8) -> Result<(i128, u12
         if elapsed > max {
             max = elapsed;
         }
-
     }
 
     if udp_socket.send(&[0xCC]).is_err() {
