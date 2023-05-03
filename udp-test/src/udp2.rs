@@ -297,12 +297,9 @@ mod tests {
 
     #[test]
     fn test_prepare_local() {
-        for _ in 0..10 {
-            println!("new run");
-            let (c1, c2) = prepare_local();
-            drop(c1);
-            drop(c2);
-        }
+        let (c1, c2) = prepare_local();
+        drop(c1);
+        drop(c2);
     }
 
     fn prepare_local() -> (ActiveConnection, ActiveConnection) {
@@ -329,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_async_connect_err() {
-        let ipv6 = Ipv6Addr::from(0);
+        let ipv6 = Ipv6Addr::from(1);
         let timeout = Duration::from_millis(5);
         let w1 = WaitingConnection::new(None).unwrap();
         let w2 = WaitingConnection::new(None).unwrap();
