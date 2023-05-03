@@ -16,7 +16,7 @@ pub struct WaitingConnection {
 
 impl WaitingConnection {
     pub fn new(port: Option<u16>) -> Result<WaitingConnection, Box<dyn Error>> {
-        let bind_addr = IpAddr::from(Ipv6Addr::from(0));
+        let bind_addr = IpAddr::from(Ipv6Addr::from(1));
         let bind_addr = SocketAddr::new(bind_addr, port.unwrap_or(0));
         let udp_socket = UdpSocket::bind(&bind_addr)?;
 
@@ -290,6 +290,12 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_prepare_msg() {
+        let udp_socket = UdpSocket::bind(SocketAddr::new(IpAddr::from(Ipv6Addr::from(1)), 0)).unwrap();
+        //let c = ActiveConnection::new(udp_socket, )
+    }
+
+    #[test]
     fn test_same_port() {
         let w1 = WaitingConnection::new(None).unwrap();
         assert!(WaitingConnection::new(Some(w1.get_port())).is_err());
@@ -303,7 +309,7 @@ mod tests {
     }
 
     fn prepare_local() -> (ActiveConnection, ActiveConnection) {
-        let ipv6 = Ipv6Addr::from(0);
+        let ipv6 = Ipv6Addr::from(1);
         let timeout = Duration::from_secs(2);
         let w1 = WaitingConnection::new(None).unwrap();
         let w2 = WaitingConnection::new(None).unwrap();
@@ -345,7 +351,7 @@ mod tests {
 
     #[test]
     fn test_async_connect_ok() {
-        let ipv6 = Ipv6Addr::from(0);
+        let ipv6 = Ipv6Addr::from(1);
         let timeout = Duration::from_millis(10000);
         let w1 = WaitingConnection::new(None).unwrap();
         let w2 = WaitingConnection::new(None).unwrap();
