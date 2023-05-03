@@ -346,6 +346,8 @@ mod tests {
         let p1 = w1.get_port();
         let p2 = w2.get_port();
 
+        println!("p1: {}, p2: {}", p1, p2);
+
         let thread_c1 = thread::spawn(move || {
             return w1.connect(ipv6, p2, Some(timeout)).unwrap();
         });
@@ -446,5 +448,13 @@ mod tests {
 
         drop(c1);
         drop(c2);
+    }
+
+    #[test]
+    fn test_reader_thread(){
+        let (mut c1, mut c2) = prepare_local();
+
+        assert!(!c1.receiver_handle.as_ref().unwrap().is_finished());
+        assert!(!c2.receiver_handle.as_ref().unwrap().is_finished());
     }
 }
