@@ -1,8 +1,10 @@
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use std::thread;
-use std::thread::{JoinHandle};
+use std::{fmt, thread};
+use std::thread::{JoinHandle, sleep};
 use std::time::{Duration, Instant};
 
 const MSG_RESEND_DELAY: Duration = Duration::from_millis(100);
@@ -13,13 +15,10 @@ pub struct WaitingConnection {
 }
 
 impl WaitingConnection {
-    pub fn new(port: Option<u16>) -> Result<WaitingConnection, ()> {
+    pub fn new(port: Option<u16>) -> Result<WaitingConnection, Box<dyn Error>> {
         let bind_addr = IpAddr::from(Ipv6Addr::from(0));
         let bind_addr = SocketAddr::new(bind_addr, port.unwrap_or(0));
-        let udp_socket = match UdpSocket::bind(&bind_addr) {
-            Ok(socket) => socket,
-            Err(_) => return Err(()),
-        };
+        let udp_socket = UdpSocket::bind(&bind_addr)?;
 
         Ok(WaitingConnection { udp_socket })
     }
@@ -29,20 +28,17 @@ impl WaitingConnection {
         peer: Ipv6Addr,
         port: u16,
         timeout: Option<Duration>,
-    ) -> Result<ActiveConnection, ()> {
+    ) -> Result<ActiveConnection, Box<dyn Error>> {
         let peer_addr = IpAddr::from(peer);
         let peer_addr = SocketAddr::new(peer_addr, port);
 
-        if self.udp_socket.connect(&peer_addr).is_err() {
-            return Err(());
-        }
+        self.udp_socket.connect(&peer_addr)?;
 
         let mut active_connection = ActiveConnection::new(self.udp_socket).unwrap();
 
-        return match active_connection.ping(timeout) {
-            Ok(_) => Ok(active_connection),
-            Err(_) => Err(()),
-        };
+        active_connection.ping(timeout)?;
+
+        return Ok(active_connection);
     }
 
     pub fn get_port(&self) -> u16 {
@@ -50,43 +46,78 @@ impl WaitingConnection {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct TimeoutError(Duration);
+
+impl Display for TimeoutError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "timelimit {:#?} exceeded", self.0)
+    }
+}
+
+impl Error for TimeoutError {
+    fn description(&self) -> &str {
+        "The given timelimit was exceeded"
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct MessageOverflowError{
+    is: usize,
+    should: usize
+}
+
+impl MessageOverflowError {
+    fn new(is: usize, should: usize) -> MessageOverflowError {
+        MessageOverflowError {is, should}
+    }
+}
+
+impl Display for MessageOverflowError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "message is too long. {} instead of the maximum {}", self.is, self.should)
+    }
+}
+
+impl Error for MessageOverflowError {
+    fn description(&self) -> &str {
+        "The message is too long"
+    }
+}
+
+
 pub struct ActiveConnection {
     udp_socket: UdpSocket,
     send_counter: u8,
     message_receiver: Receiver<Vec<u8>>,
     acknowledgement_receiver: Receiver<u8>,
-    receiver_handle: Option<JoinHandle<()>>,
+    receiver_handle: Option<JoinHandle<Result<(), Box<dyn Error + Send + Sync>>>>,
     stop_thread: Sender<()>,
 }
 
 impl Drop for ActiveConnection {
     fn drop(&mut self) {
         self.stop_thread.send(()).unwrap();
-        self.receiver_handle.take().unwrap().join().unwrap_or(());
+        self.receiver_handle.take().unwrap().join().ok();
     }
 }
 
 impl ActiveConnection {
-    fn new(udp_socket: UdpSocket) -> Result<ActiveConnection, ()> {
+    fn new(udp_socket: UdpSocket) -> Result<ActiveConnection, Box<dyn Error>> {
         let receiver_socket = udp_socket.try_clone().unwrap();
         let (message_sender, message_receiver) = mpsc::channel::<Vec<u8>>();
         let (acknowledgement_sender, acknowledgement_receiver) = mpsc::channel::<u8>();
         let (stop_sender, stop_receiver) = mpsc::channel::<()>();
 
-        if receiver_socket
-            .set_read_timeout(Some(Duration::from_millis(100)))
-            .is_err()
-        {
-            return Err(());
-        }
+        receiver_socket.set_read_timeout(Some(Duration::from_millis(100)))?;
 
-        let receiver_handle = thread::spawn(move || {
+        let receiver_handle: JoinHandle<Result<(), Box<dyn Error + Send + Sync>>> = thread::spawn(move || {
             let mut msg_counter = 0;
 
             loop {
                 if stop_receiver.try_recv().is_ok() {
                     println!("shutting down");
-                    return;
+                    return Ok(());
                 }
 
                 let mut header = [0u8; 6];
@@ -112,19 +143,14 @@ impl ActiveConnection {
                             };
                         }
 
-                        if receiver_socket.send([0xAA, msg_number].as_slice()).is_err() {
-                            println!("send err");
-                            return;
-                        }
+                        receiver_socket.send([0xAA, msg_number].as_slice())?;
                     }
                     0xAA => {
                         receiver_socket.recv(header.as_mut_slice()).unwrap();
 
                         println!("AA {}", msg_number);
 
-                        if acknowledgement_sender.send(msg_number).is_err() {
-                            return;
-                        }
+                        acknowledgement_sender.send(msg_number)?;
                     }
                     0xDD => {
                         let msg_len = u32::from_be_bytes(header[2..6].try_into().unwrap());
@@ -155,14 +181,11 @@ impl ActiveConnection {
                                 x => x + 1,
                             };
 
-                            if message_sender.send(msg_content).is_err() {
-                                return;
-                            }
+                            message_sender.send(msg_content)?;
+
                         }
 
-                        if receiver_socket.send([0xAA, msg_number].as_slice()).is_err() {
-                            return;
-                        }
+                        receiver_socket.send([0xAA, msg_number].as_slice())?;
                     }
                     _ => continue,
                 }
@@ -179,15 +202,12 @@ impl ActiveConnection {
         });
     }
 
-    pub fn ping(&mut self, timeout: Option<Duration>) -> Result<(), ()> {
+    pub fn ping(&mut self, timeout: Option<Duration>) -> Result<(), Box<dyn Error>> {
         let now = Instant::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(0));
 
         while timeout.is_zero() || now.elapsed() <= timeout {
-            if self.udp_socket.send(&[0xCC, self.send_counter]).is_err() {
-                println!("send err");
-                return Err(());
-            }
+            self.udp_socket.send(&[0xCC, self.send_counter])?;
 
             match self.acknowledgement_receiver.recv_timeout(MSG_RESEND_DELAY) {
                 Ok(msg_number) => {
@@ -206,12 +226,12 @@ impl ActiveConnection {
             }
         }
         println!("timeout");
-        return Err(());
+        return Err(Box::new(TimeoutError(timeout)));
     }
 
-    pub fn send(&mut self, msg: &[u8], timeout: Option<Duration>) -> Result<(), ()> {
+    pub fn send(&mut self, msg: &[u8], timeout: Option<Duration>) -> Result<(), Box<dyn Error>> {
         if msg.len() > 2 ^ 32 {
-            return Err(());
+            return Err(Box::new(MessageOverflowError::new(msg.len(), 2 ^ 32)));
         }
 
         let now = Instant::now();
@@ -219,9 +239,7 @@ impl ActiveConnection {
         let msg = self.prepare_msg(msg);
 
         while timeout.is_zero() || now.elapsed() <= timeout {
-            if self.udp_socket.send(msg.as_slice()).is_err() {
-                return Err(());
-            }
+            self.udp_socket.send(msg.as_slice())?;
 
             match self.acknowledgement_receiver.recv_timeout(MSG_RESEND_DELAY) {
                 Ok(msg_number) => {
@@ -240,7 +258,7 @@ impl ActiveConnection {
             }
         }
         println!("timeout");
-        return Err(());
+        return Err(Box::new(TimeoutError(timeout)));
     }
 
     fn prepare_msg(&mut self, msg: &[u8]) -> Vec<u8> {
@@ -255,23 +273,14 @@ impl ActiveConnection {
         result
     }
 
-    pub fn try_read(&mut self) -> Result<Vec<u8>, ()> {
-        return match self.message_receiver.try_recv() {
-            Ok(msg) => Ok(msg),
-            Err(_) => Err(()),
-        };
+    pub fn try_read(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
+        Ok(self.message_receiver.try_recv()?)
     }
 
-    pub fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, ()> {
+    pub fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, Box<dyn Error>> {
         return match timeout {
-            None => match self.message_receiver.recv() {
-                Ok(msg) => Ok(msg),
-                Err(_) => Err(()),
-            },
-            Some(t) => match self.message_receiver.recv_timeout(t) {
-                Ok(msg) => Ok(msg),
-                Err(_) => Err(()),
-            },
+            None => Ok(self.message_receiver.recv()?),
+            Some(t) => Ok(self.message_receiver.recv_timeout(t)?)
         };
     }
 }
@@ -288,9 +297,8 @@ mod tests {
 
     #[test]
     fn test_prepare_local() {
-        for _ in 0..2 {
+        for _ in 0..10 {
             println!("new run");
-            sleep(Duration::from_secs(1));
             let (c1, c2) = prepare_local();
             drop(c1);
             drop(c2);
