@@ -15,6 +15,7 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::str::FromStr;
 
 use std::time::{Duration};
+use crate::udp2::WaitingConnection;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "full");
@@ -31,21 +32,13 @@ fn main() {
     let src_port: u16 = args[1].parse().unwrap();
     let dst_port: u16 = args[2].parse().unwrap();
 
-    let bind_addr = IpAddr::from(Ipv6Addr::from(0)); // 2A02:3038:414:D662:3162:D4EC:B620:89BF
-    let partner_addr = IpAddr::from(Ipv6Addr::from_str("0:0:0:0:0:0:0:0").unwrap()); // 0:0:0:0:0:0:0:0
-    let local_addr = SocketAddr::new(bind_addr, src_port);
-    let mut udp_socket = UdpSocket::bind(&local_addr).unwrap();
 
-    let connect_addr = SocketAddr::new(partner_addr, dst_port);
-    udp_socket.connect(connect_addr).unwrap();
+    let partner_addr = Ipv6Addr::from_str("0:0:0:0:0:0:0:0").unwrap();
+    let client = WaitingConnection::new(Some(src_port)).unwrap();
+    let mut client = client.connect(partner_addr, dst_port, Some(Duration::from_secs(120))).unwrap();
 
-    connect(&mut udp_socket).unwrap();
-    let _tcp_stream = handshake(udp_socket).unwrap();
+    client.send(b"Hallo mein Freund!", None).unwrap();
 
-    /*let mut c = UdpConnection::new(Some(src_port)).unwrap();
+    println!("{}", String::from_utf8(client.read(None).unwrap()).unwrap());
 
-    c.connect(Ipv6Addr::from_str("0:0:0:0:0:0:0:0").unwrap(), dst_port).unwrap();
-
-    let answer = c.send_and_receive(b"Hallo").unwrap();
-    println!("{}", String::from_utf8(answer).unwrap());*/
 }
