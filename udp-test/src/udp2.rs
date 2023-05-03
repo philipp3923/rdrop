@@ -291,8 +291,37 @@ mod tests {
 
     #[test]
     fn test_prepare_msg() {
-        let udp_socket = UdpSocket::bind(SocketAddr::new(IpAddr::from(Ipv6Addr::from(1)), 0)).unwrap();
-        //let c = ActiveConnection::new(udp_socket, )
+        let socket_addr = SocketAddr::new(IpAddr::from(Ipv6Addr::from(1)), 0);
+        let udp_socket = UdpSocket::bind(socket_addr).unwrap();
+        udp_socket.connect(socket_addr).unwrap();
+        let mut c = ActiveConnection::new(udp_socket).unwrap();
+
+        let msg = [1,2,3,4];
+        let prepared_msg = c.prepare_msg(msg.as_slice());
+        assert_eq!(prepared_msg[0], 0xDD);
+        assert_eq!(prepared_msg[1], 0);
+        assert_eq!(prepared_msg[2], 0);
+        assert_eq!(prepared_msg[3], 0);
+        assert_eq!(prepared_msg[4], 0);
+        assert_eq!(prepared_msg[5], 4);
+        assert_eq!(prepared_msg[6], 1);
+        assert_eq!(prepared_msg[7], 2);
+        assert_eq!(prepared_msg[8], 3);
+        assert_eq!(prepared_msg[9], 4);
+        assert_eq!(prepared_msg.len(), 10);
+        c.send_counter = 25;
+        let prepared_msg = c.prepare_msg(msg.as_slice());
+        assert_eq!(prepared_msg[0], 0xDD);
+        assert_eq!(prepared_msg[1], 25);
+        assert_eq!(prepared_msg[2], 0);
+        assert_eq!(prepared_msg[3], 0);
+        assert_eq!(prepared_msg[4], 0);
+        assert_eq!(prepared_msg[5], 4);
+        assert_eq!(prepared_msg[6], 1);
+        assert_eq!(prepared_msg[7], 2);
+        assert_eq!(prepared_msg[8], 3);
+        assert_eq!(prepared_msg[9], 4);
+        assert_eq!(prepared_msg.len(), 10);
     }
 
     #[test]
