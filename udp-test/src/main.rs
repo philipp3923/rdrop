@@ -1,6 +1,8 @@
 mod protocol;
 mod udp;
-mod udp2;
+mod tcp;
+mod crypt;
+mod client;
 
 use crate::protocol::{connect, handshake};
 
@@ -15,7 +17,7 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::str::FromStr;
 
 use std::time::{Duration};
-use crate::udp2::WaitingClient;
+use crate::udp::WaitingClient;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "full");
@@ -37,8 +39,8 @@ fn main() {
     let client = WaitingClient::new(Some(src_port)).unwrap();
     let mut client = client.connect(partner_addr, dst_port, Some(Duration::from_secs(120))).unwrap();
 
-    client.send(b"Hallo mein Freund!", None).unwrap();
+    client.writer_ref().write(b"Hallo mein Freund!", None).unwrap();
 
-    println!("{}", String::from_utf8(client.read(None).unwrap()).unwrap());
+    println!("{}", String::from_utf8(client.reader_ref().read(None).unwrap()).unwrap());
 
 }

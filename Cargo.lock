@@ -3510,6 +3510,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "connection",
+ "dryoc",
  "rand 0.8.5",
  "rsntp",
  "socket2 0.5.2",
