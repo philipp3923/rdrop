@@ -10,17 +10,17 @@ use std::time::{Duration, Instant};
 const MSG_RESEND_DELAY: Duration = Duration::from_millis(100);
 const CONNECT_MSG_INTERVAL: Duration = Duration::from_millis(50);
 
-pub struct WaitingConnection {
+pub struct WaitingClient {
     udp_socket: UdpSocket,
 }
 
-impl WaitingConnection {
-    pub fn new(port: Option<u16>) -> Result<WaitingConnection, Box<dyn Error>> {
+impl WaitingClient {
+    pub fn new(port: Option<u16>) -> Result<WaitingClient, Box<dyn Error>> {
         let bind_addr = IpAddr::from(Ipv6Addr::from(1));
         let bind_addr = SocketAddr::new(bind_addr, port.unwrap_or(0));
         let udp_socket = UdpSocket::bind(&bind_addr)?;
 
-        Ok(WaitingConnection { udp_socket })
+        Ok(WaitingClient { udp_socket })
     }
 
     pub fn connect(
@@ -28,13 +28,13 @@ impl WaitingConnection {
         peer: Ipv6Addr,
         port: u16,
         timeout: Option<Duration>,
-    ) -> Result<ActiveConnection, Box<dyn Error>> {
+    ) -> Result<ActiveClient, Box<dyn Error>> {
         let peer_addr = IpAddr::from(peer);
         let peer_addr = SocketAddr::new(peer_addr, port);
 
         self.udp_socket.connect(&peer_addr)?;
 
-        let mut active_connection = ActiveConnection::new(self.udp_socket).unwrap();
+        let mut active_connection = ActiveClient::new(self.udp_socket).unwrap();
 
         active_connection.ping(timeout)?;
 
@@ -86,7 +86,7 @@ impl Error for MessageOverflowError {
 }
 
 
-pub struct ActiveConnection {
+pub struct ActiveClient {
     udp_socket: UdpSocket,
     send_counter: u8,
     message_receiver: Receiver<Vec<u8>>,
@@ -95,15 +95,15 @@ pub struct ActiveConnection {
     stop_thread: Sender<()>,
 }
 
-impl Drop for ActiveConnection {
+impl Drop for ActiveClient {
     fn drop(&mut self) {
         self.stop_thread.send(()).unwrap();
         self.receiver_handle.take().unwrap().join().ok();
     }
 }
 
-impl ActiveConnection {
-    fn new(udp_socket: UdpSocket) -> Result<ActiveConnection, Box<dyn Error>> {
+impl ActiveClient {
+    fn new(udp_socket: UdpSocket) -> Result<ActiveClient, Box<dyn Error>> {
         let receiver_socket = udp_socket.try_clone().unwrap();
         let (message_sender, message_receiver) = mpsc::channel::<Vec<u8>>();
         let (acknowledgement_sender, acknowledgement_receiver) = mpsc::channel::<u8>();
@@ -192,7 +192,7 @@ impl ActiveConnection {
             }
         });
 
-        return Ok(ActiveConnection {
+        return Ok(ActiveClient {
             udp_socket,
             send_counter: 0,
             acknowledgement_receiver,
@@ -294,7 +294,7 @@ mod tests {
         let socket_addr = SocketAddr::new(IpAddr::from(Ipv6Addr::from(1)), 0);
         let udp_socket = UdpSocket::bind(socket_addr).unwrap();
         udp_socket.connect(socket_addr).unwrap();
-        let mut c = ActiveConnection::new(udp_socket).unwrap();
+        let mut c = ActiveClient::new(udp_socket).unwrap();
 
         let msg = [1,2,3,4];
         let prepared_msg = c.prepare_msg(msg.as_slice());
@@ -326,8 +326,8 @@ mod tests {
 
     #[test]
     fn test_same_port() {
-        let w1 = WaitingConnection::new(None).unwrap();
-        assert!(WaitingConnection::new(Some(w1.get_port())).is_err());
+        let w1 = WaitingClient::new(None).unwrap();
+        assert!(WaitingClient::new(Some(w1.get_port())).is_err());
     }
 
     #[test]
@@ -337,11 +337,11 @@ mod tests {
         drop(c2);
     }
 
-    fn prepare_local() -> (ActiveConnection, ActiveConnection) {
+    fn prepare_local() -> (ActiveClient, ActiveClient) {
         let ipv6 = Ipv6Addr::from(1);
         let timeout = Duration::from_secs(2);
-        let w1 = WaitingConnection::new(None).unwrap();
-        let w2 = WaitingConnection::new(None).unwrap();
+        let w1 = WaitingClient::new(None).unwrap();
+        let w2 = WaitingClient::new(None).unwrap();
 
         let p1 = w1.get_port();
         let p2 = w2.get_port();
@@ -365,8 +365,8 @@ mod tests {
     fn test_async_connect_err() {
         let ipv6 = Ipv6Addr::from(1);
         let timeout = Duration::from_millis(5);
-        let w1 = WaitingConnection::new(None).unwrap();
-        let w2 = WaitingConnection::new(None).unwrap();
+        let w1 = WaitingClient::new(None).unwrap();
+        let w2 = WaitingClient::new(None).unwrap();
 
         let p1 = w1.get_port();
         let p2 = w2.get_port();
@@ -384,8 +384,8 @@ mod tests {
     fn test_async_connect_ok() {
         let ipv6 = Ipv6Addr::from(1);
         let timeout = Duration::from_millis(10000);
-        let w1 = WaitingConnection::new(None).unwrap();
-        let w2 = WaitingConnection::new(None).unwrap();
+        let w1 = WaitingClient::new(None).unwrap();
+        let w2 = WaitingClient::new(None).unwrap();
 
         let p1 = w1.get_port();
         let p2 = w2.get_port();
