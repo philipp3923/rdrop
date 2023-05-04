@@ -132,7 +132,7 @@ impl ActiveConnection {
 
                 match msg_type {
                     0xCC => {
-                        receiver_socket.recv(header.as_mut_slice()).unwrap();
+                        receiver_socket.recv_from(header.as_mut_slice()).unwrap();
 
                         println!("CC {}", msg_number);
 
@@ -146,7 +146,7 @@ impl ActiveConnection {
                         receiver_socket.send([0xAA, msg_number].as_slice())?;
                     }
                     0xAA => {
-                        receiver_socket.recv(header.as_mut_slice()).unwrap();
+                        receiver_socket.recv_from(header.as_mut_slice()).unwrap();
 
                         println!("AA {}", msg_number);
 
@@ -160,8 +160,8 @@ impl ActiveConnection {
                             msg_content.push(0);
                         }
 
-                        let _actual_len = match receiver_socket.recv(msg_content.as_mut_slice()) {
-                            Ok(l) => l as u32,
+                        let _actual_len = match receiver_socket.recv_from(msg_content.as_mut_slice()) {
+                            Ok((l,_)) => l as u32,
                             Err(_) => continue,
                         };
 
