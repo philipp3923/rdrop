@@ -122,7 +122,7 @@ impl ActiveConnection {
 
                 let mut header = [0u8; 6];
 
-                match receiver_socket.peek(header.as_mut_slice()) {
+                match receiver_socket.peek_from(header.as_mut_slice()) {
                     Ok(_) => {}
                     Err(_) => continue,
                 }
