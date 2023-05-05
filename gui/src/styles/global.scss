@@ -36,5 +36,5 @@ main {
 }
 
 @import "./layouts.scss";
-@import "./components/";
-@import "./pages/";
+@import "./components/*";
+@import "./pages/*";

@@ -5,6 +5,7 @@ import InputField from '../components/InputField';
 import Layout from '../layouts/Layout';
 import MatIcon from '../components/MatIcon';
 import { usePublicIP } from '../components/hooks/usePublicIP';
+import Link from 'next/link';
 
 export default function Home() {
     const [greetMsg, setGreetMsg] = useState('');
@@ -19,6 +20,9 @@ export default function Home() {
     return (
         <div className='home layout-center-height'>
             <section className='layout-large'>
+                <h1 className='display-large m-b-24'>rdrop.</h1>
+            </section>
+            <section className='layout-large'>
                 <div className='container container-secondary'>
                     <h2 className='title-medium'>IPv4 Address</h2>
                     <h1 className='headline-large'>{ip.ipv4}</h1>
@@ -26,7 +30,7 @@ export default function Home() {
                     <h1 className='headline-large'>{ip.ipv6}</h1>
                 </div>
             </section>
-            <section className='layout-large m-t-16'>
+            <section className='layout-large m-t-24'>
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
@@ -39,18 +43,16 @@ export default function Home() {
                         onChange={(e) => setName(e.currentTarget.value)}
                         label='Partner IP Address'
                     />
-                    <InputField
-                        id='port'
-                        onChange={(e) => setName(e.currentTarget.value)}
-                        label='Port'
-                    />
-                    <Button type='submit' tonal large>
-                        Connect
-                        <MatIcon right>arrow_forward</MatIcon>
-                    </Button>
+                    <InputField id='port' onChange={(e) => setName(e.currentTarget.value)} label='Port' />
+                    <Link href='/transfer'>
+                        <Button type='submit' tonal large>
+                            Connect
+                            <MatIcon right>arrow_forward</MatIcon>
+                        </Button>
+                    </Link>
                 </form>
 
-                <p className="body-large m-t-16">{greetMsg}</p>
+                <p className='body-large m-t-16'>{greetMsg}</p>
             </section>
         </div>
     );

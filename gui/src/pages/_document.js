@@ -2,7 +2,7 @@ import { Html, Head, Main, NextScript } from "next/document";
 
 export default function Document() {
     return (
-        <Html className="theme theme-light">
+        <Html className="theme theme-dark">
             <Head>
                 <link rel='apple-touch-icon' sizes='180x180' href='/icons/apple-touch-icon.png' />
                 <link rel='shortcut icon' href='/favicon.ico' />

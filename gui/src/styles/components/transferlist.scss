@@ -1,0 +1,27 @@
+.transfer-list {
+    position: relative;
+    overflow: hidden;
+
+    &-overlay {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 8px;
+
+        transform: translateY(20px);
+        transition: all var(--md-sys-motion-standard);
+    }
+
+    &.hover {
+        .transfer-list-overlay {
+            opacity: 1;
+            transform: translateY(0);
+            background-color: var(--md-sys-color-secondary-container);
+        }
+    }
+}
