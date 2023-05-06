@@ -1,6 +1,4 @@
 mod protocol;
-mod udp;
-mod tcp;
 mod crypt;
 mod client;
 
@@ -17,7 +15,8 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::str::FromStr;
 
 use std::time::{Duration};
-use crate::udp::WaitingClient;
+use crate::client::ActiveClient;
+use crate::client::udp::UdpWaitingClient;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "full");
@@ -35,11 +34,11 @@ fn main() {
     let dst_port: u16 = args[2].parse().unwrap();
 
 
-    let partner_addr = Ipv6Addr::from_str("0:0:0:0:0:0:0:0").unwrap();
-    let client = WaitingClient::new(Some(src_port)).unwrap();
-    let mut client = client.connect(partner_addr, dst_port, Some(Duration::from_secs(120))).unwrap();
+    let partner_addr = Ipv6Addr::from_str("2a02:3038:410:e0b7:bdfb:f29d:cdb3:13f3").unwrap();
+    let client = UdpWaitingClient::new(Some(src_port)).unwrap();
+    let mut client = client.connect(partner_addr, dst_port, Some(Duration::from_secs(120)), Some(Duration::from_secs(10))).unwrap();
 
-    client.writer_ref().write(b"Hallo mein Freund!", None).unwrap();
+    client.writer_ref().write(b"Hallo mein Freund! Wie geht es dir?").unwrap();
 
     println!("{}", String::from_utf8(client.reader_ref().read(None).unwrap()).unwrap());
 

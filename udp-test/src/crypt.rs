@@ -1,8 +1,8 @@
 use dryoc::dryocstream::{DryocStream, Pull, Push};
-use crate::udp::ActiveClient;
+use crate::client::udp::UdpActiveClient;
 
 pub struct EncryptedClient {
-    client: ActiveClient,
+    client: UdpActiveClient,
     decrypt_stream: DryocStream<Pull>,
     encrypt_stream: DryocStream<Push>,
 }
