@@ -32,15 +32,18 @@ pub struct TcpActiveClient {
 }
 
 impl ActiveClient for TcpActiveClient {
-    fn split(self) -> (Box<dyn ClientWriter>, Box<dyn ClientReader>) {
+    type Reader = TcpClientReader;
+    type Writer = TcpClientWriter;
+
+    fn split(self) -> (TcpClientWriter, TcpClientReader) {
         todo!()
     }
 
-    fn reader_ref(&mut self) -> Box<&mut dyn ClientReader> {
+    fn reader_ref(&mut self) -> &mut TcpClientReader {
         todo!()
     }
 
-    fn writer_ref(&mut self) -> Box<&mut dyn ClientWriter> {
+    fn writer_ref(&mut self) -> &mut TcpClientWriter {
         todo!()
     }
 

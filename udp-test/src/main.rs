@@ -1,7 +1,5 @@
 mod protocol;
-mod crypt;
 mod client;
-
 use crate::protocol::{connect, handshake};
 
 
@@ -14,8 +12,8 @@ use std::env;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::str::FromStr;
 
-use std::time::{Duration};
-use crate::client::ActiveClient;
+use std::time::Duration;
+use crate::client::{ActiveClient, ClientReader, ClientWriter, EncryptedClient};
 use crate::client::udp::UdpWaitingClient;
 
 fn main() {
@@ -38,8 +36,7 @@ fn main() {
     let client = UdpWaitingClient::new(Some(src_port)).unwrap();
     let mut client = client.connect(partner_addr, dst_port, Some(Duration::from_secs(120)), Some(Duration::from_secs(10))).unwrap();
 
-    client.writer_ref().write(b"Hallo mein Freund! Wie geht es dir?").unwrap();
+    let encrypted_client = EncryptedClient::new(client);
 
-    println!("{}", String::from_utf8(client.reader_ref().read(None).unwrap()).unwrap());
 
 }

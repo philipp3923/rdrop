@@ -48,18 +48,18 @@ impl UdpWaitingClient {
     }
 }
 
-struct UdpActiveClient {
+pub struct UdpActiveClient {
     writer_client: UdpClientWriter,
     reader_client: UdpClientReader,
 }
 
-struct UdpClientReader {
+pub struct UdpClientReader {
     thread_handle: Option<JoinHandle<Result<(), Box<dyn Error + Send + Sync>>>>,
     stop_thread: Sender<()>,
     message_receiver: Receiver<Vec<u8>>,
 }
 
-struct UdpClientWriter {
+pub struct UdpClientWriter {
     udp_socket: UdpSocket,
     send_counter: u8,
     ack_receiver: Receiver<u8>,
@@ -294,16 +294,19 @@ impl UdpActiveClient {
 }
 
 impl ActiveClient for UdpActiveClient{
-    fn split(self) -> (Box<dyn ClientWriter>, Box<dyn ClientReader>) {
-        (Box::new(self.writer_client), Box::new(self.reader_client))
+    type Reader = UdpClientReader;
+    type Writer = UdpClientWriter;
+
+    fn split(self) -> (UdpClientWriter, UdpClientReader) {
+        (self.writer_client, self.reader_client)
     }
 
-    fn reader_ref(&mut self) -> Box<&mut dyn ClientReader> {
-        Box::new(&mut self.reader_client)
+    fn reader_ref(&mut self) -> &mut UdpClientReader {
+        &mut self.reader_client
     }
 
-    fn writer_ref(&mut self) -> Box<&mut dyn ClientWriter> {
-        Box::new(&mut self.writer_client)
+    fn writer_ref(&mut self) -> &mut UdpClientWriter {
+        &mut self.writer_client
     }
 
     fn max_msg_len(&self) -> u32 {
@@ -313,6 +316,7 @@ impl ActiveClient for UdpActiveClient{
 
 #[cfg(test)]
 mod tests {
+    use std::thread::sleep;
     use super::*;
 
     #[test]

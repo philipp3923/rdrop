@@ -3,6 +3,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::net::Ipv6Addr;
 use std::time::Duration;
+use dryoc::dryocstream::{DryocStream, Pull, Push};
 
 pub mod udp;
 pub mod tcp;
@@ -12,9 +13,12 @@ pub trait WaitingClient {
 }
 
 pub trait ActiveClient {
-    fn split(self) -> (Box<dyn ClientWriter>, Box<dyn ClientReader>);
-    fn reader_ref(&mut self) -> Box<&mut dyn ClientReader>;
-    fn writer_ref(&mut self) -> Box<&mut dyn ClientWriter>;
+    type Reader: ClientReader;
+    type Writer: ClientWriter;
+
+    fn split(self) -> (Self::Writer, Self::Reader);
+    fn reader_ref(&mut self) -> &mut Self::Reader;
+    fn writer_ref(&mut self) -> &mut Self::Writer;
     fn max_msg_len(&self) -> u32;
 }
 
@@ -39,5 +43,53 @@ impl Display for TimeoutError {
 impl Error for TimeoutError {
     fn description(&self) -> &str {
         "The given timelimit was exceeded"
+    }
+}
+
+
+pub struct EncryptedClient<AC: ActiveClient> {
+    active_client: AC
+}
+
+impl<AC: ActiveClient> EncryptedClient<AC> {
+
+    pub fn new(active_client: AC) -> Result<(EncryptedReader<AC::Reader>, EncryptedWriter<AC::Writer>), Box<dyn Error>> {
+        let (writer, reader) = active_client.split();
+
+
+        todo!()
+    }
+}
+
+
+pub struct EncryptedReader<CR: ClientReader>{
+    pull_stream: DryocStream<Pull>,
+    client_reader: CR
+}
+
+impl<CR: ClientReader> EncryptedReader<CR> {
+
+    fn new(pull_stream: DryocStream<Pull>, client_reader: CR) -> EncryptedReader<CR> {
+        EncryptedReader {client_reader, pull_stream}
+    }
+
+    fn read() -> Result<Vec<u8>, Box<dyn Error>> {
+        todo!()
+    }
+}
+
+pub struct EncryptedWriter<CW: ClientWriter> {
+    push_stream: DryocStream<Push>,
+    client_writer: CW
+}
+
+impl<CW: ClientWriter> EncryptedWriter<CW> {
+
+    fn new(push_stream: DryocStream<Push>, client_writer: CW) -> EncryptedWriter<CW> {
+        EncryptedWriter {client_writer, push_stream}
+    }
+
+    fn write(msg: &[u8]) -> Result<(), Box<dyn Error>> {
+        todo!()
     }
 }
