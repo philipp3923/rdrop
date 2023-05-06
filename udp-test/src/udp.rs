@@ -121,9 +121,11 @@ impl ReaderClient {
 
                 let mut header = [0u8; 6];
 
-                match udp_socket.peek_from(header.as_mut_slice()) {
-                    Ok(_) => {}
-                    Err(_) => continue,
+                match udp_socket.peek(header.as_mut_slice()) {
+                    Ok(_) => {},
+                    Err(e) => { if header[0] == 0 {
+                        continue; }
+                    },
                 }
 
                 let msg_type = header[0];
@@ -131,7 +133,7 @@ impl ReaderClient {
 
                 match msg_type {
                     0xCC => {
-                        udp_socket.recv_from(header.as_mut_slice()).unwrap();
+                        udp_socket.recv(header.as_mut_slice()).unwrap();
 
                         println!("CC {}", msg_number);
 
@@ -145,7 +147,7 @@ impl ReaderClient {
                         udp_socket.send([0xAA, msg_number].as_slice())?;
                     }
                     0xAA => {
-                        udp_socket.recv_from(header.as_mut_slice()).unwrap();
+                        udp_socket.recv(header.as_mut_slice()).unwrap();
 
                         println!("AA {}", msg_number);
 
@@ -159,8 +161,8 @@ impl ReaderClient {
                             msg_content.push(0);
                         }
 
-                        let _actual_len = match udp_socket.recv_from(msg_content.as_mut_slice()) {
-                            Ok((l,_)) => l as u32,
+                        let _actual_len = match udp_socket.recv(msg_content.as_mut_slice()) {
+                            Ok(l) => l as u32,
                             Err(_) => continue,
                         };
 
