@@ -8,7 +8,7 @@ use std::thread::{JoinHandle, sleep};
 use std::time::{Duration, Instant};
 
 const MSG_RESEND_DELAY: Duration = Duration::from_millis(100);
-const CONNECT_MSG_INTERVAL: Duration = Duration::from_millis(50);
+const PING_RESEND_DELAY: Duration = Duration::from_millis(50);
 
 pub struct WaitingClient {
     udp_socket: UdpSocket,
@@ -16,7 +16,7 @@ pub struct WaitingClient {
 
 impl WaitingClient {
     pub fn new(port: Option<u16>) -> Result<WaitingClient, Box<dyn Error>> {
-        let bind_addr = IpAddr::from(Ipv6Addr::from(1));
+        let bind_addr = IpAddr::from(Ipv6Addr::from(0));
         let bind_addr = SocketAddr::new(bind_addr, port.unwrap_or(0));
         let udp_socket = UdpSocket::bind(&bind_addr)?;
 
@@ -236,7 +236,7 @@ impl WriterClient {
         while timeout.is_zero() || now.elapsed() <= timeout {
             self.udp_socket.send(&[0xCC, self.send_counter])?;
 
-            match self.ack_receiver.recv_timeout(MSG_RESEND_DELAY) {
+            match self.ack_receiver.recv_timeout(PING_RESEND_DELAY) {
                 Ok(msg_number) => {
                     if msg_number != self.send_counter {
                         continue;
