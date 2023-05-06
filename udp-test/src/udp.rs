@@ -257,8 +257,9 @@ impl WriterClient {
     }
 
     pub fn write(&mut self, msg: &[u8], timeout: Option<Duration>) -> Result<(), Box<dyn Error>> {
-        if msg.len() > 2 ^ 32 {
-            return Err(Box::new(MessageOverflowError::new(msg.len(), 2 ^ 32)));
+        const MAX_LEN: usize = 4294967295u32 as usize; // 2^32-1
+        if msg.len() > MAX_LEN {
+            return Err(Box::new(MessageOverflowError::new(msg.len(), MAX_LEN)));
         }
 
         let now = Instant::now();
@@ -502,5 +503,35 @@ mod tests {
 
         assert!(!c1.reader_client.thread_handle.as_ref().unwrap().is_finished());
         assert!(!c2.reader_client.thread_handle.as_ref().unwrap().is_finished());
+    }
+
+    #[test]
+    fn test_write_string(){
+        let (mut c1, mut c2) = prepare_local();
+        let timeout = Duration::from_secs(2);
+        let msg = b"Hallo mein Freund! Wie geht es dir?";
+
+        c1.writer_ref().write(msg, Some(timeout)).unwrap();
+
+        assert_eq!(c2.reader_ref().read(Some(timeout)).unwrap(), msg);
+        drop(c1);
+        drop(c2);
+    }
+
+    #[test]
+    fn test_write_1kb_msg(){
+        let (mut c1, mut c2) = prepare_local();
+        let timeout = Duration::from_secs(2);
+        let mut msg: Vec<u8> = Vec::with_capacity(1000);
+
+        (0..1000).for_each(|i| {
+           msg.push((i % 256) as u8);
+        });
+
+        c1.writer_ref().write(msg.as_slice(), Some(timeout)).unwrap();
+
+        assert_eq!(c2.reader_ref().read(Some(timeout)).unwrap(), msg.as_slice());
+        drop(c1);
+        drop(c2);
     }
 }
