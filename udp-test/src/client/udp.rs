@@ -283,14 +283,6 @@ impl UdpActiveClient {
         });
     }
 
-    fn reader_ref(&mut self) -> &mut UdpClientReader {
-        &mut self.reader_client
-    }
-
-    fn writer_ref(&mut self) -> &mut UdpClientWriter {
-        &mut self.writer_client
-    }
-
 }
 
 impl ActiveClient for UdpActiveClient{
