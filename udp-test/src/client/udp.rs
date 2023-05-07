@@ -249,7 +249,6 @@ impl UdpClientWriter {
 
 impl ClientWriter for UdpClientWriter{
     fn write(&mut self, msg: &[u8]) -> Result<(), Box<dyn Error>> {
-        assert!(msg.len() <= MAX_LEN);
 
         let now = Instant::now();
         let timeout = self.timeout;
@@ -311,10 +310,6 @@ impl ActiveClient for UdpActiveClient{
 
     fn writer_ref(&mut self) -> &mut UdpClientWriter {
         &mut self.writer_client
-    }
-
-    fn max_msg_len(&self) -> u32 {
-        return MAX_LEN as u32;
     }
 }
 

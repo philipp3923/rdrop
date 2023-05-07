@@ -46,10 +46,6 @@ impl ActiveClient for TcpActiveClient {
     fn writer_ref(&mut self) -> &mut TcpClientWriter {
         todo!()
     }
-
-    fn max_msg_len(&self) -> u32 {
-        todo!()
-    }
 }
 
 pub struct TcpClientReader {

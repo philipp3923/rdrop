@@ -38,7 +38,6 @@ fn main() {
     let client = UdpWaitingClient::new(Some(src_port)).unwrap();
     let mut client = client.connect(partner_addr, dst_port, Some(Duration::from_secs(120)), Some(Duration::from_secs(10))).unwrap();
 
-    let encrypted_client = EncryptedClient::new(client);
 
 
 }
