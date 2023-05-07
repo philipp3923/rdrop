@@ -72,8 +72,14 @@ impl<CR: ClientReader> EncryptedReader<CR> {
     fn new(pull_stream: DryocStream<Pull>, client_reader: CR) -> EncryptedReader<CR> {
         EncryptedReader {client_reader, pull_stream}
     }
+}
 
-    fn read() -> Result<Vec<u8>, Box<dyn Error>> {
+impl<CR: ClientReader> ClientReader for EncryptedReader<CR> {
+    fn try_read(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
+        todo!()
+    }
+
+    fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, Box<dyn Error>> {
         todo!()
     }
 }
@@ -89,7 +95,10 @@ impl<CW: ClientWriter> EncryptedWriter<CW> {
         EncryptedWriter {client_writer, push_stream}
     }
 
-    fn write(msg: &[u8]) -> Result<(), Box<dyn Error>> {
+}
+
+impl<CW: ClientWriter> ClientWriter for EncryptedWriter<CW> {
+    fn write(&mut self, msg: &[u8]) -> Result<(), Box<dyn Error>> {
         todo!()
     }
 }

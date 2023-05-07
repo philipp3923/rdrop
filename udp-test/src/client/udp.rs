@@ -6,6 +6,7 @@ use std::{thread};
 use std::thread::{JoinHandle};
 use std::time::{Duration, Instant};
 use crate::client::{ActiveClient, ClientReader, ClientWriter, TimeoutError};
+use crate::protocol::ChangeStateError;
 
 const MSG_RESEND_DELAY: Duration = Duration::from_millis(100);
 const PING_RESEND_DELAY: Duration = Duration::from_millis(50);
@@ -30,15 +31,26 @@ impl UdpWaitingClient {
         port: u16,
         connect_timeout: Option<Duration>,
         disconnect_timeout: Option<Duration>
-    ) -> Result<UdpActiveClient, Box<dyn Error>> {
+    ) -> Result<UdpActiveClient, ChangeStateError<Self>> {
         let peer_addr = IpAddr::from(peer);
         let peer_addr = SocketAddr::new(peer_addr, port);
 
-        self.udp_socket.connect(&peer_addr)?;
+        match self.udp_socket.connect(&peer_addr) {
+            Ok(_) => {}
+            Err(e) => return Err(ChangeStateError::new(self, Box::new(e)))
+        }
+
+        let udp_socket_copy = match self.udp_socket.try_clone() {
+            Ok(socket) => socket,
+            Err(e) => return Err(ChangeStateError::new(self, Box::new(e)))
+        };
 
         let mut active_client = UdpActiveClient::new(self.udp_socket, disconnect_timeout).unwrap();
 
-        active_client.writer_ref().ping(connect_timeout)?;
+        match active_client.writer_ref().ping(connect_timeout){
+            Ok(_) => {}
+            Err(e) => return Err(ChangeStateError::new(UdpWaitingClient {udp_socket: udp_socket_copy}, e))
+        }
 
         return Ok(active_client);
     }

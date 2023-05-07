@@ -1,6 +1,8 @@
-mod protocol;
+mod protocol_old;
 mod client;
-use crate::protocol::{connect, handshake};
+mod protocol;
+
+use crate::protocol_old::{connect, handshake};
 
 
 
