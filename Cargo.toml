@@ -1,8 +1,6 @@
 [workspace]
 
 members = [
-    "connection",
     "gui/src-tauri",
-    "cli",
-    "udp-test"
+    "p2p"
 ]

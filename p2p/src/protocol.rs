@@ -1,19 +1,15 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use std::net::{Ipv6Addr, TcpStream};
+use std::net::{Ipv6Addr};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
 use dryoc::dryocbox::{Bytes, KeyPair};
 use dryoc::dryocstream::{DryocStream, Header, Pull, Push};
 use dryoc::kx::{Session, SessionKey};
 use dryoc::sign::PublicKey;
 use rand::{Rng, thread_rng};
-use socket2::Socket;
-
 use crate::client::{ActiveClient, ClientReader, ClientWriter, EncryptedReader, EncryptedWriter, WaitingClient};
 use crate::client::tcp::{TcpActiveClient, TcpClientReader, TcpClientWriter, TcpWaitingClient};
 use crate::client::udp::{UdpActiveClient, UdpClientReader, UdpClientWriter, UdpWaitingClient};
-use crate::protocol_old::connect;
 
 pub trait EncryptionState {}
 

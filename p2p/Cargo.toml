@@ -1,10 +1,13 @@
 [package]
-name = "cli"
-version = "0.1.0"
+name = "p2p"
+version = "1.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = {version = "4.2.4", features = ["derive"] }
-connection = {path = "../connection"}
+chrono = "0.4.24"
+dryoc = "0.5.0"
+rand = "0.8.5"
+rsntp = "3.0.2"
+socket2 = "0.5.2"

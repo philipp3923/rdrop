@@ -1,23 +1,12 @@
-mod protocol_old;
-mod client;
-mod protocol;
-
-use crate::protocol_old::{connect as other_connect, handshake};
-
-
-
-use rsntp::SntpClient;
-
-use std::{env, thread};
-
-
+use std::{env};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::str::FromStr;
-
 use std::time::Duration;
 use crate::client::{ActiveClient, ClientReader, ClientWriter, EncryptedClient};
-use crate::client::udp::UdpWaitingClient;
 use crate::protocol::{Active, Connection, Plain, Udp, Waiting};
+
+pub mod client;
+pub mod protocol;
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "full");

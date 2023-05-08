@@ -7,8 +7,8 @@
       <sourceFolder url="file://$MODULE_DIR$/connection/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/gui/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/udp-test/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/gui/src-tauri/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/p2p/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

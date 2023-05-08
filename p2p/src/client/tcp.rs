@@ -1,8 +1,6 @@
 use std::error::Error;
 use std::io::{Read, Write};
-use std::mem::MaybeUninit;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
-use std::sync::mpsc::RecvTimeoutError::Timeout;
 use std::thread::sleep;
 use std::time::Duration;
 use socket2::{Domain, SockAddr, Socket, Type};
@@ -156,7 +154,7 @@ mod tests {
     use std::ops::Add;
     use std::thread;
     use std::time::SystemTime;
-    use crate::client::TimeoutError;
+    use crate::lib::TimeoutError;
     use super::*;
 
     fn connect() -> Result<(TcpActiveClient, TcpActiveClient), Box<dyn Error>> {
