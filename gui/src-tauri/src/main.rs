@@ -18,6 +18,7 @@ fn main() {
     tauri::Builder::default()
         .setup(|app| {
             let handle = app.handle();
+            let event_handler = EventHandler::new(handle.clone());
             let window = app.get_window("main").unwrap();
             set_shadow(&window, true).expect("Unsupported platform!");
 
@@ -26,14 +27,11 @@ fn main() {
             });
 
             app.listen_global("app://start", move |event| {
-                sleep(Duration::new(1, 0));
-                handle.emit_all("app://update-status", "Encrypting").unwrap();
-                sleep(Duration::new(1, 0));
-                handle.emit_all("app://update-status", "Punching holes").unwrap();
-                sleep(Duration::new(1, 0));
-                handle.emit_all("app://update-status", "Doing literally nothing").unwrap();
-                sleep(Duration::new(1, 0));
-                handle.emit_all("app://update-status", "SHEEESSHHH").unwrap();
+                event_handler.send_update_status("Connecting", "", false);
+                sleep(Duration::new(2, 0));
+                event_handler.send_update_status("Punshing holes", "Real deep", false);
+                sleep(Duration::new(2, 0));
+                event_handler.send_update_status("Failed to establish connection", "Timeout", true);
             });
 
 
@@ -42,4 +40,34 @@ fn main() {
         .invoke_handler(tauri::generate_handler![greet])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+struct EventHandler {
+    handle: tauri::AppHandle,
+}
+
+impl EventHandler {
+    fn new(handle: tauri::AppHandle) -> Self {
+        Self { handle }
+    }
+
+    fn send_update_status(&self, status: &str, description: &str, error: bool) {
+        self.handle
+            .emit_all("app://update-status", Status { status: status.into(), description: description.into(), error: error})
+            .unwrap();
+    }
+}
+
+#[derive(Clone, serde::Serialize)]
+struct Status {
+    status: String,
+    description: String,
+    error: bool,
+}
+
+struct FileEntry {
+    id: String,
+    name: String,
+    size: u64,
+    is_sender: bool,
 }

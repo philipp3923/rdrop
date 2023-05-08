@@ -1,13 +1,16 @@
-.transfer{
-    height: 100%;
+.transfer {
+    height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    position: relative;
 
     &-main {
         display: grid;
         grid-template-columns: auto 1fr;
         gap: 16px;
         height: 100%;
+        overflow: hidden;
     }
 
     &-actions {
@@ -21,7 +24,12 @@
         }
     }
 
-    &-files > div {
+    &-files {
         height: 100%;
+        overflow: hidden;
+
+        & > div {
+            height: 100%;
+        }
     }
 }
