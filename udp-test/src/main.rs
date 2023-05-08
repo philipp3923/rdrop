@@ -24,7 +24,7 @@ fn main() {
 
     let timeout = Duration::from_secs(60);
 
-    let ipv6 = Ipv6Addr::from_str("").unwrap();
+    let ipv6 = Ipv6Addr::from_str("2003:df:f747:3900:7848:4eff:c80e:9d92").unwrap();
 
     let connection = Connection::new(Some(2000)).unwrap();
 
@@ -32,11 +32,11 @@ fn main() {
 
     let connection = connection.encrypt().unwrap();
 
-    let connection = connection.upgrade().unwrap();
+    //let connection = connection.upgrade().unwrap();
 
     let (mut writer, mut reader) = connection.accept();
 
-    writer.write(b"Hallo was geht").unwrap();
+    writer.write(b"Hallo was geht Hallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtHallo was gehtv").unwrap();
 
     let response = reader.read(Some(timeout)).unwrap();
 

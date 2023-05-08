@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use std::net::Ipv6Addr;
+use std::net::{Ipv6Addr, TcpStream};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use dryoc::dryocbox::{Bytes, KeyPair};
@@ -8,6 +8,7 @@ use dryoc::dryocstream::{DryocStream, Header, Pull, Push};
 use dryoc::kx::{Session, SessionKey};
 use dryoc::sign::PublicKey;
 use rand::{Rng, thread_rng};
+use socket2::Socket;
 
 use crate::client::{ActiveClient, ClientReader, ClientWriter, EncryptedReader, EncryptedWriter, WaitingClient};
 use crate::client::tcp::{TcpActiveClient, TcpClientReader, TcpClientWriter, TcpWaitingClient};
@@ -204,7 +205,7 @@ impl Connection<Active<Plain<Udp>>> {
 
 impl Connection<Active<Encrypted<Udp>>> {
     pub fn upgrade(mut self) -> Result<Connection<Active<Encrypted<Tcp>>>, ChangeStateError<Self>> {
-        let tcp_client = match TcpWaitingClient::new(None) {
+        let mut tcp_client = match TcpWaitingClient::new(None) {
             Ok(client) => client,
             Err(err) => return Err(ChangeStateError::new(self, err))
         };
@@ -214,39 +215,16 @@ impl Connection<Active<Encrypted<Udp>>> {
             Err(err) => return Err(ChangeStateError::new(self, err))
         };
 
-        let wait_time: Duration;
-
-        match self.state.role {
-            Role::Server => {
-                match self.collect_samples(50) {
-                    Ok(_) => {}
-                    Err(err) => return Err(ChangeStateError::new(self, err)),
-                };
-                wait_time = match self.set_connect_time() {
-                    Ok(t) => t,
-                    Err(err) => return Err(ChangeStateError::new(self, err)),
-                };
-            }
-            Role::Client => {
-                match self.provide_samples() {
-                    Ok(_) => {}
-                    Err(err) => return Err(ChangeStateError::new(self, err)),
-                };
-
-                wait_time = match self.get_connect_time() {
-                    Ok(t) => t,
-                    Err(err) => return Err(ChangeStateError::new(self, err)),
-                };
-            }
-            Role::None => todo!(),
-        }
-
-        println!("delay {}", wait_time.as_nanos());
-
-        let tcp_client = match tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time)) {
+        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 10) {
             Ok(client) => client,
-            Err(err) => return Err(ChangeStateError::new(self, err.1)),
+            Err(client) => {
+                match self.sample_and_connect(client, peer_port) {
+                    Ok(c) => c,
+                    Err(err) => return Err(ChangeStateError::new(self, err.1)),
+                }
+            }
         };
+
 
         let (tcp_writer, tcp_reader) = tcp_client.split();
 
@@ -256,6 +234,48 @@ impl Connection<Active<Encrypted<Udp>>> {
         let connection = Connection::<Active<Encrypted<Tcp>>> { state: Active { peer_ip: self.state.peer_ip, role: self.state.role, timeout: self.state.timeout, client: Encrypted { encrypted_writer, clock_diff_samples: self.state.client.clock_diff_samples, encrypted_reader, max_delay: self.state.client.max_delay } } };
 
         return Ok(connection);
+    }
+
+    fn multi_sample_and_connect(&mut self, mut tcp_client: TcpWaitingClient, peer_port: u16, tries: u8) -> Result<TcpActiveClient, TcpWaitingClient> {
+        for _ in 0..tries {
+            tcp_client = match self.sample_and_connect(tcp_client, peer_port) {
+                Ok(c) => return Ok(c),
+                Err(err) => err.0,
+            };
+        }
+
+        Err(tcp_client)
+    }
+
+    fn sample_and_connect(&mut self, tcp_client: TcpWaitingClient, peer_port: u16) -> Result<TcpActiveClient, ChangeStateError<TcpWaitingClient>> {
+        let wait_time: Duration;
+
+        match self.state.role {
+            Role::Server => {
+                match self.collect_samples(50) {
+                    Ok(_) => {}
+                    Err(err) => return Err(ChangeStateError::new(tcp_client, err)),
+                };
+                wait_time = match self.set_connect_time() {
+                    Ok(t) => t,
+                    Err(err) => return Err(ChangeStateError::new(tcp_client, err)),
+                };
+            }
+            Role::Client => {
+                match self.provide_samples() {
+                    Ok(_) => {}
+                    Err(err) => return Err(ChangeStateError::new(tcp_client, err)),
+                };
+
+                wait_time = match self.get_connect_time() {
+                    Ok(t) => t,
+                    Err(err) => return Err(ChangeStateError::new(tcp_client, err)),
+                };
+            }
+            Role::None => todo!(),
+        }
+
+        return tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time));
     }
 
     fn set_connect_time(&mut self) -> Result<Duration, Box<dyn Error>> {
@@ -596,8 +616,8 @@ mod tests {
         let t1 = c1.get_connect_time().unwrap();
         let t2 = thread_c2.join().unwrap();
 
-        println!("{}", t1.as_nanos() - t2.as_nanos());
-        assert!(t1.as_nanos() - t2.as_nanos() < Duration::from_millis(1).as_nanos());
+        println!("{}", ((t1.as_nanos() as i128 - t2.as_nanos() as i128).abs() as u128));
+        assert!(((t1.as_nanos() as i128 - t2.as_nanos() as i128).abs() as u128) < Duration::from_millis(1).as_nanos());
     }
 
     fn try_upgrade_tcp(mut c1: Connection<Active<Encrypted<Udp>>>, mut c2: Connection<Active<Encrypted<Udp>>>, tries: u8) -> Result<(Connection<Active<Encrypted<Tcp>>>, Connection<Active<Encrypted<Tcp>>>), (Connection<Active<Encrypted<Udp>>>, Connection<Active<Encrypted<Udp>>>)>{
