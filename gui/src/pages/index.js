@@ -16,7 +16,10 @@ export default function Home() {
     const [isConnecting, setConnecting] = useState("none");
     const [connectionStatus, setConncectionStatus] = useState("Connecting");
     const [ipError, setIPError] = useState(false);
+    const [portError, setPortError] = useState(false);
     const ipRef = useRef(null);
+    const portRef = useRef(null);
+
     const ip = usePublicIP();
 
     async function handleConnect() {
@@ -28,7 +31,13 @@ export default function Home() {
             setIPError("Address is invalid");
             return;
         }
+        setIPError(false);
 
+        if(!portRef.current.value.match(/^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$/)) {
+            setPortError("Port is invalid");
+            return;
+        }
+        setPortError(false);
         setConnecting("connecting");
 
         emit("app://start");
@@ -74,7 +83,7 @@ export default function Home() {
                     className="connect-form"
                 >
                     <InputField id="ip" label="Partner IP Address" ref={ipRef} error={ipError} />
-                    <InputField id="port" onChange={(e) => setName(e.currentTarget.value)} label="Port" />
+                    <InputField type="number" id="port" label="Port" ref={portRef} error={portError} defaultValue="2000"/>
                     {isConnecting === "connecting" && (
                         <Button tonal large onClick={handleAbort}>
                             Cancel
