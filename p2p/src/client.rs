@@ -201,7 +201,7 @@ mod tests {
         });
 
         let c1 = c1.connect(ipv6, p2, Some(timeout), Some(timeout)).unwrap();
-        let mut c1 = c1.encrypt().unwrap();
+        let c1 = c1.encrypt().unwrap();
         let c2 = thread_c2.join().unwrap();
 
         (c1, c2)
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_multi_block() {
-        let (mut c1, mut c2) = connect();
+        let (c1, c2) = connect();
 
         let (mut c1_writer, mut c1_reader) = c1.accept();
         let (mut c2_writer, mut c2_reader) = c2.accept();
