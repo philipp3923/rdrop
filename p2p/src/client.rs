@@ -1,11 +1,11 @@
+use dryoc::dryocstream::{DryocStream, Pull, Push, Tag};
 use std::error::Error;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::net::Ipv6Addr;
+
 use std::time::Duration;
-use dryoc::dryocstream::{DryocStream, Pull, Push, Tag};
-pub mod udp;
 pub mod tcp;
+pub mod udp;
 
 pub trait WaitingClient {
     fn get_port(&self) -> u16;
@@ -44,14 +44,16 @@ impl Error for TimeoutError {
     }
 }
 
-
 pub struct EncryptedClient<AC: ActiveClient> {
-    active_client: AC
+    _active_client: AC,
 }
 
 impl<AC: ActiveClient> EncryptedClient<AC> {
-
-    pub fn new(active_client: AC, push_stream: DryocStream<Push>, pull_stream: DryocStream<Pull>) -> (EncryptedReader<AC::Reader>, EncryptedWriter<AC::Writer>) {
+    pub fn new(
+        active_client: AC,
+        push_stream: DryocStream<Push>,
+        pull_stream: DryocStream<Pull>,
+    ) -> (EncryptedReader<AC::Reader>, EncryptedWriter<AC::Writer>) {
         let (writer, reader) = active_client.split();
 
         let encrypted_reader = EncryptedReader::new(pull_stream, reader);
@@ -63,16 +65,19 @@ impl<AC: ActiveClient> EncryptedClient<AC> {
 
 const BLOCK_SIZE: usize = 1024;
 
-pub struct EncryptedReader<CR: ClientReader>{
+pub struct EncryptedReader<CR: ClientReader> {
     pub(crate) pull_stream: DryocStream<Pull>,
     client_reader: CR,
-    buffer: Option<Vec<u8>>
+    buffer: Option<Vec<u8>>,
 }
 
 impl<CR: ClientReader> EncryptedReader<CR> {
-
     pub fn new(pull_stream: DryocStream<Pull>, client_reader: CR) -> EncryptedReader<CR> {
-        EncryptedReader {client_reader, pull_stream, buffer: None}
+        EncryptedReader {
+            client_reader,
+            pull_stream,
+            buffer: None,
+        }
     }
 }
 
@@ -130,15 +135,16 @@ impl<CR: ClientReader> ClientReader for EncryptedReader<CR> {
 
 pub struct EncryptedWriter<CW: ClientWriter> {
     pub(crate) push_stream: DryocStream<Push>,
-    client_writer: CW
+    client_writer: CW,
 }
 
 impl<CW: ClientWriter> EncryptedWriter<CW> {
-
     pub fn new(push_stream: DryocStream<Push>, client_writer: CW) -> EncryptedWriter<CW> {
-        EncryptedWriter {client_writer, push_stream}
+        EncryptedWriter {
+            client_writer,
+            push_stream,
+        }
     }
-
 }
 
 impl<CW: ClientWriter> ClientWriter for EncryptedWriter<CW> {
@@ -157,7 +163,7 @@ impl<CW: ClientWriter> ClientWriter for EncryptedWriter<CW> {
         }
 
         if msg.len() % BLOCK_SIZE != 0 {
-            let block = &msg[msg.len()-(msg.len()%BLOCK_SIZE)..msg.len()];
+            let block = &msg[msg.len() - (msg.len() % BLOCK_SIZE)..msg.len()];
 
             let encrypted_block = self.push_stream.push_to_vec(&block, None, Tag::PUSH)?;
 
@@ -170,11 +176,15 @@ impl<CW: ClientWriter> ClientWriter for EncryptedWriter<CW> {
 
 #[cfg(test)]
 mod tests {
-    use std::thread;
-    use crate::protocol::{Active, Connection, Encrypted, Udp, Waiting};
+    use std::net::Ipv6Addr;
     use super::*;
+    use crate::protocol::{Active, Connection, Encrypted, Udp, Waiting};
+    use std::thread;
 
-    fn connect() -> (Connection<Active<Encrypted<Udp>>>, Connection<Active<Encrypted<Udp>>>){
+    fn connect() -> (
+        Connection<Active<Encrypted<Udp>>>,
+        Connection<Active<Encrypted<Udp>>>,
+    ) {
         let timeout = Duration::from_millis(100);
 
         let c1 = Connection::<Waiting>::new(None).unwrap();
@@ -224,8 +234,8 @@ mod tests {
         let (mut c1_writer, mut c1_reader) = c1.accept();
         let (mut c2_writer, mut c2_reader) = c2.accept();
 
-        let fitting_msg = [24; BLOCK_SIZE*3];
-        let overflow_msg = [24; BLOCK_SIZE*3+BLOCK_SIZE/3];
+        let fitting_msg = [24; BLOCK_SIZE * 3];
+        let overflow_msg = [24; BLOCK_SIZE * 3 + BLOCK_SIZE / 3];
 
         c1_writer.write(fitting_msg.as_slice()).unwrap();
         c2_writer.write(overflow_msg.as_slice()).unwrap();
@@ -244,7 +254,7 @@ mod tests {
         let (mut c1_writer, _c1_reader) = c1.accept();
         let (mut _c2_writer, mut c2_reader) = c2.accept();
 
-        let overflow_msg = [24; BLOCK_SIZE*100+BLOCK_SIZE/3];
+        let overflow_msg = [24; BLOCK_SIZE * 100 + BLOCK_SIZE / 3];
 
         let thread_c1 = thread::spawn(move || {
             c1_writer.write(&overflow_msg).unwrap();

@@ -1,30 +1,36 @@
+use crate::client::{ActiveClient, ClientReader, ClientWriter, WaitingClient};
+use crate::protocol::ChangeStateError;
+use socket2::{Domain, SockAddr, Socket, Type};
 use std::error::Error;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
 use std::thread::sleep;
 use std::time::Duration;
-use socket2::{Domain, SockAddr, Socket, Type};
-use crate::client::{ActiveClient, ClientReader, ClientWriter, WaitingClient};
-use crate::protocol::ChangeStateError;
 
 pub struct TcpWaitingClient {
-    tcp_socket: Socket
+    tcp_socket: Socket,
 }
 
 impl TcpWaitingClient {
-    pub fn new(port: Option<u16>) -> Result<TcpWaitingClient, Box<dyn Error>>{
+    pub fn new(port: Option<u16>) -> Result<TcpWaitingClient, Box<dyn Error>> {
         let tcp_socket = Socket::new(Domain::IPV6, Type::STREAM, None)?;
 
-        let sock_addr =  SockAddr::from(SocketAddr::new(IpAddr::from(Ipv6Addr::from(0)), port.unwrap_or(0)));
+        let sock_addr = SockAddr::from(SocketAddr::new(
+            IpAddr::from(Ipv6Addr::from(0)),
+            port.unwrap_or(0),
+        ));
 
         tcp_socket.bind(&sock_addr)?;
 
-        Ok(TcpWaitingClient {tcp_socket})
+        Ok(TcpWaitingClient { tcp_socket })
     }
 
-    pub fn connect(self,
-               peer: Ipv6Addr,
-               port: u16, wait: Option<Duration>) -> Result<TcpActiveClient, ChangeStateError<Self>> {
+    pub fn connect(
+        self,
+        peer: Ipv6Addr,
+        port: u16,
+        wait: Option<Duration>,
+    ) -> Result<TcpActiveClient, ChangeStateError<Self>> {
         if wait.is_some() {
             sleep(wait.unwrap());
         }
@@ -33,8 +39,9 @@ impl TcpWaitingClient {
 
         return match self.tcp_socket.connect(&sock_addr) {
             Ok(_) => {
-                let mut tcp_stream = TcpStream::from(self.tcp_socket);
-                Ok(TcpActiveClient::new(tcp_stream)) },
+                let tcp_stream = TcpStream::from(self.tcp_socket);
+                Ok(TcpActiveClient::new(tcp_stream))
+            }
             Err(err) => Err(ChangeStateError::new(self, Box::new(err))),
         };
     }
@@ -42,13 +49,18 @@ impl TcpWaitingClient {
 
 impl WaitingClient for TcpWaitingClient {
     fn get_port(&self) -> u16 {
-        self.tcp_socket.local_addr().unwrap().as_socket().unwrap().port()
+        self.tcp_socket
+            .local_addr()
+            .unwrap()
+            .as_socket()
+            .unwrap()
+            .port()
     }
 }
 
 pub struct TcpActiveClient {
     writer_client: TcpClientWriter,
-    reader_client: TcpClientReader
+    reader_client: TcpClientReader,
 }
 
 impl ActiveClient for TcpActiveClient {
@@ -69,25 +81,25 @@ impl ActiveClient for TcpActiveClient {
 }
 
 impl TcpActiveClient {
-
     fn new(tcp_stream: TcpStream) -> TcpActiveClient {
         let tcp_stream_clone = tcp_stream.try_clone().unwrap();
 
         let reader_client = TcpClientReader::new(tcp_stream);
         let writer_client = TcpClientWriter::new(tcp_stream_clone);
 
-        return TcpActiveClient {reader_client, writer_client};
+        return TcpActiveClient {
+            reader_client,
+            writer_client,
+        };
     }
-
 }
 
 pub struct TcpClientReader {
-    tcp_stream: TcpStream
+    tcp_stream: TcpStream,
 }
 
 impl TcpClientReader {
     fn new(tcp_stream: TcpStream) -> TcpClientReader {
-
         TcpClientReader { tcp_stream }
     }
 }
@@ -100,7 +112,7 @@ impl ClientReader for TcpClientReader {
         return msg;
     }
 
-    fn read(&mut self, timeout: Option<std::time::Duration>) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, Box<dyn Error>> {
         self.tcp_stream.set_read_timeout(timeout)?;
 
         let mut header = [0u8; 4];
@@ -111,7 +123,7 @@ impl ClientReader for TcpClientReader {
 
         let mut msg = Vec::<u8>::with_capacity(size);
 
-        (0..size).for_each(| i| {msg.push(0)});
+        (0..size).for_each(|_i| msg.push(0));
 
         self.tcp_stream.read_exact(msg.as_mut_slice())?;
 
@@ -120,7 +132,7 @@ impl ClientReader for TcpClientReader {
 }
 
 pub struct TcpClientWriter {
-    tcp_stream: TcpStream
+    tcp_stream: TcpStream,
 }
 
 impl TcpClientWriter {
@@ -151,11 +163,11 @@ impl ClientWriter for TcpClientWriter {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::client::TimeoutError;
     use std::ops::Add;
     use std::thread;
     use std::time::SystemTime;
-    use crate::lib::TimeoutError;
-    use super::*;
 
     fn connect() -> Result<(TcpActiveClient, TcpActiveClient), Box<dyn Error>> {
         let ipv6 = Ipv6Addr::from(1);
@@ -166,16 +178,30 @@ mod tests {
         let p1 = c1.get_port();
         let p2 = c2.get_port();
 
-        let connect_time= SystemTime::now().add(Duration::from_millis(50));
+        let connect_time = SystemTime::now().add(Duration::from_millis(50));
 
-        let thread_c2 = thread::spawn( move || {
-            return c2.connect(ipv6, p1, Some(connect_time.duration_since(SystemTime::now()).unwrap())).unwrap();
+        let thread_c2 = thread::spawn(move || {
+            return c2
+                .connect(
+                    ipv6,
+                    p1,
+                    Some(connect_time.duration_since(SystemTime::now()).unwrap()),
+                )
+                .unwrap();
         });
 
-        let c1 = c1.connect(ipv6, p2, Some(connect_time.duration_since(SystemTime::now()).unwrap()))?;
+        let c1 = c1.connect(
+            ipv6,
+            p2,
+            Some(connect_time.duration_since(SystemTime::now()).unwrap()),
+        )?;
         let c2 = match thread_c2.join() {
             Ok(c) => c,
-            Err(_e) => {return Err(Box::new(TimeoutError(connect_time.duration_since(SystemTime::now())?)));}
+            Err(_e) => {
+                return Err(Box::new(TimeoutError(
+                    connect_time.duration_since(SystemTime::now())?,
+                )));
+            }
         };
 
         Ok((c1, c2))
@@ -197,8 +223,8 @@ mod tests {
     fn test_read_write_string() {
         let mut clients = connect();
         for _ in 0..10 {
-            if clients.is_ok(){
-                break
+            if clients.is_ok() {
+                break;
             }
             clients = connect();
         }
@@ -224,8 +250,8 @@ mod tests {
     fn test_read_write_string_complex() {
         let mut clients = connect();
         for _ in 0..10 {
-            if clients.is_ok(){
-                break
+            if clients.is_ok() {
+                break;
             }
             clients = connect();
         }

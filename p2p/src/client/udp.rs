@@ -1,16 +1,15 @@
+use crate::client::{ActiveClient, ClientReader, ClientWriter, TimeoutError};
+use crate::protocol::ChangeStateError;
 use std::error::Error;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use std::{thread};
-use std::thread::{JoinHandle};
+use std::thread;
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use crate::client::{ActiveClient, ClientReader, ClientWriter, TimeoutError};
-use crate::protocol::ChangeStateError;
 
 const MSG_RESEND_DELAY: Duration = Duration::from_millis(100);
 const PING_RESEND_DELAY: Duration = Duration::from_millis(50);
-const MAX_LEN: usize = 508u32 as usize;
 
 pub struct UdpWaitingClient {
     udp_socket: UdpSocket,
@@ -30,26 +29,33 @@ impl UdpWaitingClient {
         peer: Ipv6Addr,
         port: u16,
         connect_timeout: Option<Duration>,
-        disconnect_timeout: Option<Duration>
+        disconnect_timeout: Option<Duration>,
     ) -> Result<UdpActiveClient, ChangeStateError<Self>> {
         let peer_addr = IpAddr::from(peer);
         let peer_addr = SocketAddr::new(peer_addr, port);
 
         match self.udp_socket.connect(&peer_addr) {
             Ok(_) => {}
-            Err(e) => return Err(ChangeStateError::new(self, Box::new(e)))
+            Err(e) => return Err(ChangeStateError::new(self, Box::new(e))),
         }
 
         let udp_socket_copy = match self.udp_socket.try_clone() {
             Ok(socket) => socket,
-            Err(e) => return Err(ChangeStateError::new(self, Box::new(e)))
+            Err(e) => return Err(ChangeStateError::new(self, Box::new(e))),
         };
 
         let mut active_client = UdpActiveClient::new(self.udp_socket, disconnect_timeout).unwrap();
 
-        match active_client.writer_ref().ping(connect_timeout){
+        match active_client.writer_ref().ping(connect_timeout) {
             Ok(_) => {}
-            Err(e) => return Err(ChangeStateError::new(UdpWaitingClient {udp_socket: udp_socket_copy}, e))
+            Err(e) => {
+                return Err(ChangeStateError::new(
+                    UdpWaitingClient {
+                        udp_socket: udp_socket_copy,
+                    },
+                    e,
+                ))
+            }
         }
 
         return Ok(active_client);
@@ -75,109 +81,113 @@ pub struct UdpClientWriter {
     udp_socket: UdpSocket,
     send_counter: u8,
     ack_receiver: Receiver<u8>,
-    timeout: Duration
+    timeout: Duration,
 }
 
 impl UdpClientReader {
-    pub fn new(udp_socket: UdpSocket, ack_sender: Sender<u8>) -> Result<UdpClientReader, Box<dyn Error>> {
+    pub fn new(
+        udp_socket: UdpSocket,
+        ack_sender: Sender<u8>,
+    ) -> Result<UdpClientReader, Box<dyn Error>> {
         let (stop_sender, stop_receiver) = mpsc::channel::<()>();
         let (message_sender, message_receiver) = mpsc::channel::<Vec<u8>>();
 
         udp_socket.set_read_timeout(Some(Duration::from_millis(100)))?;
 
-        let thread_handle: JoinHandle<Result<(), Box<dyn Error + Send + Sync>>> = thread::spawn(move || {
-            let mut msg_counter = 0;
+        let thread_handle: JoinHandle<Result<(), Box<dyn Error + Send + Sync>>> =
+            thread::spawn(move || {
+                let mut msg_counter = 0;
 
-            loop {
-                if stop_receiver.try_recv().is_ok() {
-                    println!("shutting down");
-                    return Ok(());
-                }
-
-                let mut header = [0u8; 6];
-
-                match udp_socket.peek(header.as_mut_slice()) {
-                    Ok(_) => {},
-                    Err(e) => {
-                        if header[0] == 0 {
-                            continue;
-                        }
-                    },
-                }
-
-                let msg_type = header[0];
-                let msg_number = header[1];
-
-                match msg_type {
-                    0xCC => {
-                        udp_socket.recv(header.as_mut_slice()).unwrap();
-
-                        println!("CC {}", msg_number);
-
-                        if msg_number == msg_counter {
-                            msg_counter = match msg_counter {
-                                255 => 0,
-                                x => x + 1,
-                            };
-                        }
-
-                        udp_socket.send([0xAA, msg_number].as_slice())?;
+                loop {
+                    if stop_receiver.try_recv().is_ok() {
+                        println!("shutting down");
+                        return Ok(());
                     }
-                    0xAA => {
-                        udp_socket.recv(header.as_mut_slice()).unwrap();
 
-                        println!("AA {}", msg_number);
+                    let mut header = [0u8; 6];
 
-                        ack_sender.send(msg_number)?;
-                    }
-                    0xDD => {
-                        let msg_len = u32::from_be_bytes(header[2..6].try_into().unwrap());
-
-                        let mut msg_content = vec![0u8; msg_len as usize + 6];
-                        for _ in 0..msg_len {
-                            msg_content.push(0);
+                    match udp_socket.peek(header.as_mut_slice()) {
+                        Ok(_) => {}
+                        Err(_e) => {
+                            if header[0] == 0 {
+                                continue;
+                            }
                         }
+                    }
 
-                        let _actual_len = match udp_socket.recv(msg_content.as_mut_slice()) {
-                            Ok(l) => l as u32,
-                            Err(_) => continue,
-                        };
+                    let msg_type = header[0];
+                    let msg_number = header[1];
 
-                        let msg_content = Vec::from(&msg_content[6..msg_len as usize + 6]);
+                    match msg_type {
+                        0xCC => {
+                            udp_socket.recv(header.as_mut_slice()).unwrap();
 
-                        println!(
-                            "DD {}: l({}) v({}) - {:?}",
-                            msg_number,
-                            msg_len,
-                            msg_content.len(),
-                            msg_content.as_slice()
-                        );
+                            println!("CC {}", msg_number);
 
-                        if msg_number == msg_counter {
-                            msg_counter = match msg_counter {
-                                255 => 0,
-                                x => x + 1,
+                            if msg_number == msg_counter {
+                                msg_counter = match msg_counter {
+                                    255 => 0,
+                                    x => x + 1,
+                                };
+                            }
+
+                            udp_socket.send([0xAA, msg_number].as_slice())?;
+                        }
+                        0xAA => {
+                            udp_socket.recv(header.as_mut_slice()).unwrap();
+
+                            println!("AA {}", msg_number);
+
+                            ack_sender.send(msg_number)?;
+                        }
+                        0xDD => {
+                            let msg_len = u32::from_be_bytes(header[2..6].try_into().unwrap());
+
+                            let mut msg_content = vec![0u8; msg_len as usize + 6];
+                            for _ in 0..msg_len {
+                                msg_content.push(0);
+                            }
+
+                            let _actual_len = match udp_socket.recv(msg_content.as_mut_slice()) {
+                                Ok(l) => l as u32,
+                                Err(_) => continue,
                             };
 
-                            message_sender.send(msg_content)?;
-                        }
+                            let msg_content = Vec::from(&msg_content[6..msg_len as usize + 6]);
 
-                        udp_socket.send([0xAA, msg_number].as_slice())?;
+                            println!(
+                                "DD {}: l({}) v({}) - {:?}",
+                                msg_number,
+                                msg_len,
+                                msg_content.len(),
+                                msg_content.as_slice()
+                            );
+
+                            if msg_number == msg_counter {
+                                msg_counter = match msg_counter {
+                                    255 => 0,
+                                    x => x + 1,
+                                };
+
+                                message_sender.send(msg_content)?;
+                            }
+
+                            udp_socket.send([0xAA, msg_number].as_slice())?;
+                        }
+                        _ => continue,
                     }
-                    _ => continue,
                 }
-            }
-        });
+            });
 
         return Ok(UdpClientReader {
             message_receiver,
             thread_handle: Some(thread_handle),
-            stop_thread: stop_sender
+            stop_thread: stop_sender,
         });
     }
 }
 
-impl ClientReader for UdpClientReader{
+impl ClientReader for UdpClientReader {
     fn try_read(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
         Ok(self.message_receiver.try_recv()?)
     }
@@ -185,7 +195,7 @@ impl ClientReader for UdpClientReader{
     fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, Box<dyn Error>> {
         return match timeout {
             None => Ok(self.message_receiver.recv()?),
-            Some(t) => Ok(self.message_receiver.recv_timeout(t)?)
+            Some(t) => Ok(self.message_receiver.recv_timeout(t)?),
         };
     }
 }
@@ -198,13 +208,17 @@ impl Drop for UdpClientReader {
 }
 
 impl UdpClientWriter {
-    pub fn new(udp_socket: UdpSocket, ack_receiver: Receiver<u8>, timeout: Option<Duration>) -> UdpClientWriter {
+    pub fn new(
+        udp_socket: UdpSocket,
+        ack_receiver: Receiver<u8>,
+        timeout: Option<Duration>,
+    ) -> UdpClientWriter {
         return UdpClientWriter {
             udp_socket,
             ack_receiver,
             send_counter: 0,
-            timeout: timeout.unwrap_or(Duration::from_secs(0))
-        }
+            timeout: timeout.unwrap_or(Duration::from_secs(0)),
+        };
     }
 
     fn prepare_msg(&mut self, msg: &[u8]) -> Vec<u8> {
@@ -247,9 +261,8 @@ impl UdpClientWriter {
     }
 }
 
-impl ClientWriter for UdpClientWriter{
+impl ClientWriter for UdpClientWriter {
     fn write(&mut self, msg: &[u8]) -> Result<(), Box<dyn Error>> {
-
         let now = Instant::now();
         let timeout = self.timeout;
         let msg = self.prepare_msg(msg);
@@ -278,10 +291,11 @@ impl ClientWriter for UdpClientWriter{
     }
 }
 
-
-
 impl UdpActiveClient {
-    pub fn new(udp_socket: UdpSocket, ack_timeout: Option<Duration>) -> Result<UdpActiveClient, Box<dyn Error>> {
+    pub fn new(
+        udp_socket: UdpSocket,
+        ack_timeout: Option<Duration>,
+    ) -> Result<UdpActiveClient, Box<dyn Error>> {
         let (ack_sender, ack_receiver) = mpsc::channel::<u8>();
         let udp_socket_clone = udp_socket.try_clone()?;
 
@@ -290,13 +304,12 @@ impl UdpActiveClient {
 
         return Ok(UdpActiveClient {
             reader_client: reader,
-            writer_client: writer
+            writer_client: writer,
         });
     }
-
 }
 
-impl ActiveClient for UdpActiveClient{
+impl ActiveClient for UdpActiveClient {
     type Reader = UdpClientReader;
     type Writer = UdpClientWriter;
 
@@ -315,8 +328,10 @@ impl ActiveClient for UdpActiveClient{
 
 #[cfg(test)]
 mod tests {
-    use std::thread::sleep;
     use super::*;
+    use std::thread::sleep;
+
+    const MAX_LEN: usize = 508u32 as usize;
 
     #[test]
     fn test_prepare_msg() {
@@ -325,7 +340,7 @@ mod tests {
         udp_socket.connect(socket_addr).unwrap();
         let mut active_client = UdpActiveClient::new(udp_socket, None).unwrap();
 
-        let msg = [1,2,3,4];
+        let msg = [1, 2, 3, 4];
         let prepared_msg = active_client.writer_ref().prepare_msg(msg.as_slice());
         assert_eq!(prepared_msg[0], 0xDD);
         assert_eq!(prepared_msg[1], 0);
@@ -352,7 +367,6 @@ mod tests {
         assert_eq!(prepared_msg[9], 4);
         assert_eq!(prepared_msg.len(), 10);
     }
-
 
     #[test]
     fn test_same_port() {
@@ -435,7 +449,6 @@ mod tests {
     #[test]
     fn test_send_local() {
         let (mut c1, mut c2) = prepare_local();
-        let timeout = Duration::from_secs(2);
 
         assert!(c1.writer_ref().write([1, 2, 3, 4].as_slice()).is_ok());
         assert!(c2.writer_ref().write([1, 2, 3, 4].as_slice()).is_ok());
@@ -463,7 +476,6 @@ mod tests {
     #[test]
     fn test_stress_local() {
         let (mut c1, mut c2) = prepare_local();
-        let timeout = Duration::from_secs(2);
 
         for i in 0..10000u32 {
             c1.writer_ref().write(&i.to_be_bytes()).unwrap();
@@ -471,7 +483,14 @@ mod tests {
 
         for i in 0..10000u32 {
             assert_eq!(
-                u32::from_be_bytes(c2.reader_ref().try_read().unwrap().as_slice().try_into().unwrap()),
+                u32::from_be_bytes(
+                    c2.reader_ref()
+                        .try_read()
+                        .unwrap()
+                        .as_slice()
+                        .try_into()
+                        .unwrap()
+                ),
                 i
             );
         }
@@ -481,15 +500,25 @@ mod tests {
     }
 
     #[test]
-    fn test_reader_thread(){
-        let (mut c1, mut c2) = prepare_local();
+    fn test_reader_thread() {
+        let (c1, c2) = prepare_local();
 
-        assert!(!c1.reader_client.thread_handle.as_ref().unwrap().is_finished());
-        assert!(!c2.reader_client.thread_handle.as_ref().unwrap().is_finished());
+        assert!(!c1
+            .reader_client
+            .thread_handle
+            .as_ref()
+            .unwrap()
+            .is_finished());
+        assert!(!c2
+            .reader_client
+            .thread_handle
+            .as_ref()
+            .unwrap()
+            .is_finished());
     }
 
     #[test]
-    fn test_write_string(){
+    fn test_write_string() {
         let (mut c1, mut c2) = prepare_local();
         let timeout = Duration::from_secs(2);
         let msg = b"Hallo mein Freund! Wie geht es dir?";
@@ -502,13 +531,13 @@ mod tests {
     }
 
     #[test]
-    fn test_write_max_len(){
+    fn test_write_max_len() {
         let (mut c1, mut c2) = prepare_local();
         let timeout = Duration::from_secs(2);
         let mut msg: Vec<u8> = Vec::with_capacity(MAX_LEN);
 
         (0..MAX_LEN).for_each(|i| {
-           msg.push((i % 256) as u8);
+            msg.push((i % 256) as u8);
         });
 
         c1.writer_ref().write(msg.as_slice()).unwrap();
