@@ -1,6 +1,8 @@
 use std::error::Error;
-use std::io::Write;
-use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::io::{Read, Write};
+use std::mem::MaybeUninit;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
+use std::sync::mpsc::RecvTimeoutError::Timeout;
 use std::thread::sleep;
 use std::time::Duration;
 use socket2::{Domain, SockAddr, Socket, Type};
@@ -12,7 +14,7 @@ pub struct TcpWaitingClient {
 }
 
 impl TcpWaitingClient {
-    fn new(port: Option<u16>) -> Result<TcpWaitingClient, Box<dyn Error>>{
+    pub fn new(port: Option<u16>) -> Result<TcpWaitingClient, Box<dyn Error>>{
         let tcp_socket = Socket::new(Domain::IPV6, Type::STREAM, None)?;
 
         let sock_addr =  SockAddr::from(SocketAddr::new(IpAddr::from(Ipv6Addr::from(0)), port.unwrap_or(0)));
@@ -22,7 +24,7 @@ impl TcpWaitingClient {
         Ok(TcpWaitingClient {tcp_socket})
     }
 
-    fn connect(self,
+    pub fn connect(self,
                peer: Ipv6Addr,
                port: u16, wait: Option<Duration>) -> Result<TcpActiveClient, ChangeStateError<Self>> {
         if wait.is_some() {
@@ -32,7 +34,9 @@ impl TcpWaitingClient {
         let sock_addr = SockAddr::from(SocketAddr::new(IpAddr::from(peer), port));
 
         return match self.tcp_socket.connect(&sock_addr) {
-            Ok(_) => Ok(TcpActiveClient::new(self.tcp_socket)),
+            Ok(_) => {
+                let mut tcp_stream = TcpStream::from(self.tcp_socket);
+                Ok(TcpActiveClient::new(tcp_stream)) },
             Err(err) => Err(ChangeStateError::new(self, Box::new(err))),
         };
     }
@@ -68,11 +72,11 @@ impl ActiveClient for TcpActiveClient {
 
 impl TcpActiveClient {
 
-    fn new(tcp_socket: Socket) -> TcpActiveClient {
-        let tcp_socket_clone = tcp_socket.try_clone().unwrap();
+    fn new(tcp_stream: TcpStream) -> TcpActiveClient {
+        let tcp_stream_clone = tcp_stream.try_clone().unwrap();
 
-        let reader_client = TcpClientReader::new(tcp_socket);
-        let writer_client = TcpClientWriter::new(tcp_socket_clone);
+        let reader_client = TcpClientReader::new(tcp_stream);
+        let writer_client = TcpClientWriter::new(tcp_stream_clone);
 
         return TcpActiveClient {reader_client, writer_client};
     }
@@ -80,39 +84,55 @@ impl TcpActiveClient {
 }
 
 pub struct TcpClientReader {
-    tcp_socket: Socket
+    tcp_stream: TcpStream
 }
 
 impl TcpClientReader {
-    fn new(tcp_socket: Socket) -> TcpClientReader {
+    fn new(tcp_stream: TcpStream) -> TcpClientReader {
 
-        TcpClientReader { tcp_socket }
+        TcpClientReader { tcp_stream }
     }
 }
 
 impl ClientReader for TcpClientReader {
     fn try_read(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
-        todo!()
+        self.tcp_stream.set_nonblocking(true)?;
+        let msg = self.read(None);
+        self.tcp_stream.set_nonblocking(false)?;
+        return msg;
     }
 
     fn read(&mut self, timeout: Option<std::time::Duration>) -> Result<Vec<u8>, Box<dyn Error>> {
-        //peek header size and read exact
-        todo!()
+        self.tcp_stream.set_read_timeout(timeout)?;
+
+        let mut header = [0u8; 4];
+
+        self.tcp_stream.read_exact(header.as_mut_slice())?;
+
+        let size = u32::from_be_bytes(header) as usize;
+
+        let mut msg = Vec::<u8>::with_capacity(size);
+
+        (0..size).for_each(| i| {msg.push(0)});
+
+        self.tcp_stream.read_exact(msg.as_mut_slice())?;
+
+        return Ok(msg);
     }
 }
 
 pub struct TcpClientWriter {
-    tcp_socket: Socket
+    tcp_stream: TcpStream
 }
 
 impl TcpClientWriter {
-    fn new(tcp_socket: Socket) -> TcpClientWriter {
-        TcpClientWriter { tcp_socket }
+    fn new(tcp_stream: TcpStream) -> TcpClientWriter {
+        TcpClientWriter { tcp_stream }
     }
 
     fn prepare_msg(&mut self, msg: &[u8]) -> Vec<u8> {
         let len = msg.len();
-        let mut result = Vec::with_capacity(len + 4 + 4);
+        let mut result = Vec::with_capacity(len + 4);
 
         result.extend_from_slice(&(len as u32).to_be_bytes());
         result.extend_from_slice(msg);
@@ -124,7 +144,7 @@ impl TcpClientWriter {
 impl ClientWriter for TcpClientWriter {
     fn write(&mut self, msg: &[u8]) -> Result<(), Box<dyn Error>> {
         let msg = self.prepare_msg(msg);
-        match self.tcp_socket.write(&msg) {
+        match self.tcp_stream.write(&msg) {
             Ok(_) => Ok(()),
             Err(e) => Err(Box::new(e)),
         }
@@ -165,7 +185,6 @@ mod tests {
 
     #[test]
     fn test_connect() {
-
         for _ in 0..10 {
             match connect() {
                 Ok(_) => return,
@@ -174,5 +193,72 @@ mod tests {
         }
 
         connect().unwrap();
+    }
+
+    #[test]
+    fn test_read_write_string() {
+        let mut clients = connect();
+        for _ in 0..10 {
+            if clients.is_ok(){
+                break
+            }
+            clients = connect();
+        }
+
+        assert!(clients.is_ok());
+
+        let (mut c1, mut c2) = clients.unwrap();
+
+        let c1_msg = b"Das ist ein Test. Diese Nachricht wird von c1 an c2 versendet.";
+        let c2_msg = b"Das ist ein Test. Diese Nachricht wird von c2 an c1 versendet.";
+
+        c1.writer_client.write(c1_msg).unwrap();
+        c2.writer_client.write(c2_msg).unwrap();
+
+        let c1_recv = c1.reader_client.try_read().unwrap();
+        let c2_recv = c2.reader_client.try_read().unwrap();
+
+        assert_eq!(c1_msg.as_slice(), c2_recv.as_slice());
+        assert_eq!(c2_msg.as_slice(), c1_recv.as_slice());
+    }
+
+    #[test]
+    fn test_read_write_string_complex() {
+        let mut clients = connect();
+        for _ in 0..10 {
+            if clients.is_ok(){
+                break
+            }
+            clients = connect();
+        }
+
+        assert!(clients.is_ok());
+
+        let (mut c1, mut c2) = clients.unwrap();
+
+        let c1_msg = b"Das ist ein Test. Diese Nachricht wird von c1 an c2 versendet.";
+        let c2_msg = b"Das ist ein Test. Diese Nachricht wird von c2 an c1 versendet.";
+
+        for _ in 0..10 {
+            c1.writer_client.write(c1_msg).unwrap();
+            c2.writer_client.write(c2_msg).unwrap();
+
+            let c1_recv = c1.reader_client.try_read().unwrap();
+            let c2_recv = c2.reader_client.try_read().unwrap();
+
+            assert_eq!(c1_msg.as_slice(), c2_recv.as_slice());
+            assert_eq!(c2_msg.as_slice(), c1_recv.as_slice());
+
+            c1.writer_client.write(c1_msg).unwrap();
+            c2.writer_client.write(c2_msg).unwrap();
+
+            let timeout = Some(Duration::from_millis(1));
+
+            let c1_recv = c1.reader_client.read(timeout).unwrap();
+            let c2_recv = c2.reader_client.read(timeout).unwrap();
+
+            assert_eq!(c1_msg.as_slice(), c2_recv.as_slice());
+            assert_eq!(c2_msg.as_slice(), c1_recv.as_slice());
+        }
     }
 }

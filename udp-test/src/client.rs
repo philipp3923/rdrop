@@ -65,7 +65,7 @@ impl<AC: ActiveClient> EncryptedClient<AC> {
 const BLOCK_SIZE: usize = 1024;
 
 pub struct EncryptedReader<CR: ClientReader>{
-    pull_stream: DryocStream<Pull>,
+    pub(crate) pull_stream: DryocStream<Pull>,
     client_reader: CR,
     buffer: Option<Vec<u8>>
 }
@@ -130,7 +130,7 @@ impl<CR: ClientReader> ClientReader for EncryptedReader<CR> {
 }
 
 pub struct EncryptedWriter<CW: ClientWriter> {
-    push_stream: DryocStream<Push>,
+    pub(crate) push_stream: DryocStream<Push>,
     client_writer: CW
 }
 
@@ -240,10 +240,10 @@ mod tests {
 
     #[test]
     fn try_read_async() {
-        let (mut c1, mut c2) = connect();
+        let (c1, c2) = connect();
 
-        let (mut c1_writer, mut c1_reader) = c1.accept();
-        let (mut c2_writer, mut c2_reader) = c2.accept();
+        let (mut c1_writer, _c1_reader) = c1.accept();
+        let (mut _c2_writer, mut c2_reader) = c2.accept();
 
         let overflow_msg = [24; BLOCK_SIZE*100+BLOCK_SIZE/3];
 
