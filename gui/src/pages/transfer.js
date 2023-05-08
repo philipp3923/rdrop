@@ -3,12 +3,22 @@ import Layout from '../layouts/Layout';
 import MatIcon from '../components/MatIcon';
 import { useRouter } from 'next/router';
 import TransferList from '../components/TransferList';
+import { open } from '@tauri-apps/api/dialog';
+import { emit } from '@tauri-apps/api/event';
 
 export default function Transfer() {
     const router = useRouter();
 
     const handleClose = () => {
         router.push('/');
+    }
+
+    const handleUpload = async () => {
+        const selected = await open({
+            multiple: true
+          });
+
+        emit("app://add-file", selected);
     }
 
     return (
@@ -18,7 +28,7 @@ export default function Transfer() {
             </section>
             <section className='layout-large transfer-main p-b-24'>
                 <div className="transfer-actions">
-                    <Button tonal large>
+                    <Button tonal large onClick={handleUpload}>
                         <MatIcon left>file_upload</MatIcon>
                         Upload File
                     </Button>

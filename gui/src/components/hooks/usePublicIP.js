@@ -8,6 +8,7 @@ export const usePublicIP = () => {
 
     useEffect(() => {
         getPublicIP().then((data) => {
+            if(data.ipv6.includes(".")) data.ipv6 = "NOT AVAILABLE";
             setIp(data);
             cache = data;
         });

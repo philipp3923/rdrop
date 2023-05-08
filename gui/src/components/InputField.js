@@ -39,7 +39,7 @@ export default forwardRef(({ control, error, description, onChange, onBlur, name
         {description !== undefined && <p className="input-field-description">
             {description}
         </p>}
-        {error !== undefined && <div className="input-field-error">
+        {error !== undefined && error !== false && <div className="input-field-error">
             <InputAlert>{error}</InputAlert>
         </div>}
     </div>

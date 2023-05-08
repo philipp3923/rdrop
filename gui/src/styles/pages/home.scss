@@ -17,4 +17,36 @@
             margin-left: 100px;
         }
     }
+
+    &-ip {
+        
+    }
+
+    &-status {
+        position: absolute;
+        inset: 0;
+
+        display: flex;
+        justify-content: center;
+        align-items: center;
+
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all var(--md-sys-motion-standard);
+    }
+
+    &-container {
+        position: relative;
+
+        &.connection-connecting {
+            .home-ip {
+                opacity: 0;
+            }
+
+            .home-status {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    }
 }

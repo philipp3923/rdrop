@@ -1,12 +1,15 @@
 import { useState } from "react";
 import MatIcon from "./MatIcon";
 import useTauriEvent from "./hooks/useTauriEvent";
+import { emit } from "@tauri-apps/api/event";
 
 export default function TransferList() {
     const [hover, setHover] = useState(false);
 
     useTauriEvent("tauri://file-drop", (event) => {
         console.log(event);
+
+        emit("app://add-file", event.payload);
         setHover(false);
     })
 
