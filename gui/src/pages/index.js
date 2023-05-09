@@ -44,6 +44,7 @@ export default function Home() {
         }
         setPortError(false);
         setConnecting('connecting');
+        setConncectionStatus({ status: '' });
 
         emit('app://connect', { ip, port });
     }
@@ -80,7 +81,7 @@ export default function Home() {
                         <h2 className='title-medium'>IPv4 Address</h2>
                         <h1 className='headline-large'>{ip.ipv4}</h1>
                         <h2 className='title-medium m-t-16'>IPv6 Address</h2>
-                        <h1 className='headline-large'>{ip.ipv6}<span>:{ipv6Port}</span></h1>
+                        <h1 className='headline-large'>{ip.ipv6}{ipv6Port && <span>:{ipv6Port}</span>}</h1>
                     </div>
                     <div className={'home-status' + (connectionStatus.error ? ' error' : '')}>
                         <Loader />
