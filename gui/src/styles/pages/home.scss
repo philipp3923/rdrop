@@ -20,6 +20,11 @@
 
     &-ip {
         z-index: 1;
+
+        span {
+            color: var(--md-sys-color-secondary);
+            margin-left: 16px;
+        }
     }
 
     &-status {
@@ -52,7 +57,8 @@
         position: relative;
         overflow: hidden;
 
-        &.connection-connecting {
+        &.connection-connecting,
+        &.connection-failed {
             .home-ip {
                 opacity: 0;
             }
