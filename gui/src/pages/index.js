@@ -51,6 +51,7 @@ export default function Home() {
 
     async function handleAbort() {
         setConnecting('none');
+        emit('app://abort');
     }
 
     useTauriEvent('app://update-status', (event) => {
