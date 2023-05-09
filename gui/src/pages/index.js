@@ -16,6 +16,7 @@ export default function Home() {
     const router = useRouter();
     const [isConnecting, setConnecting] = useState('none');
     const [connectionStatus, setConncectionStatus] = useState({ status: '' });
+    const [ipv6Port, setIPv6Port] = useState("187");
     const [ipError, setIPError] = useState(false);
     const [portError, setPortError] = useState(false);
     const ipRef = useRef(null);
@@ -47,13 +48,17 @@ export default function Home() {
         setConnecting('none');
     }
 
-    useTauriEvent('app://update-status', (status) => {
-        setConncectionStatus(status?.payload);
+    useTauriEvent('app://update-status', (event) => {
+        setConncectionStatus(event?.payload);
     });
 
-    useTauriEvent('app://socket-failed', (status) => {
+    useTauriEvent('app://update-port', (event) => {
+        setIPv6Port(event?.payload);
+    });
+
+    useTauriEvent('app://socket-failed', (event) => {
         setConnecting('failed');
-        setConncectionStatus(status?.payload);
+        setConncectionStatus(event?.payload);
     });
 
     useTauriEvent('app://connected', () => {
@@ -71,7 +76,7 @@ export default function Home() {
                         <h2 className='title-medium'>IPv4 Address</h2>
                         <h1 className='headline-large'>{ip.ipv4}</h1>
                         <h2 className='title-medium m-t-16'>IPv6 Address</h2>
-                        <h1 className='headline-large'>{ip.ipv6}</h1>
+                        <h1 className='headline-large'>{ip.ipv6}<span>:{ipv6Port}</span></h1>
                     </div>
                     <div className={'home-status' + (connectionStatus.error ? ' error' : '')}>
                         <Loader />

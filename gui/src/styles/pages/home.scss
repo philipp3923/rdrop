@@ -20,6 +20,11 @@
 
     &-ip {
         z-index: 1;
+
+        span {
+            color: var(--md-sys-color-secondary);
+            margin-left: 16px;
+        }
     }
 
     &-status {

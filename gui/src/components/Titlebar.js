@@ -1,4 +1,5 @@
 import { appWindow } from '@tauri-apps/api/window'
+import MatIcon from './MatIcon';
 
 export default function Titlebar() {
     const handleMinimize = () => {
@@ -16,13 +17,13 @@ export default function Titlebar() {
     return (
         <div data-tauri-drag-region className='titlebar'>
             <div className='titlebar-button' id='titlebar-minimize' onClick={handleMinimize}>
-                <span>&#xE921;</span>
+                <MatIcon size="small">minimize</MatIcon>
             </div>
             <div className='titlebar-button' id='titlebar-maximize' onClick={handleMaximize}>
-                <span>&#xE922;</span>
+                <MatIcon size="small">stop</MatIcon>
             </div>
             <div className='titlebar-button' id='titlebar-close' onClick={handleClose}>
-                <span>&#xE8BB;</span>
+                <MatIcon size="small">close</MatIcon>
             </div>
         </div>
     );
