@@ -24,6 +24,10 @@ export default function Home() {
 
     const ip = usePublicIP();
 
+    useEffect(() => {
+        emit("app://start");
+    }, []);
+
     async function handleConnect() {
         const ip = ipRef.current.value;
         const port = portRef.current.value;
