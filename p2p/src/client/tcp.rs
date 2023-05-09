@@ -1,7 +1,8 @@
 use crate::client::{ActiveClient, ClientReader, ClientWriter, WaitingClient};
-use crate::protocol::ChangeStateError;
+use crate::error::{Error as P2pError, ChangeStateError};
 use socket2::{Domain, SockAddr, Socket, Type};
-use std::error::Error;
+
+
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
 use std::thread::sleep;
@@ -12,7 +13,7 @@ pub struct TcpWaitingClient {
 }
 
 impl TcpWaitingClient {
-    pub fn new(port: Option<u16>) -> Result<TcpWaitingClient, Box<dyn Error>> {
+    pub fn new(port: Option<u16>) -> Result<TcpWaitingClient, P2pError> {
         let tcp_socket = Socket::new(Domain::IPV6, Type::STREAM, None)?;
 
         let sock_addr = SockAddr::from(SocketAddr::new(
@@ -82,6 +83,7 @@ impl ActiveClient for TcpActiveClient {
 
 impl TcpActiveClient {
     fn new(tcp_stream: TcpStream) -> TcpActiveClient {
+        // non recoverable error. Program should panic
         let tcp_stream_clone = tcp_stream.try_clone().unwrap();
 
         let reader_client = TcpClientReader::new(tcp_stream);
@@ -105,14 +107,14 @@ impl TcpClientReader {
 }
 
 impl ClientReader for TcpClientReader {
-    fn try_read(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn try_read(&mut self) -> Result<Vec<u8>, P2pError> {
         self.tcp_stream.set_nonblocking(true)?;
         let msg = self.read(None);
         self.tcp_stream.set_nonblocking(false)?;
         return msg;
     }
 
-    fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, P2pError> {
         self.tcp_stream.set_read_timeout(timeout)?;
 
         let mut header = [0u8; 4];
@@ -152,11 +154,11 @@ impl TcpClientWriter {
 }
 
 impl ClientWriter for TcpClientWriter {
-    fn write(&mut self, msg: &[u8]) -> Result<(), Box<dyn Error>> {
+    fn write(&mut self, msg: &[u8]) -> Result<(), P2pError> {
         let msg = self.prepare_msg(msg);
         match self.tcp_stream.write(&msg) {
             Ok(_) => Ok(()),
-            Err(e) => Err(Box::new(e)),
+            Err(e) => Err(P2pError::from(e)),
         }
     }
 }
@@ -164,12 +166,13 @@ impl ClientWriter for TcpClientWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client::TimeoutError;
+
     use std::ops::Add;
     use std::thread;
     use std::time::SystemTime;
+    use crate::error::ErrorKind;
 
-    fn connect() -> Result<(TcpActiveClient, TcpActiveClient), Box<dyn Error>> {
+    fn connect() -> Result<(TcpActiveClient, TcpActiveClient), P2pError> {
         let ipv6 = Ipv6Addr::from(1);
 
         let c1 = TcpWaitingClient::new(None).unwrap();
@@ -198,9 +201,7 @@ mod tests {
         let c2 = match thread_c2.join() {
             Ok(c) => c,
             Err(_e) => {
-                return Err(Box::new(TimeoutError(
-                    connect_time.duration_since(SystemTime::now())?,
-                )));
+                return Err(P2pError::new(ErrorKind::TimedOut));
             }
         };
 

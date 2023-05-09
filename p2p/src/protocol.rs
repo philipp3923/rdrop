@@ -8,10 +8,13 @@ use dryoc::dryocstream::{DryocStream, Header, Pull, Push};
 use dryoc::kx::{Session, SessionKey};
 use dryoc::sign::PublicKey;
 use rand::{thread_rng, Rng};
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
+
+use std::fmt::{Debug};
+use std::fs::read;
 use std::net::Ipv6Addr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::error::{ChangeStateError, ErrorKind};
+use crate::error::{Error as P2pError};
 
 pub trait EncryptionState {}
 
@@ -79,7 +82,7 @@ pub struct Connection<C: ConnectionState> {
 }
 
 impl Connection<Waiting> {
-    pub fn new(port: Option<u16>) -> Result<Connection<Waiting>, Box<dyn Error>> {
+    pub fn new(port: Option<u16>) -> Result<Connection<Waiting>, P2pError> {
         let waiting_client = UdpWaitingClient::new(port)?;
         let state = Waiting { waiting_client };
         Ok(Connection { state })
@@ -105,7 +108,7 @@ impl Connection<Waiting> {
                 Ok(connection) => connection,
                 Err(err) => {
                     let err = err.split();
-                    return Err(ChangeStateError(
+                    return Err(ChangeStateError::new(
                         Connection {
                             state: Waiting {
                                 waiting_client: err.0,
@@ -150,7 +153,7 @@ impl Connection<Active<Plain<Udp>>> {
             match self.negotiate_roles() {
                 Ok(_) => {}
                 Err(e) => {
-                    return Err(ChangeStateError::new(self, e));
+                    return Err(ChangeStateError::new(self, Box::new(e)));
                 }
             }
         }
@@ -158,7 +161,7 @@ impl Connection<Active<Plain<Udp>>> {
         let (decrypt_key, encrypt_key) = match self.exchange_keys() {
             Ok(keys) => keys,
             Err(e) => {
-                return Err(ChangeStateError::new(self, e));
+                return Err(ChangeStateError::new(self, Box::new(e)));
             }
         };
 
@@ -166,7 +169,7 @@ impl Connection<Active<Plain<Udp>>> {
             match self.generate_crypto_streams(decrypt_key, encrypt_key) {
                 Ok(streams) => streams,
                 Err(e) => {
-                    return Err(ChangeStateError::new(self, e));
+                    return Err(ChangeStateError::new(self, Box::new(e)));
                 }
             };
 
@@ -190,7 +193,7 @@ impl Connection<Active<Plain<Udp>>> {
         Ok(connection)
     }
 
-    fn exchange_keys(&mut self) -> Result<(SessionKey, SessionKey), Box<dyn Error>> {
+    fn exchange_keys(&mut self) -> Result<(SessionKey, SessionKey), P2pError> {
         assert_ne!(self.state.role, Role::None);
 
         let my_keypair = KeyPair::gen();
@@ -211,7 +214,8 @@ impl Connection<Active<Plain<Udp>>> {
         // Role is either Server or Client. This is guaranteed by the assert_ne in the first line of this method
         let my_session_keys = match self.state.role {
             Role::Server => Session::new_server_with_defaults(&my_keypair, &peer_public_key)?,
-            _ => Session::new_client_with_defaults(&my_keypair, &peer_public_key)?,
+            Role::Client => Session::new_client_with_defaults(&my_keypair, &peer_public_key)?,
+            Role::None => return Err(P2pError::new(ErrorKind::UndefinedRole))
         };
 
         return Ok(my_session_keys.into_parts());
@@ -221,7 +225,7 @@ impl Connection<Active<Plain<Udp>>> {
         &mut self,
         decrypt_key: SessionKey,
         encrypt_key: SessionKey,
-    ) -> Result<(DryocStream<Pull>, DryocStream<Push>), Box<dyn Error>> {
+    ) -> Result<(DryocStream<Pull>, DryocStream<Push>), P2pError> {
         let (push_stream, header): (_, Header) = DryocStream::init_push(&encrypt_key);
 
         self.state.client.plain_writer.write(header.as_slice())?;
@@ -233,7 +237,7 @@ impl Connection<Active<Plain<Udp>>> {
         return Ok((pull_stream, push_stream));
     }
 
-    fn negotiate_roles(&mut self) -> Result<(), Box<dyn Error>> {
+    fn negotiate_roles(&mut self) -> Result<(), P2pError> {
         let mut rng = thread_rng();
 
         loop {
@@ -261,19 +265,19 @@ impl Connection<Active<Encrypted<Udp>>> {
     pub fn upgrade(mut self) -> Result<Connection<Active<Encrypted<Tcp>>>, ChangeStateError<Self>> {
         let tcp_client = match TcpWaitingClient::new(None) {
             Ok(client) => client,
-            Err(err) => return Err(ChangeStateError::new(self, err)),
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
 
         let peer_port = match self.exchange_ports(tcp_client.get_port()) {
             Ok(p) => p,
-            Err(err) => return Err(ChangeStateError::new(self, err)),
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
 
         let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 10) {
             Ok(client) => client,
             Err(client) => match self.sample_and_connect(client, peer_port) {
                 Ok(c) => c,
-                Err(err) => return Err(ChangeStateError::new(self, err.1)),
+                Err(err) => return Err(ChangeStateError::new(self, err.to_err())),
             },
         };
 
@@ -310,7 +314,7 @@ impl Connection<Active<Encrypted<Udp>>> {
         for _ in 0..tries {
             tcp_client = match self.sample_and_connect(tcp_client, peer_port) {
                 Ok(c) => return Ok(c),
-                Err(err) => err.0,
+                Err(err) => err.to_state(),
             };
         }
 
@@ -328,22 +332,22 @@ impl Connection<Active<Encrypted<Udp>>> {
             Role::Server => {
                 match self.collect_samples(50) {
                     Ok(_) => {}
-                    Err(err) => return Err(ChangeStateError::new(tcp_client, err)),
+                    Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
                 };
                 wait_time = match self.set_connect_time() {
                     Ok(t) => t,
-                    Err(err) => return Err(ChangeStateError::new(tcp_client, err)),
+                    Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
                 };
             }
             Role::Client => {
                 match self.provide_samples() {
                     Ok(_) => {}
-                    Err(err) => return Err(ChangeStateError::new(tcp_client, err)),
+                    Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
                 };
 
                 wait_time = match self.get_connect_time() {
                     Ok(t) => t,
-                    Err(err) => return Err(ChangeStateError::new(tcp_client, err)),
+                    Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
                 };
             }
             Role::None => todo!(),
@@ -352,7 +356,7 @@ impl Connection<Active<Encrypted<Udp>>> {
         return tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time));
     }
 
-    fn set_connect_time(&mut self) -> Result<Duration, Box<dyn Error>> {
+    fn set_connect_time(&mut self) -> Result<Duration, P2pError> {
         self.state.client.clock_diff_samples.sort();
         let diffs = self.state.client.clock_diff_samples.as_mut_slice();
 
@@ -378,13 +382,16 @@ impl Connection<Active<Encrypted<Udp>>> {
         Ok(Duration::from_nanos(connect_delay_nanos as u64))
     }
 
-    fn get_connect_time(&mut self) -> Result<Duration, Box<dyn Error>> {
+    fn get_connect_time(&mut self) -> Result<Duration, P2pError> {
         let nanos = self
             .state
             .client
             .encrypted_reader
             .read(self.state.timeout)?;
-        let connect_time = nanos.try_into().unwrap();
+        let connect_time = match nanos.try_into() {
+            Ok(t) => t,
+            Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream))
+        };
         let connect_time = u64::from_be_bytes(connect_time);
 
         let connect_delay_nanos =
@@ -393,7 +400,7 @@ impl Connection<Active<Encrypted<Udp>>> {
         Ok(Duration::from_nanos(connect_delay_nanos as u64))
     }
 
-    fn exchange_ports(&mut self, port: u16) -> Result<u16, Box<dyn Error>> {
+    fn exchange_ports(&mut self, port: u16) -> Result<u16, P2pError> {
         self.state
             .client
             .encrypted_writer
@@ -404,13 +411,16 @@ impl Connection<Active<Encrypted<Udp>>> {
             .client
             .encrypted_reader
             .read(self.state.timeout)?;
-        let peer_port = peer_port.try_into().unwrap();
+        let peer_port: [u8; 2] =  match peer_port.try_into() {
+            Ok(t) => t,
+            Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream))
+        };
         let peer_port = u16::from_be_bytes(peer_port);
 
         Ok(peer_port)
     }
 
-    fn collect_samples(&mut self, amount: u8) -> Result<(), Box<dyn Error>> {
+    fn collect_samples(&mut self, amount: u8) -> Result<(), P2pError> {
         for i in 0..amount {
             let start = SystemTime::now();
 
@@ -427,7 +437,14 @@ impl Connection<Active<Encrypted<Udp>>> {
 
             let now = SystemTime::now();
             let now_nanos = now.duration_since(UNIX_EPOCH)?.as_nanos();
-            let time = time.try_into().unwrap();
+            let time = time.try_into();
+
+            let time = match time {
+                Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream)),
+                Ok(t) => t,
+            };
+
+
             let peer_now_nanos = u128::from_be_bytes(time);
             let elapsed_nanos = start.elapsed()?.as_nanos();
             let diff = now_nanos as i128 - peer_now_nanos as i128 - elapsed_nanos as i128 / 2; // Zeitdifferenz symmetrischer Jitter
@@ -442,7 +459,7 @@ impl Connection<Active<Encrypted<Udp>>> {
         Ok(())
     }
 
-    fn provide_samples(&mut self) -> Result<(), Box<dyn Error>> {
+    fn provide_samples(&mut self) -> Result<(), P2pError> {
         loop {
             let num = self
                 .state
@@ -483,48 +500,6 @@ impl<P: ProtocolState> Connection<Active<Encrypted<P>>> {
 }
 
 impl Connection<Active<Encrypted<Udp>>> {}
-
-pub struct ChangeStateError<C>(pub(crate) C, Box<dyn Error>);
-
-impl<C> Debug for ChangeStateError<C> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Changing state failed with Error: {}", self.1)
-    }
-}
-
-impl<C> Display for ChangeStateError<C> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Changing state failed with Error: {}", self.1)
-    }
-}
-
-impl<C> Error for ChangeStateError<C> {}
-
-impl<C> ChangeStateError<C> {
-    pub fn new(state: C, err: Box<dyn Error>) -> ChangeStateError<C> {
-        ChangeStateError(state, err)
-    }
-
-    pub fn to_state(self) -> C {
-        self.0
-    }
-
-    pub fn to_err(self) -> Box<dyn Error> {
-        self.1
-    }
-
-    pub fn state_ref(&mut self) -> &mut C {
-        &mut self.0
-    }
-
-    pub fn err_ref(&mut self) -> &mut Box<dyn Error> {
-        &mut self.1
-    }
-
-    pub fn split(self) -> (C, Box<dyn Error>) {
-        (self.0, self.1)
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -760,7 +735,7 @@ mod tests {
             for _ in 0..tries {
                 c2 = match c2.upgrade() {
                     Ok(c) => return Ok(c),
-                    Err(err) => err.0,
+                    Err(err) => err.to_state(),
                 };
             }
 
@@ -771,7 +746,7 @@ mod tests {
             for _ in 0..tries {
                 c1 = match c1.upgrade() {
                     Ok(c) => return Ok(c),
-                    Err(err) => err.0,
+                    Err(err) => err.to_state(),
                 };
             }
 

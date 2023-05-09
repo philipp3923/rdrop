@@ -1,7 +1,7 @@
 use dryoc::dryocstream::{DryocStream, Pull, Push, Tag};
-use std::error::Error;
-use std::fmt;
-use std::fmt::{Display, Formatter};
+
+use crate::error::{Error as P2pError};
+
 
 use std::time::Duration;
 pub mod tcp;
@@ -21,27 +21,12 @@ pub trait ActiveClient {
 }
 
 pub trait ClientReader {
-    fn try_read(&mut self) -> Result<Vec<u8>, Box<dyn Error>>;
-    fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, Box<dyn Error>>;
+    fn try_read(&mut self) -> Result<Vec<u8>, P2pError>;
+    fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, P2pError>;
 }
 
 pub trait ClientWriter {
-    fn write(&mut self, msg: &[u8]) -> Result<(), Box<dyn Error>>;
-}
-
-#[derive(Clone, Debug)]
-pub struct TimeoutError(pub Duration);
-
-impl Display for TimeoutError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "timelimit {:#?} exceeded", self.0)
-    }
-}
-
-impl Error for TimeoutError {
-    fn description(&self) -> &str {
-        "The given timelimit was exceeded"
-    }
+    fn write(&mut self, msg: &[u8]) -> Result<(), P2pError>;
 }
 
 pub struct EncryptedClient<AC: ActiveClient> {
@@ -82,7 +67,7 @@ impl<CR: ClientReader> EncryptedReader<CR> {
 }
 
 impl<CR: ClientReader> ClientReader for EncryptedReader<CR> {
-    fn try_read(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn try_read(&mut self) -> Result<Vec<u8>, P2pError> {
         let mut msg: Vec<u8> = self.buffer.take().unwrap_or(Vec::new());
 
         loop {
@@ -107,7 +92,7 @@ impl<CR: ClientReader> ClientReader for EncryptedReader<CR> {
         }
     }
 
-    fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, P2pError> {
         let mut msg: Vec<u8> = self.buffer.take().unwrap_or(Vec::new());
 
         loop {
@@ -148,7 +133,7 @@ impl<CW: ClientWriter> EncryptedWriter<CW> {
 }
 
 impl<CW: ClientWriter> ClientWriter for EncryptedWriter<CW> {
-    fn write(&mut self, msg: &[u8]) -> Result<(), Box<dyn Error>> {
+    fn write(&mut self, msg: &[u8]) -> Result<(), P2pError> {
         for i in (BLOCK_SIZE..=msg.len()).step_by(BLOCK_SIZE) {
             let block = &msg[i - BLOCK_SIZE..i];
 
