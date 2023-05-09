@@ -121,8 +121,7 @@ fn register_connect_event(app: &mut App<Wry>, event_handler : Arc<Mutex<EventHan
         println!("{:?}", connect_payload);
         event_handler.send_connect_status("Connecting", "");
 
-        let result = waiting_connection_unlocked.connect(ipv6, port, None, None).unwrap();
-        /*{
+        match waiting_connection_unlocked.connect(ipv6, port, None, None) {
             Ok(active_connection) => {
                 event_handler.send_connect_status("Connected!!!", "");
             }
@@ -131,9 +130,7 @@ fn register_connect_event(app: &mut App<Wry>, event_handler : Arc<Mutex<EventHan
                 event_handler.send_connect_error("Connecting failed.", err.as_ref().to_string().as_str());
                 waiting_connection.replace(connection);
             }
-        }*/
-        drop(result);
-
+        }
     });
 }
 
