@@ -39,18 +39,21 @@ impl UdpWaitingClient {
             Ok(_) => {}
             Err(e) => return Err(ChangeStateError::new(self, Box::new(e))),
         }
+        println!("1");
 
         let udp_socket_copy = match self.udp_socket.try_clone() {
             Ok(socket) => socket,
             Err(e) => return Err(ChangeStateError::new(self, Box::new(e))),
         };
+        println!("2");
 
         // program should panic if this fails
         let mut active_client = UdpActiveClient::new(self.udp_socket, disconnect_timeout).unwrap();
-
+        println!("3");
         match active_client.writer_ref().ping(connect_timeout) {
             Ok(_) => {}
             Err(e) => {
+                println!("{}", e);
                 return Err(ChangeStateError::new(
                     UdpWaitingClient {
                         udp_socket: udp_socket_copy,
@@ -246,8 +249,11 @@ impl UdpClientWriter {
         let timeout = timeout.unwrap_or(Duration::from_secs(0));
 
         while timeout.is_zero() || now.elapsed() <= timeout {
-            self.udp_socket.send(&[0xCC, self.send_counter])?;
-
+            println!("sending1");
+            if self.udp_socket.send(&[0xCC, self.send_counter]).is_err() {
+                continue
+            };
+            println!("sending2");
             match self.ack_receiver.recv_timeout(PING_RESEND_DELAY) {
                 Ok(msg_number) => {
                     if msg_number != self.send_counter {
