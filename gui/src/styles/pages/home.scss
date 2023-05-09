@@ -52,7 +52,8 @@
         position: relative;
         overflow: hidden;
 
-        &.connection-connecting {
+        &.connection-connecting,
+        &.connection-failed {
             .home-ip {
                 opacity: 0;
             }

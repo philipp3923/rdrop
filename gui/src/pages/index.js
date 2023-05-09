@@ -40,11 +40,7 @@ export default function Home() {
         setPortError(false);
         setConnecting('connecting');
 
-        emit('app://start');
-
-        setTimeout(() => {
-            router.push("/transfer")
-        }, 5000);
+        emit('app://connect', { ip, port });
     }
 
     async function handleAbort() {
@@ -53,6 +49,15 @@ export default function Home() {
 
     useTauriEvent('app://update-status', (status) => {
         setConncectionStatus(status?.payload);
+    });
+
+    useTauriEvent('app://socket-failed', (status) => {
+        setConnecting('failed');
+        setConncectionStatus(status?.payload);
+    });
+
+    useTauriEvent('app://connected', () => {
+        router.push('/transfer');
     });
 
     return (
