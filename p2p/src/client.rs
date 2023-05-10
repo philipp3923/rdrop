@@ -1,6 +1,6 @@
 use dryoc::dryocstream::{DryocStream, Pull, Push, Tag};
 
-use crate::error::{Error as P2pError};
+use crate::error::Error as P2pError;
 
 
 use std::time::Duration;

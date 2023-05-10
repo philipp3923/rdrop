@@ -212,9 +212,13 @@ impl ClientReader for UdpClientReader {
 
 impl Drop for UdpClientReader {
     fn drop(&mut self) {
-        // non recoverable errors, program should panic
-        self.stop_thread.send(()).unwrap();
-        self.thread_handle.take().unwrap().join().ok();
+        // #TODO better handling of stop_thread if it fails
+        match self.stop_thread.send(()){
+            _ => {}
+        };
+        match self.thread_handle.take().unwrap().join() {
+            _ => {}
+        };
     }
 }
 
@@ -249,11 +253,11 @@ impl UdpClientWriter {
         let timeout = timeout.unwrap_or(Duration::from_secs(0));
 
         while timeout.is_zero() || now.elapsed() <= timeout {
-            println!("sending1");
+            //println!("sending1");
             if self.udp_socket.send(&[0xCC, self.send_counter]).is_err() {
-                continue
+                //#TODO
             };
-            println!("sending2");
+            //println!("sending2");
             match self.ack_receiver.recv_timeout(PING_RESEND_DELAY) {
                 Ok(msg_number) => {
                     if msg_number != self.send_counter {

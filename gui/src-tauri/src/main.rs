@@ -3,6 +3,10 @@
     windows_subsystem = "windows"
 )]
 
+mod client;
+mod handle;
+mod error;
+
 use std::error::Error;
 use std::net::Ipv6Addr;
 use std::str::FromStr;
@@ -14,6 +18,7 @@ use std::thread::sleep;
 use p2p::error::{ChangeStateError, Error as P2pError};
 use p2p::protocol::{Active, Connection, Encrypted, Plain, Tcp, Udp, Waiting};
 use serde::Deserialize;
+use crate::handle::{AppState, Current};
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -28,6 +33,7 @@ const DEFAULT_DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 fn main() {
 
     tauri::Builder::default()
+        .manage(AppState::new())
         .setup(|app| {
             let handle = app.handle();
             let window = app.get_window("main").unwrap();
@@ -56,7 +62,7 @@ fn main() {
             });*/
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![greet, handle::connect, handle::disconnect, handle::offer_file, handle::accept_file, handle::deny_file, handle::pause_file])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -121,7 +127,7 @@ fn register_connect_event(app: &mut App<Wry>, event_handler : Arc<Mutex<EventHan
         println!("{:?}", connect_payload);
         event_handler.send_connect_status("Connecting", "");
 
-        match waiting_connection_unlocked.connect(ipv6, port, None, None) {
+        match waiting_connection_unlocked.connect(ipv6, port, Some(DEFAULT_CONNECT_TIMEOUT), Some(DEFAULT_DISCONNECT_TIMEOUT)) {
             Ok(active_connection) => {
                 event_handler.send_connect_status("Connected!!!", "");
             }

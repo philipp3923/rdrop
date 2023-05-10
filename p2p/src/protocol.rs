@@ -8,9 +8,7 @@ use dryoc::dryocstream::{DryocStream, Header, Pull, Push};
 use dryoc::kx::{Session, SessionKey};
 use dryoc::sign::PublicKey;
 use rand::{thread_rng, Rng};
-
 use std::fmt::{Debug};
-use std::fs::read;
 use std::net::Ipv6Addr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::error::{ChangeStateError, ErrorKind};
@@ -53,6 +51,7 @@ pub struct Active<E: EncryptionState> {
     timeout: Option<Duration>,
     client: E,
     peer_ip: Ipv6Addr,
+    port: u16
 }
 
 pub struct Waiting {
@@ -99,6 +98,8 @@ impl Connection<Waiting> {
         connect_timeout: Option<Duration>,
         disconnect_timeout: Option<Duration>,
     ) -> Result<Connection<Active<Plain<Udp>>>, ChangeStateError<Self>> {
+        let own_port = self.get_port();
+
         let udp_active_client =
             match self
                 .state
@@ -123,6 +124,7 @@ impl Connection<Waiting> {
             udp_active_client,
             disconnect_timeout,
             peer,
+            own_port
         ))
     }
 }
@@ -132,6 +134,7 @@ impl Connection<Active<Plain<Udp>>> {
         udp_active_client: UdpActiveClient,
         timeout: Option<Duration>,
         peer_ip: Ipv6Addr,
+        port: u16
     ) -> Connection<Active<Plain<Udp>>> {
         let (writer, reader) = udp_active_client.split();
 
@@ -144,6 +147,7 @@ impl Connection<Active<Plain<Udp>>> {
                     plain_reader: reader,
                     plain_writer: writer,
                 },
+                port
             },
         }
     }
@@ -187,6 +191,7 @@ impl Connection<Active<Plain<Udp>>> {
                     encrypted_writer,
                     encrypted_reader,
                 },
+                port: self.state.port
             },
         };
 
@@ -299,6 +304,7 @@ impl Connection<Active<Encrypted<Udp>>> {
                     encrypted_reader,
                     max_delay: self.state.client.max_delay,
                 },
+                port: self.state.port
             },
         };
 
@@ -480,6 +486,14 @@ impl Connection<Active<Encrypted<Udp>>> {
             }
         }
     }
+}
+
+impl<E: EncryptionState> Connection<Active<E>> {
+
+    pub fn get_port(&self) -> u16 {
+        self.state.port
+    }
+
 }
 
 impl<P: ProtocolState> Connection<Active<Plain<P>>> {
