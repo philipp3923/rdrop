@@ -336,6 +336,7 @@ impl Connection<Active<Encrypted<Udp>>> {
         
         match self.state.role {
             Role::Server => {
+                println!("sampling 50");
                 match self.collect_samples(50) {
                     Ok(_) => {}
                     Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
@@ -359,6 +360,7 @@ impl Connection<Active<Encrypted<Udp>>> {
             Role::None => todo!(),
         }
 
+        println!("trying to connect tcp");
         return tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time));
     }
 

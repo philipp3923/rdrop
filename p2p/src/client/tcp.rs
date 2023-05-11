@@ -41,7 +41,6 @@ impl TcpWaitingClient {
         }
 
         let sock_addr = SockAddr::from(SocketAddr::new(IpAddr::from(peer), port));
-
         return match self.tcp_socket.connect(&sock_addr) {
             Ok(_) => {
                 let tcp_stream = TcpStream::from(self.tcp_socket);

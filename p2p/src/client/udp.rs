@@ -43,17 +43,15 @@ impl UdpWaitingClient {
             Ok(_) => {}
             Err(e) => return Err(ChangeStateError::new(self, Box::new(e))),
         }
-        println!("1");
 
         let udp_socket_copy = match self.udp_socket.try_clone() {
             Ok(socket) => socket,
             Err(e) => return Err(ChangeStateError::new(self, Box::new(e))),
         };
-        println!("2");
 
         // program should panic if this fails
         let mut active_client = UdpActiveClient::new(self.udp_socket, disconnect_timeout).unwrap();
-        println!("3");
+
         match active_client.writer_ref().ping(connect_timeout) {
             Ok(_) => {}
             Err(e) => {
