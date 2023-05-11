@@ -18,7 +18,7 @@ use p2p::protocol::{Active, Connection, Encrypted, Plain, Tcp, Udp, Waiting};
 use crate::client::Client;
 use crate::connect::thread_connect;
 use crate::error::{ClientError, ClientErrorKind};
-use crate::events::send_connect_status;
+use crate::events::{send_bind_port, send_connect_status};
 use crate::handle::Current::Connected;
 
 pub struct AppState(Arc<Mutex<Current>>);
@@ -45,7 +45,10 @@ pub enum Current {
 impl Current {
     pub fn new() -> Self {
         match Connection::new(None) {
-            Ok(c) => Current::Disconnected(c),
+            Ok(c) => {
+                println!("init port : {}", c.get_port());
+                Current::Disconnected(c)
+            },
             Err(_) => Current::Broken
         }
     }
@@ -128,11 +131,15 @@ pub fn deny_file(state: State<AppState>, hash: String) {}
 pub fn pause_file(state: State<AppState>, hash: String) {}
 
 #[tauri::command]
-pub fn start(state: State<AppState>) -> Result<u16, ClientError> {
-    let app_state = (*state).0.lock()?;
+pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<u16, ClientError> {
+    let app_state = (*app_state).0.lock()?;
 
     match app_state.deref() {
-        Current::Disconnected(c) => Ok(c.get_port()),
+        Current::Disconnected(c) => {
+            send_bind_port(&app_handle, c.get_port())?;
+            println!("port: {}", c.get_port());
+            Ok(c.get_port())
+        },
         _ => Err(ClientError::new(ClientErrorKind::WrongState))
     }
 }
