@@ -6,12 +6,15 @@ use std::sync::{Arc, mpsc, Mutex, RwLock};
 use std::sync::mpsc::{channel, Sender, SyncSender};
 use std::thread;
 use std::time::Duration;
+
 use tauri::State;
+
 use p2p::client::{EncryptedReader, EncryptedWriter, WaitingClient};
 use p2p::client::tcp::{TcpClientReader, TcpClientWriter};
 use p2p::client::udp::{UdpClientReader, UdpClientWriter};
 use p2p::error::{ChangeStateError, Error};
 use p2p::protocol::{Active, Connection, Encrypted, Plain, Tcp, Udp, Waiting};
+
 use crate::client::Client;
 use crate::error::{ClientError, ClientErrorKind};
 use crate::handle::Current::Connected;
@@ -34,11 +37,10 @@ pub enum Current {
     Disconnected(Connection<Waiting>),
     Connecting(SyncSender<()>),
     Connected,
-    Connected2(Client<EncryptedWriter<TcpClientWriter>, EncryptedReader<TcpClientReader>>)
+    Connected2(Client<EncryptedWriter<TcpClientWriter>, EncryptedReader<TcpClientReader>>),
 }
 
 impl Current {
-
     pub fn new() -> Self {
         match Connection::new(None) {
             Ok(c) => Current::Disconnected(c),
@@ -52,20 +54,19 @@ impl Current {
             Err(_) => Self::new()
         }
     }
-
 }
 
 #[tauri::command]
 pub fn connect(state: State<AppState>, ip: String, port: u16) {
     //testable_connect(state.deref(), ip, port).unwrap()
-
 }
+
 pub fn testable_connect(state: Arc<AppState>, ip: String, port: u16) -> Result<(), ClientError> {
     let ipv6 = match Ipv6Addr::from_str(&*ip) {
         Ok(c) => c,
         Err(_) => {
             return Err(ClientError::new(ClientErrorKind::Ipv6ParseFailed));
-        },
+        }
     };
 
     let mut write_state = state.0.lock().unwrap();
@@ -77,14 +78,14 @@ pub fn testable_connect(state: Arc<AppState>, ip: String, port: u16) -> Result<(
             let prev_state = replace(&mut *write_state, Current::Connecting(sender));
 
             match prev_state {
-                Current::Disconnected(connection) => {connection},
+                Current::Disconnected(connection) => { connection }
                 _ => {
-                    return Err(ClientError::new(ClientErrorKind::WrongState))
+                    return Err(ClientError::new(ClientErrorKind::WrongState));
                 }
             }
-        },
+        }
         _ => {
-            return Err(ClientError::new(ClientErrorKind::WrongState))
+            return Err(ClientError::new(ClientErrorKind::WrongState));
         }
     };
 
@@ -96,7 +97,7 @@ pub fn testable_connect(state: Arc<AppState>, ip: String, port: u16) -> Result<(
         println!("thread anfang");
         let mut i = 0;
         while receiver.try_recv().is_err() {
-            i+= 1;
+            i += 1;
             println!("next {i}");
 
             match connection.connect(ipv6, port, Some(DEFAULT_TIMEOUT), Some(DISCONNECT_TIMEOUT)) {
@@ -156,7 +157,7 @@ pub fn disconnect(state: State<AppState>) {
     match write_state.deref() {
         Current::Connecting(sender) => {
             sender.send(()).unwrap()
-        },
+        }
         _ => {
             todo!()
         }
@@ -164,21 +165,13 @@ pub fn disconnect(state: State<AppState>) {
 }
 
 #[tauri::command]
-pub fn offer_file(state: State<AppState>, path: String) {
-
-}
+pub fn offer_file(state: State<AppState>, path: String) {}
 
 #[tauri::command]
-pub fn accept_file(state: State<AppState>, hash: String) {
-
-}
+pub fn accept_file(state: State<AppState>, hash: String) {}
 
 #[tauri::command]
-pub fn deny_file(state: State<AppState>, hash: String) {
-
-}
+pub fn deny_file(state: State<AppState>, hash: String) {}
 
 #[tauri::command]
-pub fn pause_file(state: State<AppState>, hash: String) {
-
-}
+pub fn pause_file(state: State<AppState>, hash: String) {}

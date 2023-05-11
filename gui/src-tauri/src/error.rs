@@ -19,7 +19,7 @@ pub enum ClientErrorKind {
     SocketClosed,
     WrongState,
     Ipv6ParseFailed,
-    SendToFrontendFailed
+    SendToFrontendFailed,
 }
 
 #[derive(Debug)]

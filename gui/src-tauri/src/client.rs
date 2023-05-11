@@ -6,10 +6,13 @@ use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, mpsc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread;
 use std::time::Duration;
+
 use tauri::async_runtime::JoinHandle;
+
 use p2p::client::{ClientReader, ClientWriter, EncryptedReader, EncryptedWriter};
 use p2p::client::udp::UdpClientReader;
 use p2p::error::ErrorKind;
+
 use crate::error::{ClientError, ClientErrorKind};
 
 pub struct FileInfo {
