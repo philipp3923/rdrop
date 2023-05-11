@@ -7,6 +7,7 @@ use std::time::{SystemTimeError};
 #[derive(Debug)]
 pub enum ErrorKind {
     TimedOut,
+    CannotConnectToSelf,
     SystemTimeError,
     Other,
     StateChangeFailed,

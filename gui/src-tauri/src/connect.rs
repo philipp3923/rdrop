@@ -1,8 +1,11 @@
+use std::error::Error;
 use std::net::Ipv6Addr;
+use std::ops::Deref;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 use tauri::{AppHandle, State, Wry};
+use p2p::error::{ErrorKind};
 use p2p::protocol::{Connection, Waiting};
 use crate::error::{ClientError, ClientErrorKind};
 use crate::events::{send_connect_error, send_connect_status};
@@ -57,12 +60,28 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                 return Ok(());
             }
             Err(err) => {
-                connection = err.to_state();
+                let (old_c, err) = err.split();
+                connection = old_c;
+
+                match err.downcast_ref::<p2p::error::Error>() {
+                    Some(err) => {
+                        match err.kind() {
+                            ErrorKind::CannotConnectToSelf => {
+                                send_connect_error(&app_handle,"Cannot connect to self", "")?;
+                                break
+                            },
+                            _ => continue,
+                        }
+                    }
+                    None => {}
+                }
+
             }
         }
     }
 
-    println!("connect fail because stop called");
+    send_connect_status(&app_handle, "Aborting", "")?;
+
     let mut write_state = current.lock().unwrap();
 
     *write_state = Current::Disconnected(connection);

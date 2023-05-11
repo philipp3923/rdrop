@@ -35,6 +35,10 @@ impl UdpWaitingClient {
         let peer_addr = IpAddr::from(peer);
         let peer_addr = SocketAddr::new(peer_addr, port);
 
+        if self.get_port() == port {
+            return Err(ChangeStateError::new(self, Box::new(P2pError::new(ErrorKind::CannotConnectToSelf))));
+        }
+
         match self.udp_socket.connect(&peer_addr) {
             Ok(_) => {}
             Err(e) => return Err(ChangeStateError::new(self, Box::new(e))),
