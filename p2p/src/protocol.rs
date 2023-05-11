@@ -347,6 +347,7 @@ impl Connection<Active<Encrypted<Udp>>> {
                 };
             }
             Role::Client => {
+                println!("providing 50");
                 match self.provide_samples() {
                     Ok(_) => {}
                     Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
@@ -373,6 +374,8 @@ impl Connection<Active<Encrypted<Udp>>> {
         } else {
             diffs[diffs.len() / 2]
         };
+
+        println!("median_diff {}", median_diff);
 
         let connect_time = (SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
             + self.state.client.max_delay * 10) as i128;
