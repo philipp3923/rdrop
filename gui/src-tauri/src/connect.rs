@@ -28,7 +28,7 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
             Ok(active_connection) => {
                 send_connect_status(&app_handle, "Encrypting", "Securing the connection.")?;
 
-                let mut active_connection = match active_connection.encrypt() {
+                let active_connection = match active_connection.encrypt() {
                     Ok(connection) => connection,
                     Err(err) => {
                         send_connect_error(&app_handle, "Encryption failed", "Aborting connection protocol.")?;
