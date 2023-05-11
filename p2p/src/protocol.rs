@@ -278,7 +278,7 @@ impl Connection<Active<Encrypted<Udp>>> {
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
 
-        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 10) {
+        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 2) {
             Ok(client) => client,
             Err(client) => match self.sample_and_connect(client, peer_port) {
                 Ok(c) => c,
@@ -336,8 +336,8 @@ impl Connection<Active<Encrypted<Udp>>> {
         
         match self.state.role {
             Role::Server => {
-                println!("sampling 50");
-                match self.collect_samples(50) {
+                println!("sampling 255");
+                match self.collect_samples(255) {
                     Ok(_) => {}
                     Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
                 };
@@ -347,7 +347,7 @@ impl Connection<Active<Encrypted<Udp>>> {
                 };
             }
             Role::Client => {
-                println!("providing 50");
+                println!("providing 255");
                 match self.provide_samples() {
                     Ok(_) => {}
                     Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
