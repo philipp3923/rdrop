@@ -23,6 +23,7 @@ mod client;
 mod handle;
 mod error;
 mod events;
+mod connect;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
