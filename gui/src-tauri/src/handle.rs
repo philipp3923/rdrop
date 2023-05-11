@@ -1,3 +1,4 @@
+use std::io::SeekFrom::Current;
 use std::mem::replace;
 use std::net::Ipv6Addr;
 use std::ops::Deref;
@@ -105,15 +106,16 @@ pub fn connect(app_handle: AppHandle<Wry>, app_state: State<AppState>, ip: Strin
 
 #[tauri::command]
 pub fn disconnect(state: State<AppState>) -> Result<(), ClientError> {
-    let mut write_state = (*state).0.lock().unwrap();
+    let mut unlocked_state = (*state).0.lock().unwrap();
 
-    match write_state.deref() {
+    match unlocked_state.deref() {
         Current::Connecting(sender) => {
             sender.send(())?;
             Ok(())
         }
         _ => {
-            Err(ClientError::new(ClientErrorKind::WrongState))
+            *unlocked_state = Current::new();
+            Ok(())
         }
     }
 }
