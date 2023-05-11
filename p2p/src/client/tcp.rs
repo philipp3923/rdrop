@@ -8,6 +8,8 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
 use std::thread::sleep;
 use std::time::Duration;
 
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
+
 pub struct TcpWaitingClient {
     tcp_socket: Socket,
 }
@@ -15,6 +17,8 @@ pub struct TcpWaitingClient {
 impl TcpWaitingClient {
     pub fn new(port: Option<u16>) -> Result<TcpWaitingClient, P2pError> {
         let tcp_socket = Socket::new(Domain::IPV6, Type::STREAM, None)?;
+
+        tcp_socket.set_write_timeout(Some(CONNECT_TIMEOUT))?;
 
         let sock_addr = SockAddr::from(SocketAddr::new(
             IpAddr::from(Ipv6Addr::from(0)),

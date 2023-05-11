@@ -333,7 +333,7 @@ impl Connection<Active<Encrypted<Udp>>> {
         peer_port: u16,
     ) -> Result<TcpActiveClient, ChangeStateError<TcpWaitingClient>> {
         let wait_time: Duration;
-
+        
         match self.state.role {
             Role::Server => {
                 match self.collect_samples(50) {

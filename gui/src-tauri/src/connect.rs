@@ -40,7 +40,7 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                 match active_connection.upgrade() {
                     Ok(connection) => {
                         let mut write_state = current.lock().unwrap();
-
+                        send_connect_status(&app_handle, "Connected successfully", "")?;
                         *write_state = Current::Connected;
                     }
                     Err(err) => {
