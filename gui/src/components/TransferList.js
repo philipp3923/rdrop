@@ -4,6 +4,7 @@ import IconButton from './IconButton';
 import useTauriEvent from './hooks/useTauriEvent';
 import { emit } from '@tauri-apps/api/event';
 import {filesize} from 'filesize';
+import { invoke } from '@tauri-apps/api/tauri';
 
 export default function TransferList() {
     const [hover, setHover] = useState(false);
@@ -50,17 +51,20 @@ export default function TransferList() {
     useTauriEvent('tauri://file-drop', (event) => {
         console.log(event);
 
-        emit('app://add-file', event.payload);
+        if(event.payload.length > 0) {
+            event.payload.forEach((file) => {
+                invoke('offer_file', { path: file });
+            });
+        }
+        
         setHover(false);
     });
 
     useTauriEvent('tauri://file-drop-hover', (event) => {
-        console.log(event);
         setHover(true);
     });
 
     useTauriEvent('tauri://file-drop-cancelled', (event) => {
-        console.log(event);
         setHover(false);
     });
 

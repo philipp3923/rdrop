@@ -23,9 +23,9 @@ export default function Home() {
     const portRef = useRef(null);
 
     const ip = usePublicIP();
-
+0
     useEffect(() => {
-        emit("app://start");
+        invoke('start');
     }, []);
 
     async function handleConnect() {
@@ -46,12 +46,12 @@ export default function Home() {
         setConnecting('connecting');
         setConncectionStatus({ status: '' });
 
-        emit('app://connect', { ip, port });
+        invoke('connect', { ip, port: parseInt(port) });
     }
 
     async function handleAbort() {
         setConnecting('none');
-        emit('app://abort');
+        invoke('disconnect');
     }
 
     useTauriEvent('app://update-status', (event) => {
