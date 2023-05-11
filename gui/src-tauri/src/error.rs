@@ -18,7 +18,8 @@ pub enum ClientErrorKind {
     LockPoisoned,
     SocketClosed,
     WrongState,
-    Ipv6ParseFailed
+    Ipv6ParseFailed,
+    SendToFrontendFailed
 }
 
 #[derive(Debug)]
@@ -64,5 +65,11 @@ impl From<PoisonError<RwLockReadGuard<'_, bool>>> for ClientError {
 impl From<PoisonError<RwLockWriteGuard<'_, bool>>> for ClientError {
     fn from(_value: PoisonError<RwLockWriteGuard<'_, bool>>) -> Self {
         ClientError::new(ClientErrorKind::LockPoisoned)
+    }
+}
+
+impl From<tauri::Error> for ClientError {
+    fn from(_value: tauri::Error) -> Self {
+        ClientError::new(ClientErrorKind::SendToFrontendFailed)
     }
 }

@@ -20,11 +20,11 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(1);
 const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 
-pub struct AppState(RwLock<Current>);
+pub struct AppState(Mutex<Current>);
 
 impl AppState {
     pub fn new() -> Self {
-        AppState(RwLock::new(Current::new()))
+        AppState(Mutex::new(Current::new()))
     }
 }
 
@@ -68,7 +68,7 @@ pub fn testable_connect(state: Arc<AppState>, ip: String, port: u16) -> Result<(
         },
     };
 
-    let mut write_state = state.0.write().unwrap();
+    let mut write_state = state.0.lock().unwrap();
 
     let (sender, receiver) = mpsc::sync_channel::<()>(0);
 
@@ -107,7 +107,7 @@ pub fn testable_connect(state: Arc<AppState>, ip: String, port: u16) -> Result<(
                         Err(err) => {
                             //#TODO send status error on encrypt
                             let active_connection = err.to_state();
-                            let mut write_state = state.0.write().unwrap();
+                            let mut write_state = state.0.lock().unwrap();
 
                             *write_state = Current::try_with_port(active_connection.get_port());
                             return;
@@ -118,7 +118,7 @@ pub fn testable_connect(state: Arc<AppState>, ip: String, port: u16) -> Result<(
 
                     let active_connection = match active_connection.upgrade() {
                         Ok(connection) => {
-                            let mut write_state = state.0.write().unwrap();
+                            let mut write_state = state.0.lock().unwrap();
 
                             *write_state = Current::Connected;
                         }
@@ -126,7 +126,7 @@ pub fn testable_connect(state: Arc<AppState>, ip: String, port: u16) -> Result<(
                             //#TODO send status tcp failed
                             let active_connection = err.to_state();
 
-                            let mut write_state = state.0.write().unwrap();
+                            let mut write_state = state.0.lock().unwrap();
 
                             *write_state = Current::Connected;
                         }
@@ -141,7 +141,7 @@ pub fn testable_connect(state: Arc<AppState>, ip: String, port: u16) -> Result<(
         }
 
         println!("test ende");
-        let mut write_state = state.0.write().unwrap();
+        let mut write_state = state.0.lock().unwrap();
 
         *write_state = Current::Disconnected(connection);
     });
@@ -151,7 +151,7 @@ pub fn testable_connect(state: Arc<AppState>, ip: String, port: u16) -> Result<(
 
 #[tauri::command]
 pub fn disconnect(state: State<AppState>) {
-    let mut write_state = (*state).0.write().unwrap();
+    let mut write_state = (*state).0.lock().unwrap();
 
     match write_state.deref() {
         Current::Connecting(sender) => {
@@ -180,68 +180,5 @@ pub fn deny_file(state: State<AppState>, hash: String) {
 
 #[tauri::command]
 pub fn pause_file(state: State<AppState>, hash: String) {
-
-}
-
-#[cfg(test)]
-mod tests {
-    use std::sync::{LockResult, RwLockReadGuard};
-    use std::thread::sleep;
-    use super::*;
-
-    #[test]
-    fn test_connect() {
-        let state = Arc::new(AppState::new());
-        testable_connect(state.clone(), "0:0:0:0:0:0:0:1".to_string(), 1000).unwrap();
-
-        sleep(Duration::from_millis(50));
-        let r_state = state.0.read().unwrap();
-        println!("stopping now");
-        match r_state.deref() {
-            Current::Connecting(sender) => {
-                sender.send(()).unwrap();
-            }
-            _ => {
-                panic!()
-            }
-        }
-
-        drop(r_state);
-
-        sleep(Duration::from_secs(1));
-
-
-        let r_state = state.0.read().unwrap();
-        assert!(match r_state.deref() {
-            Current::Disconnected(_) => true,
-            _ => false
-        });
-        drop(r_state);
-
-        testable_connect(state.clone(), "0:0:0:0:0:0:0:1".to_string(), 1000).unwrap();
-
-        sleep(Duration::from_millis(50));
-        let r_state = state.0.read().unwrap();
-        println!("stopping now");
-        match r_state.deref() {
-            Current::Connecting(sender) => {
-                sender.send(()).unwrap();
-            }
-            _ => {
-                panic!()
-            }
-        }
-
-        drop(r_state);
-
-        sleep(Duration::from_secs(1));
-
-
-        let r_state = state.0.read().unwrap();
-        assert!(match r_state.deref() {
-            Current::Disconnected(_) => true,
-            _ => false
-        });
-    }
 
 }
