@@ -1,4 +1,3 @@
-use std::io::SeekFrom::Current;
 use std::mem::replace;
 use std::net::Ipv6Addr;
 use std::ops::Deref;
