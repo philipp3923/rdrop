@@ -134,6 +134,7 @@ impl<CW: ClientWriter> EncryptedWriter<CW> {
 
 impl<CW: ClientWriter> ClientWriter for EncryptedWriter<CW> {
     fn write(&mut self, msg: &[u8]) -> Result<(), P2pError> {
+        println!("msg: {}", String::from_utf8_lossy(msg));
         for i in (BLOCK_SIZE..=msg.len()).step_by(BLOCK_SIZE) {
             let block = &msg[i - BLOCK_SIZE..i];
 

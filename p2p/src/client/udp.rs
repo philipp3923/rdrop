@@ -129,7 +129,7 @@ impl UdpClientReader {
                         0xAA => {
                             udp_socket.recv(header.as_mut_slice())?;
 
-                            println!("AA {}", msg_number);
+                            //println!("AA {}", msg_number);
 
                             ack_sender.send(msg_number)?;
                         }
@@ -148,13 +148,13 @@ impl UdpClientReader {
 
                             let msg_content = Vec::from(&msg_content[6..msg_len as usize + 6]);
 
-                            println!(
+                            /*println!(
                                 "DD {}: l({}) v({}) - {:?}",
                                 msg_number,
                                 msg_len,
                                 msg_content.len(),
                                 msg_content.as_slice()
-                            );
+                            );*/
 
                             if msg_number == msg_counter {
                                 msg_counter = match msg_counter {
@@ -169,6 +169,7 @@ impl UdpClientReader {
                         }
                         0xCA => {
                             udp_socket.recv(header.as_mut_slice())?;
+                            println!("CA");
                         }
                         0xCC => {
                             udp_socket.recv(header.as_mut_slice())?;

@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "next dev -p 1420",
+    "dev-other": "next dev -p 1421",
     "build": "next build && next export -o dist",
     "tauri": "tauri"
   },
