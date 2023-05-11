@@ -80,8 +80,6 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
         }
     }
 
-    send_connect_status(&app_handle, "Aborting", "")?;
-
     let mut write_state = current.lock().unwrap();
 
     *write_state = Current::Disconnected(connection);

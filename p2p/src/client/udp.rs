@@ -99,13 +99,12 @@ impl UdpClientReader {
     ) -> Result<UdpClientReader, P2pError> {
         let (stop_sender, stop_receiver) = mpsc::channel::<()>();
         let (message_sender, message_receiver) = mpsc::channel::<Vec<u8>>();
-
         udp_socket.set_read_timeout(Some(Duration::from_millis(100)))?;
 
         let thread_handle: JoinHandle<Result<(), Box<dyn Error + Send + Sync>>> =
             thread::spawn(move || {
                 let mut msg_counter = 0;
-
+                let mut keep_alive_counter = 0;
                 loop {
                     if stop_receiver.try_recv().is_ok() {
                         println!("shutting down");
@@ -117,7 +116,11 @@ impl UdpClientReader {
                     match udp_socket.peek(header.as_mut_slice()) {
                         Ok(_) => {}
                         Err(_e) => {
-                            udp_socket.send([0xCA, 0x00].as_slice())?;
+                            keep_alive_counter+= 1;
+                            if keep_alive_counter >= 10 {
+                                udp_socket.send([0xCA, 0x00].as_slice())?;
+                                keep_alive_counter = 0;
+                            }
                             if header[0] == 0 {
                                 continue;
                             }
