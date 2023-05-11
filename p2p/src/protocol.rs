@@ -1,18 +1,22 @@
-use crate::client::tcp::{TcpActiveClient, TcpClientReader, TcpClientWriter, TcpWaitingClient};
-use crate::client::udp::{UdpActiveClient, UdpClientReader, UdpClientWriter, UdpWaitingClient};
-use crate::client::{
-    ActiveClient, ClientReader, ClientWriter, EncryptedReader, EncryptedWriter, WaitingClient,
-};
+use std::fmt::Debug;
+use std::net::Ipv6Addr;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use dryoc::dryocbox::{Bytes, KeyPair};
 use dryoc::dryocstream::{DryocStream, Header, Pull, Push};
 use dryoc::kx::{Session, SessionKey};
 use dryoc::sign::PublicKey;
-use rand::{thread_rng, Rng};
-use std::fmt::{Debug};
-use std::net::Ipv6Addr;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use crate::error::{ChangeStateError, ErrorKind};
-use crate::error::{Error as P2pError};
+use rand::{Rng, thread_rng};
+use sntpc::NtpContext;
+
+use crate::client::{
+    ActiveClient, ClientReader, ClientWriter, EncryptedReader, EncryptedWriter, WaitingClient,
+};
+use crate::client::tcp::{TcpActiveClient, TcpClientReader, TcpClientWriter, TcpWaitingClient};
+use crate::client::udp::{UdpActiveClient, UdpClientReader, UdpClientWriter, UdpWaitingClient};
+use crate::error::{ChangeStateError, Error, ErrorKind};
+use crate::error::Error as P2pError;
+use crate::ntp_time::get_diff;
 
 pub trait EncryptionState {}
 
@@ -51,7 +55,7 @@ pub struct Active<E: EncryptionState> {
     timeout: Option<Duration>,
     client: E,
     peer_ip: Ipv6Addr,
-    port: u16
+    port: u16,
 }
 
 pub struct Waiting {
@@ -124,7 +128,7 @@ impl Connection<Waiting> {
             udp_active_client,
             disconnect_timeout,
             peer,
-            own_port
+            own_port,
         ))
     }
 }
@@ -134,7 +138,7 @@ impl Connection<Active<Plain<Udp>>> {
         udp_active_client: UdpActiveClient,
         timeout: Option<Duration>,
         peer_ip: Ipv6Addr,
-        port: u16
+        port: u16,
     ) -> Connection<Active<Plain<Udp>>> {
         let (writer, reader) = udp_active_client.split();
 
@@ -147,7 +151,7 @@ impl Connection<Active<Plain<Udp>>> {
                     plain_reader: reader,
                     plain_writer: writer,
                 },
-                port
+                port,
             },
         }
     }
@@ -191,7 +195,7 @@ impl Connection<Active<Plain<Udp>>> {
                     encrypted_writer,
                     encrypted_reader,
                 },
-                port: self.state.port
+                port: self.state.port,
             },
         };
 
@@ -304,7 +308,48 @@ impl Connection<Active<Encrypted<Udp>>> {
                     encrypted_reader,
                     max_delay: self.state.client.max_delay,
                 },
-                port: self.state.port
+                port: self.state.port,
+            },
+        };
+
+        return Ok(connection);
+    }
+
+    pub fn upgrade_using_ntp(mut self) -> Result<Connection<Active<Encrypted<Tcp>>>, ChangeStateError<Self>> {
+        let tcp_client = match TcpWaitingClient::new(None) {
+            Ok(client) => client,
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        };
+
+        let peer_port = match self.exchange_ports(tcp_client.get_port()) {
+            Ok(p) => p,
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        };
+
+        let tcp_client = match self.connect_with_ntp(tcp_client, peer_port) {
+            Ok(client) => client,
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        };
+
+        let (tcp_writer, tcp_reader) = tcp_client.split();
+
+        let encrypted_reader =
+            EncryptedReader::new(self.state.client.encrypted_reader.pull_stream, tcp_reader);
+        let encrypted_writer =
+            EncryptedWriter::new(self.state.client.encrypted_writer.push_stream, tcp_writer);
+
+        let connection = Connection::<Active<Encrypted<Tcp>>> {
+            state: Active {
+                peer_ip: self.state.peer_ip,
+                role: self.state.role,
+                timeout: self.state.timeout,
+                client: Encrypted {
+                    encrypted_writer,
+                    clock_diff_samples: self.state.client.clock_diff_samples,
+                    encrypted_reader,
+                    max_delay: self.state.client.max_delay,
+                },
+                port: self.state.port,
             },
         };
 
@@ -327,17 +372,91 @@ impl Connection<Active<Encrypted<Udp>>> {
         Err(tcp_client)
     }
 
+    fn connect_with_ntp(
+        &mut self,
+        tcp_client: TcpWaitingClient,
+        peer_port: u16,
+    ) -> Result<TcpActiveClient, ChangeStateError<TcpWaitingClient>> {
+
+        let wait_time = match self.prepare_ntp_connect() {
+            Ok(dur) => dur,
+            Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
+        };
+
+        return tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time));
+    }
+
+    fn prepare_ntp_connect(&mut self) -> Result<Duration, P2pError> {
+        let diff = get_diff()?;
+
+
+        match self.state.role {
+            Role::Server => {
+                self.collect_samples(10)?;
+
+                let my_connect_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() + self.state.client.max_delay * 10;
+                let mut my_connect_time = Duration::from_nanos(my_connect_time as u64);
+                let mut real_connect_time: Duration;
+
+                if diff.1 > 0 {
+                    real_connect_time = my_connect_time + diff.0;
+                }else {
+                    real_connect_time = my_connect_time - diff.0;
+                }
+
+                self.state
+                    .client
+                    .encrypted_writer
+                    .write(real_connect_time.as_nanos().to_be_bytes().as_slice())?;
+
+                let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
+
+                return Ok(delay);
+            }
+            Role::Client => {
+                self.provide_samples()?;
+
+                let nanos = self
+                    .state
+                    .client
+                    .encrypted_reader
+                    .read(self.state.timeout)?;
+
+                let real_connect_time = match nanos.try_into() {
+                    Ok(t) => t,
+                    Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream))
+                };
+                let real_connect_time = u64::from_be_bytes(real_connect_time);
+                let real_connect_time = Duration::from_nanos(real_connect_time);
+
+                let mut my_connect_time;
+
+                if diff.1 > 0 {
+                    my_connect_time = real_connect_time + diff.0;
+                }else {
+                    my_connect_time = real_connect_time - diff.0;
+                }
+
+                let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
+
+                return Ok(delay);
+            }
+            Role::None => todo!(),
+        }
+    }
+
+
     fn sample_and_connect(
         &mut self,
         tcp_client: TcpWaitingClient,
         peer_port: u16,
     ) -> Result<TcpActiveClient, ChangeStateError<TcpWaitingClient>> {
         let wait_time: Duration;
-        
+
         match self.state.role {
             Role::Server => {
                 println!("sampling 255");
-                match self.collect_samples(255) {
+                match self.collect_samples(100) {
                     Ok(_) => {}
                     Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
                 };
@@ -422,7 +541,7 @@ impl Connection<Active<Encrypted<Udp>>> {
             .client
             .encrypted_reader
             .read(self.state.timeout)?;
-        let peer_port: [u8; 2] =  match peer_port.try_into() {
+        let peer_port: [u8; 2] = match peer_port.try_into() {
             Ok(t) => t,
             Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream))
         };
@@ -494,11 +613,9 @@ impl Connection<Active<Encrypted<Udp>>> {
 }
 
 impl<E: EncryptionState> Connection<Active<E>> {
-
     pub fn get_port(&self) -> u16 {
         self.state.port
     }
-
 }
 
 impl<P: ProtocolState> Connection<Active<Plain<P>>> {
@@ -509,6 +626,7 @@ impl<P: ProtocolState> Connection<Active<Plain<P>>> {
         )
     }
 }
+
 impl<P: ProtocolState> Connection<Active<Encrypted<P>>> {
     pub fn accept(self) -> (EncryptedWriter<P::Writer>, EncryptedReader<P::Reader>) {
         (

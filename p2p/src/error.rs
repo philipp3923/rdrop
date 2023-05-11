@@ -15,7 +15,8 @@ pub enum ErrorKind {
     EncryptionFailed,
     ChannelFailed,
     IllegalByteStream,
-    UndefinedRole
+    UndefinedRole,
+    SntpcError
 }
 
 #[derive(Debug)]
@@ -102,6 +103,12 @@ impl From<RecvTimeoutError> for Error {
 impl From<TryFromSliceError> for Error {
     fn from(value: TryFromSliceError) -> Self {
         Error {source: Some(Box::new(value)), kind: ErrorKind::IllegalByteStream}
+    }
+}
+
+impl From<sntpc::Error> for Error {
+    fn from(value: sntpc::Error) -> Self {
+        Error {source: None, kind: ErrorKind::SntpcError}
     }
 }
 

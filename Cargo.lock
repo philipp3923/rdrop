@@ -1628,6 +1628,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
+name = "no-std-net"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43794a0ace135be66a25d3ae77d41b91615fb68ae937f904090203e81f755b65"
+
+[[package]]
 name = "nodrop"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1773,6 +1779,7 @@ dependencies = [
  "dryoc",
  "rand 0.8.5",
  "rsntp",
+ "sntpc",
  "socket2 0.5.2",
 ]
 
@@ -2503,6 +2510,15 @@ name = "smallvec"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
+
+[[package]]
+name = "sntpc"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "487af0a08945e601490413344ffa855936a383d899a50d06d8ac677b5fee59ec"
+dependencies = [
+ "no-std-net",
+]
 
 [[package]]
 name = "socket2"
