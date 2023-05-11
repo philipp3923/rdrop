@@ -411,6 +411,9 @@ impl Connection<Active<Encrypted<Udp>>> {
 
                 let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
 
+                println!("my_connect_time  : {:?}", my_connect_time);
+                println!("real_connect_time: {:?}", my_connect_time);
+                println!("delay            : {:?}", my_connect_time);
                 return Ok(delay);
             }
             Role::Client => {
@@ -439,6 +442,9 @@ impl Connection<Active<Encrypted<Udp>>> {
 
                 let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
 
+                println!("my_connect_time  : {:?}", my_connect_time);
+                println!("real_connect_time: {:?}", my_connect_time);
+                println!("delay            : {:?}", my_connect_time);
                 return Ok(delay);
             }
             Role::None => todo!(),
