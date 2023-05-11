@@ -1,13 +1,13 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::fs::read;
 use std::marker::PhantomData;
 use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, mpsc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, mpsc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread;
+use std::thread::{JoinHandle, sleep};
 use std::time::Duration;
-
-use tauri::async_runtime::JoinHandle;
 
 use p2p::client::{ClientReader, ClientWriter, EncryptedReader, EncryptedWriter};
 use p2p::client::udp::UdpClientReader;
@@ -36,48 +36,33 @@ pub struct FileOrder {
 }
 
 pub struct Client<W: ClientWriter + Send, R: ClientReader + Send> {
-    reader: PhantomData<R>,
-    writer: PhantomData<W>,
+    reader: Arc<Mutex<R>>,
+    writer: Arc<Mutex<W>>,
     drop_threads: Arc<RwLock<bool>>,
+    port: u16,
     reader_thread: JoinHandle<Result<(), ClientError>>,
     writer_thread: JoinHandle<Result<(), ClientError>>,
 }
 
-impl<W: ClientWriter + Send, R: ClientReader + Send> Client<W, R> {
-    fn new(reader: R, writer: W, timeout: Option<Duration>) -> Self {
+impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<W, R> {
+    pub fn new(reader: R, writer: W, timeout: Option<Duration>, port: u16) -> Self {
         let drop_threads = Arc::new(RwLock::new(false));
+        let reader = Arc::new(Mutex::new(reader));
+        let writer = Arc::new(Mutex::new(writer));
 
-        //let reader_thread = thread::spawn(move || Client::read_thread(drop_threads.clone(), reader, timeout));
+        let reader_clone = reader.clone();
+        let writer_clone = writer.clone();
+        let drop_threads_clone_1 = drop_threads.clone();
+        let drop_threads_clone_2 = drop_threads.clone();
 
-        todo!()
+        let reader_thread = thread::spawn(move || read_thread(drop_threads_clone_1, reader_clone, timeout));
+        let writer_thread = thread::spawn(move || write_thread(drop_threads_clone_2, writer_clone));
+
+        Client {reader, writer, drop_threads, port, reader_thread, writer_thread}
     }
 
-    fn read_thread(dropper: Arc<RwLock<bool>>, mut reader: R, timeout: Option<Duration>) -> Result<(), ClientError> {
-        let dropper_read = dropper.read()?;
-        loop {
-            if *dropper_read {
-                return Ok(());
-            }
-
-            let msg = match reader.read(timeout) {
-                Ok(_) => {}
-                Err(err) => {
-                    match err.kind() {
-                        ErrorKind::TimedOut => { continue; }
-                        _ => {
-                            // send msg to frontend
-                            return Err(ClientError::new(ClientErrorKind::SocketClosed));
-                        }
-                    }
-                }
-            };
-
-            // handle message
-        }
-    }
-
-    fn write_thread() {
-        loop {}
+    pub fn get_port(&self) -> u16 {
+        self.port
     }
 }
 
@@ -86,7 +71,49 @@ impl<W: ClientWriter + Send, R: ClientReader + Send> Drop for Client<W, R> {
         //should panic if this fails
         let mut dropper = self.drop_threads.write().unwrap();
         *dropper = true;
-        self.reader_thread.abort();
-        self.writer_thread.abort();
+    }
+}
+
+
+fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>, reader: Arc<Mutex<R>>, timeout: Option<Duration>) -> Result<(), ClientError> {
+    // TODO remove unwrap
+    let mut reader = reader.lock().unwrap();
+
+    loop {
+        {
+            if *dropper.read()? {
+                return Ok(());
+            }
+        }
+
+        let msg = match reader.read(timeout) {
+            Ok(_) => {}
+            Err(err) => {
+                match err.kind() {
+                    ErrorKind::TimedOut => { continue; }
+                    _ => {
+                        // send msg to frontend
+                        return Err(ClientError::new(ClientErrorKind::SocketClosed));
+                    }
+                }
+            }
+        };
+
+        // handle message
+    }
+}
+
+fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>, writer: Arc<Mutex<W>>) -> Result<(), ClientError> {
+    // TODO remove unwrap
+    let mut writer = writer.lock().unwrap();
+
+    loop {
+        {
+            if *dropper.read()? {
+                return Ok(());
+            }
+        }
+
+        sleep(Duration::from_secs(1));
     }
 }

@@ -19,7 +19,6 @@ use crate::client::Client;
 use crate::connect::thread_connect;
 use crate::error::{ClientError, ClientErrorKind};
 use crate::events::{send_bind_port, send_connect_status};
-use crate::handle::Current::Connected;
 
 pub struct AppState(Arc<Mutex<Current>>);
 
@@ -38,8 +37,8 @@ pub enum Current {
     Broken,
     Disconnected(Connection<Waiting>),
     Connecting(SyncSender<()>),
-    Connected,
-    Connected2(Client<EncryptedWriter<TcpClientWriter>, EncryptedReader<TcpClientReader>>),
+    ConnectedUdp(Client<EncryptedWriter<UdpClientWriter>, EncryptedReader<UdpClientReader>>),
+    ConnectedTcp(Client<EncryptedWriter<TcpClientWriter>, EncryptedReader<TcpClientReader>>),
 }
 
 impl Current {
@@ -111,7 +110,19 @@ pub fn disconnect(state: State<AppState>) -> Result<(), ClientError> {
         Current::Connecting(sender) => {
             sender.send(())?;
             Ok(())
-        }
+        },
+        Current::ConnectedUdp(c) => {
+            let port = c.get_port();
+            *unlocked_state = Current::Broken;
+            *unlocked_state = Current::try_with_port(port);
+            Ok(())
+        },
+        Current::ConnectedTcp(c) => {
+            let port = c.get_port();
+            *unlocked_state = Current::Broken;
+            *unlocked_state = Current::try_with_port(port);
+            Ok(())
+        },
         _ => {
             *unlocked_state = Current::new();
             Ok(())

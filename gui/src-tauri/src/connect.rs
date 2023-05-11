@@ -7,6 +7,7 @@ use std::time::Duration;
 use tauri::{AppHandle, State, Wry};
 use p2p::error::{ErrorKind};
 use p2p::protocol::{Connection, Waiting};
+use crate::client::Client;
 use crate::error::{ClientError, ClientErrorKind};
 use crate::events::{send_connect_error, send_connect_status};
 use crate::handle::{AppState, Current};
@@ -44,16 +45,26 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                     Ok(connection) => {
                         let mut write_state = current.lock().unwrap();
                         send_connect_status(&app_handle, "Connected successfully", "")?;
-                        *write_state = Current::Connected;
+                        let port = connection.get_port();
+
+                        let (writer, reader) = connection.accept();
+                        let client = Client::new(reader, writer, Some(DISCONNECT_TIMEOUT), port);
+
+                        *write_state = Current::ConnectedTcp(client);
                     }
                     Err(err) => {
                         send_connect_status(&app_handle, "Upgrading failed", "Using fallback UDP protocol.")?;
 
-                        let active_connection = err.to_state();
+                        let (connection, err) = err.split();
+
+                        println!("{}", err);
 
                         let mut write_state = current.lock().unwrap();
 
-                        *write_state = Current::Connected;
+                        let (writer, reader) = connection.accept();
+                        let client = Client::new(reader, writer, Some(DISCONNECT_TIMEOUT), port);
+
+                        *write_state = Current::ConnectedUdp(client);
                     }
                 };
 
