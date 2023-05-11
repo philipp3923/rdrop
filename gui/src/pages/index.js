@@ -16,7 +16,7 @@ export default function Home() {
     const router = useRouter();
     const [isConnecting, setConnecting] = useState('none');
     const [connectionStatus, setConncectionStatus] = useState({ status: '' });
-    const [ipv6Port, setIPv6Port] = useState("187");
+    const [ipv6Port, setIPv6Port] = useState("");
     const [ipError, setIPError] = useState(false);
     const [portError, setPortError] = useState(false);
     const ipRef = useRef(null);
