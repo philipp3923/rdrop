@@ -117,6 +117,8 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
         }
     }
 
+    println!("Dummer hs");
+
     let mut write_state = current.lock().unwrap();
 
     *write_state = Current::Disconnected(connection);
