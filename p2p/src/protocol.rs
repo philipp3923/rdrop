@@ -392,6 +392,7 @@ impl Connection<Active<Encrypted<Udp>>> {
 
         match self.state.role {
             Role::Server => {
+                println!("SERVER");
                 self.collect_samples(10)?;
 
                 if self.state.client.max_delay == 0 {
@@ -411,16 +412,17 @@ impl Connection<Active<Encrypted<Udp>>> {
                 self.state
                     .client
                     .encrypted_writer
-                    .write(real_connect_time.as_nanos().to_be_bytes().as_slice())?;
+                    .write((real_connect_time.as_nanos() as u64).to_be_bytes().as_slice())?;
 
                 let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
 
-                println!("my_connect_time  : {:?}", my_connect_time);
+                println!("my_connect_time  : {:?}", real_connect_time);
                 println!("real_connect_time: {:?}", my_connect_time);
-                println!("delay            : {:?}", my_connect_time);
+                println!("delay            : {:?}", delay);
                 return Ok(delay);
             }
             Role::Client => {
+                println!("CLIENT");
                 self.provide_samples()?;
 
                 let nanos = self
