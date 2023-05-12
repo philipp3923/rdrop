@@ -446,10 +446,10 @@ impl Connection<Active<Encrypted<Udp>>> {
 
                 if diff.1 > 0 {
                     println!("sub 1");
-                    my_connect_time = real_connect_time + diff.0;
+                    my_connect_time = real_connect_time - diff.0;
                 }else {
                     println!("sub 2");
-                    my_connect_time = real_connect_time - diff.0;
+                    my_connect_time = real_connect_time + diff.0;
                 }
 
 
