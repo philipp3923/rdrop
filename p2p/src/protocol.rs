@@ -405,9 +405,9 @@ impl Connection<Active<Encrypted<Udp>>> {
                 let real_connect_time: Duration;
 
                 if diff.1 > 0 {
-                    real_connect_time = my_connect_time - diff.0;
-                }else {
                     real_connect_time = my_connect_time + diff.0;
+                }else {
+                    real_connect_time = my_connect_time - diff.0;
                 }
 
                 self.state
