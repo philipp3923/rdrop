@@ -57,3 +57,18 @@ pub fn send_connected(handle: &AppHandle<Wry>, protocol: Protocol) -> Result<(),
     Ok(())
 }
 
+pub fn send_disconnect(handle: &AppHandle<Wry>) -> Result<(), ClientError> {
+    handle
+        .emit_all("app://disconnected", ())
+        ?;
+
+    Ok(())
+}
+
+pub fn send_offer(handle: &AppHandle<Wry>, name: String, hash: String, size: u64)  -> Result<(), ClientError> {
+    handle
+        .emit_all("app://new-offer", (name, hash, size))
+        ?;
+
+    Ok(())
+}
