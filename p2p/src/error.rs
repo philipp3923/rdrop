@@ -16,7 +16,8 @@ pub enum ErrorKind {
     ChannelFailed,
     IllegalByteStream,
     UndefinedRole,
-    SntpcError
+    SntpcError,
+    NoDelayGiven
 }
 
 #[derive(Debug)]

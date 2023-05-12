@@ -394,14 +394,18 @@ impl Connection<Active<Encrypted<Udp>>> {
             Role::Server => {
                 self.collect_samples(10)?;
 
-                let my_connect_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() + self.state.client.max_delay * 10;
-                let mut my_connect_time = Duration::from_nanos(my_connect_time as u64);
-                let mut real_connect_time: Duration;
+                if self.state.client.max_delay == 0 {
+                    return Err(P2pError::new(ErrorKind::NoDelayGiven));
+                }
+
+                let my_connect_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() + self.state.client.max_delay * 10 + Duration::from_millis(100).as_nanos();
+                let my_connect_time = Duration::from_nanos(my_connect_time as u64);
+                let real_connect_time: Duration;
 
                 if diff.1 > 0 {
-                    real_connect_time = my_connect_time + diff.0;
-                }else {
                     real_connect_time = my_connect_time - diff.0;
+                }else {
+                    real_connect_time = my_connect_time + diff.0;
                 }
 
                 self.state
