@@ -441,15 +441,19 @@ impl Connection<Active<Encrypted<Udp>>> {
                 let mut my_connect_time;
 
                 if diff.1 > 0 {
+                    println!("sub 1");
                     my_connect_time = real_connect_time + diff.0;
                 }else {
+                    println!("sub 2");
                     my_connect_time = real_connect_time - diff.0;
                 }
 
-                let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
 
+                println!("sub 3");
                 println!("my_connect_time  : {:?}", real_connect_time);
                 println!("real_connect_time: {:?}", my_connect_time);
+                let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
+
                 println!("delay            : {:?}", delay);
                 return Ok(delay);
             }
