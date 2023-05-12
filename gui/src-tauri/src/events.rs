@@ -1,3 +1,4 @@
+use serde::Serialize;
 use tauri::{AppHandle, Manager, Wry};
 
 use crate::error::ClientError;
@@ -41,3 +42,18 @@ pub fn send_init_error(handle: &AppHandle<Wry>, status: &str, description: &str)
 
     Ok(())
 }
+
+#[derive(Clone, Copy, Serialize)]
+pub enum Protocol {
+    TCP,
+    UDP
+}
+
+pub fn send_connected(handle: &AppHandle<Wry>, protocol: Protocol) -> Result<(), ClientError> {
+    handle
+        .emit_all("app://connected", protocol)
+        ?;
+
+    Ok(())
+}
+
