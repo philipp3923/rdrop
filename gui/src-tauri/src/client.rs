@@ -55,12 +55,16 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
         let writer_clone = writer.clone();
         let drop_threads_clone_1 = drop_threads.clone();
         let drop_threads_clone_2 = drop_threads.clone();
+        let app_handle_clone_1 = app_handle.clone();
+        let app_handle_clone_2 = app_handle.clone();
 
         let (read_command, read_command_receiver) = mpsc::channel::<ReadCommand>();
         let (write_command, write_command_receiver) = mpsc::channel::<WriteCommand>();
 
-        let reader_thread = thread::spawn(move || read_thread(drop_threads_clone_1, reader_clone, app_handle.clone(), timeout, read_command_receiver, write_command.clone()));
-        let writer_thread = thread::spawn(move || write_thread(drop_threads_clone_2, app_handle.clone(), writer_clone, write_command_receiver));
+        let write_command_clone = write_command.clone();
+
+        let reader_thread = thread::spawn(move || read_thread(drop_threads_clone_1, reader_clone, app_handle_clone_1, timeout, read_command_receiver, write_command_clone));
+        let writer_thread = thread::spawn(move || write_thread(drop_threads_clone_2, app_handle_clone_2, writer_clone, write_command_receiver));
 
         Client { read_command, write_command, app_handle, reader, writer, drop_threads, port, reader_thread, writer_thread }
     }
@@ -127,9 +131,9 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                                 command_sender: Sender<WriteCommand>) -> Result<(), ClientError> {
     // TODO remove unwrap
     let mut reader = reader.lock().unwrap();
-    let mut paused_files: Vec<ActiveFile>;
-    let mut active_files: Vec<ActiveFile>;
-    let mut pending_files: Vec<File>;
+    let mut paused_files: Vec<ActiveFile> = vec![];
+    let mut active_files: Vec<ActiveFile> = vec![];
+    let mut pending_files: Vec<File> = vec![];
     loop {
         {
             if *dropper.read()? {
@@ -303,7 +307,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
         };
 
 
-        for file in files {
+        for file in &mut files {
             // TODO jeweils max 10mb aus dateisystem lesen und versenden
             // current ist die aktuelle positon (offset), start und stop sind die grenzen angegeben in chunks
 

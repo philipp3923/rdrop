@@ -57,7 +57,7 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                         let port = connection.get_port();
 
                         let (writer, reader) = connection.accept();
-                        let client = Client::new(reader, writer, Some(DISCONNECT_TIMEOUT), port);
+                        let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), port);
 
                         *write_state = Current::ConnectedTcp(client);
                         send_connected(&app_handle, Protocol::TCP)?;
