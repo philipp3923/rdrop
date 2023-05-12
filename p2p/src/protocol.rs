@@ -282,7 +282,7 @@ impl Connection<Active<Encrypted<Udp>>> {
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
 
-        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 2) {
+        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 0) {
             Ok(client) => client,
             Err(client) => match self.sample_and_connect(client, peer_port) {
                 Ok(c) => c,
@@ -394,14 +394,18 @@ impl Connection<Active<Encrypted<Udp>>> {
             Role::Server => {
                 self.collect_samples(10)?;
 
-                let my_connect_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() + self.state.client.max_delay * 10;
-                let mut my_connect_time = Duration::from_nanos(my_connect_time as u64);
-                let mut real_connect_time: Duration;
+                if self.state.client.max_delay == 0 {
+                    return Err(P2pError::new(ErrorKind::NoDelayGiven));
+                }
+
+                let my_connect_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() + self.state.client.max_delay * 10 + Duration::from_millis(100).as_nanos();
+                let my_connect_time = Duration::from_nanos(my_connect_time as u64);
+                let real_connect_time: Duration;
 
                 if diff.1 > 0 {
-                    real_connect_time = my_connect_time + diff.0;
-                }else {
                     real_connect_time = my_connect_time - diff.0;
+                }else {
+                    real_connect_time = my_connect_time + diff.0;
                 }
 
                 self.state
@@ -442,9 +446,9 @@ impl Connection<Active<Encrypted<Udp>>> {
 
                 let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
 
-                println!("my_connect_time  : {:?}", my_connect_time);
+                println!("my_connect_time  : {:?}", real_connect_time);
                 println!("real_connect_time: {:?}", my_connect_time);
-                println!("delay            : {:?}", my_connect_time);
+                println!("delay            : {:?}", delay);
                 return Ok(delay);
             }
             Role::None => todo!(),
