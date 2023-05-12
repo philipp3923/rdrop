@@ -103,8 +103,8 @@ pub fn connect(app_handle: AppHandle<Wry>, app_state: State<AppState>, ip: Strin
 }
 
 #[tauri::command]
-pub fn disconnect(state: State<AppState>) -> Result<(), ClientError> {
-    let mut unlocked_state = (*state).0.lock().unwrap();
+pub fn disconnect(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(), ClientError> {
+    let mut unlocked_state = (*app_state).0.lock().unwrap();
 
     println!("[EVENT] Disconnect");
 
@@ -112,26 +112,13 @@ pub fn disconnect(state: State<AppState>) -> Result<(), ClientError> {
         Current::Connecting(sender) => {
             println!("Connecting");
             sender.send(())?;
-            Ok(())
-        },
-        Current::ConnectedUdp(c) => {
-            println!("ConnectedUdp");
-            let port = c.get_port();
-            *unlocked_state = Current::Broken;
-            *unlocked_state = Current::try_with_port(port);
-            Ok(())
-        },
-        Current::ConnectedTcp(c) => {
-            println!("ConnectedTcp");
-            let port = c.get_port();
-            *unlocked_state = Current::Broken;
-            *unlocked_state = Current::try_with_port(port);
-            Ok(())
+            drop(unlocked_state);
+            start(app_handle, app_state)
         },
         _ => {
             println!("Other");
-            *unlocked_state = Current::new();
-            Ok(())
+            drop(unlocked_state);
+            start(app_handle, app_state)
         }
     }
 }
@@ -176,8 +163,10 @@ pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(
             start(app_handle, app_state)
         },
         _ => {
-            println!("WrongState");
-            Err(ClientError::new(ClientErrorKind::WrongState))
+            println!("Other");
+            *unlocked_state = Current::new();
+            drop(unlocked_state);
+            start(app_handle, app_state)
         }
     }
 }
