@@ -52,7 +52,7 @@ pub fn get_diff() -> Result<(Duration, i64), crate::error::Error> {
 
     let result = result?;
 
-    Ok((Duration::from_micros(result.offset as u64), result.offset))
+    Ok((Duration::from_micros(if result.offset < 0 { result.offset * -1 } else { result.offset } as u64), result.offset))
 }
 
 #[cfg(test)]
