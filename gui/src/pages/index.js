@@ -6,7 +6,6 @@ import IconButton from '../components/IconButton';
 import Layout from '../layouts/Layout';
 import MatIcon from '../components/MatIcon';
 import { usePublicIP } from '../components/hooks/usePublicIP';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Loader from '../components/Loader';
 import useTauriEvent from '../components/hooks/useTauriEvent';
@@ -22,12 +21,30 @@ export default function Home() {
     const [portError, setPortError] = useState(false);
     const ipRef = useRef(null);
     const portRef = useRef(null);
-
     const ip = usePublicIP();
-    0;
+
+
     useEffect(() => {
         invoke('start');
     }, []);
+
+    useTauriEvent('app://update-status', (event) => {
+        setConncectionStatus(event?.payload);
+    });
+
+    useTauriEvent('app://update-port', (event) => {
+        setIPv6Port(event?.payload);
+    });
+
+    useTauriEvent('app://socket-failed', (event) => {
+        setConnecting('failed');
+        setConncectionStatus(event?.payload);
+    });
+
+    useTauriEvent('app://connected', () => {
+        router.push('/transfer');
+    });
+    
 
     async function handleConnect() {
         let ip = ipRef.current.value;
@@ -76,23 +93,6 @@ export default function Home() {
     function handleCopyIPv6() {
         writeText(ip.ipv6+":"+ipv6Port);
     }
-
-    useTauriEvent('app://update-status', (event) => {
-        setConncectionStatus(event?.payload);
-    });
-
-    useTauriEvent('app://update-port', (event) => {
-        setIPv6Port(event?.payload);
-    });
-
-    useTauriEvent('app://socket-failed', (event) => {
-        setConnecting('failed');
-        setConncectionStatus(event?.payload);
-    });
-
-    useTauriEvent('app://connected', () => {
-        router.push('/transfer');
-    });
 
     return (
         <div className='home layout-center-height'>
