@@ -155,6 +155,7 @@ pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(
 
     match unlocked_state.deref() {
         Current::Disconnected(c) => {
+            send_bind_port(&app_handle, c.get_port())?;
             println!("port: {}", c.get_port());
             Ok(())
         },
