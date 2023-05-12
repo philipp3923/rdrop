@@ -388,6 +388,7 @@ impl Connection<Active<Encrypted<Udp>>> {
 
     fn prepare_ntp_connect(&mut self) -> Result<Duration, P2pError> {
         let diff = get_diff()?;
+        println!("diff            : {:?}", diff);
 
 
         match self.state.role {
@@ -440,6 +441,9 @@ impl Connection<Active<Encrypted<Udp>>> {
 
                 let mut my_connect_time;
 
+
+                println!("real_connect_time: {:?}", real_connect_time);
+
                 if diff.1 > 0 {
                     println!("sub 1");
                     my_connect_time = real_connect_time + diff.0;
@@ -449,9 +453,7 @@ impl Connection<Active<Encrypted<Udp>>> {
                 }
 
 
-                println!("sub 3");
-                println!("my_connect_time  : {:?}", real_connect_time);
-                println!("real_connect_time: {:?}", my_connect_time);
+                println!("my_connect_time  : {:?}", my_connect_time);
                 let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
 
                 println!("delay            : {:?}", delay);
