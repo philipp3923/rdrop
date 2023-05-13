@@ -51,7 +51,7 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
 
                 send_connect_status(&app_handle, "Upgrading", "Sampling time difference.")?;
 
-                let active_connection = match active_connection.upgrade() {
+                let active_connection = match active_connection.upgrade_using_ntp() {
                     Ok(connection) => {
                         let mut write_state = current.lock().unwrap();
                         send_connect_status(&app_handle, "Connected successfully", "")?;
@@ -76,7 +76,7 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
 
                 send_connect_status(&app_handle, "Upgrading", "Synchronizing using NTP server.")?;
 
-                match active_connection.upgrade_using_ntp() {
+                match active_connection.upgrade() {
                     Ok(connection) => {
                         let mut write_state = current.lock().unwrap();
                         send_connect_status(&app_handle, "Connected successfully", "")?;

@@ -282,7 +282,7 @@ impl Connection<Active<Encrypted<Udp>>> {
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
 
-        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 3) {
+        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 1) {
             Ok(client) => client,
             Err(client) => match self.sample_and_connect(client, peer_port) {
                 Ok(c) => c,
@@ -326,9 +326,12 @@ impl Connection<Active<Encrypted<Udp>>> {
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
 
-        let tcp_client = match self.connect_with_ntp(tcp_client, peer_port) {
+        let tcp_client = match self.multi_connect_with_ntp(tcp_client, peer_port, 1) {
             Ok(client) => client,
-            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+            Err(client) => match self.connect_with_ntp(client, peer_port) {
+                Ok(c) => c,
+                Err(err) => return Err(ChangeStateError::new(self, err.to_err())),
+            },
         };
 
         let (tcp_writer, tcp_reader) = tcp_client.split();
@@ -372,6 +375,22 @@ impl Connection<Active<Encrypted<Udp>>> {
         Err(tcp_client)
     }
 
+    fn multi_connect_with_ntp(
+        &mut self,
+        mut tcp_client: TcpWaitingClient,
+        peer_port: u16,
+        tries: u8,
+    ) -> Result<TcpActiveClient, TcpWaitingClient> {
+        for _ in 0..tries {
+            tcp_client = match self.connect_with_ntp(tcp_client, peer_port) {
+                Ok(c) => return Ok(c),
+                Err(err) => err.to_state(),
+            };
+        }
+
+        Err(tcp_client)
+    }
+
     fn connect_with_ntp(
         &mut self,
         tcp_client: TcpWaitingClient,
@@ -383,7 +402,7 @@ impl Connection<Active<Encrypted<Udp>>> {
             Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
         };
 
-        return tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time));
+        return tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time), self.state.timeout);
     }
 
     fn prepare_ntp_connect(&mut self) -> Result<Duration, P2pError> {
@@ -499,7 +518,7 @@ impl Connection<Active<Encrypted<Udp>>> {
         }
 
         println!("trying to connect tcp");
-        return tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time));
+        return tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time), self.state.timeout);
     }
 
     fn set_connect_time(&mut self) -> Result<Duration, P2pError> {

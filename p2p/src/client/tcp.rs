@@ -36,13 +36,14 @@ impl TcpWaitingClient {
         peer: Ipv6Addr,
         port: u16,
         wait: Option<Duration>,
+        timeout: Option<Duration>
     ) -> Result<TcpActiveClient, ChangeStateError<Self>> {
         if wait.is_some() {
             sleep(wait.unwrap());
         }
 
         let sock_addr = SockAddr::from(SocketAddr::new(IpAddr::from(peer), port));
-        return match self.tcp_socket.connect(&sock_addr) {
+        return match self.tcp_socket.connect_timeout(&sock_addr, timeout.unwrap_or(Duration::from_secs(1))) {
             Ok(_) => {
                 let tcp_stream = TcpStream::from(self.tcp_socket);
                 Ok(TcpActiveClient::new(tcp_stream))
