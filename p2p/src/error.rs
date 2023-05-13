@@ -4,9 +4,13 @@ use std::io;
 use std::sync::mpsc::{RecvError, RecvTimeoutError, TryRecvError};
 use std::time::{SystemTimeError};
 
+
+/// A list specifying general categories of P2pError error.
 #[derive(Debug)]
 pub enum ErrorKind {
+    /// The connection timed out.
     TimedOut,
+    /// Attempted to connect a client to itself.
     CannotConnectToSelf,
     SystemTimeError,
     Other,
@@ -27,7 +31,6 @@ pub struct Error {
 }
 
 impl Error {
-
     pub fn new(kind: ErrorKind) -> Error {
         Error {kind, source: None }
     }

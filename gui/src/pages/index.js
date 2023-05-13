@@ -60,6 +60,7 @@ export default function Home() {
                     invalidIp = false;
                     ipRef.current.value = ipParts.slice(0, -1).join(':');
                     portRef.current.value = last;
+                    return handleConnect();
                 }
             }
 
@@ -77,6 +78,8 @@ export default function Home() {
         setPortError(false);
         setConnecting('connecting');
         setConncectionStatus({ status: '' });
+
+        console.log(ip, port);
 
         invoke('connect', { ip, port: parseInt(port) });
     }

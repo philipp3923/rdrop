@@ -16,19 +16,19 @@ use chunk::offer::offer::{create_offer_vec, create_offer_byte_msg, read_offer_ve
 use chunk::order::order::{create_order_byte_vec, read_order};
 use tauri::{AppHandle, Wry};
 
-use p2p::client::{ClientReader, ClientWriter, EncryptedReader, EncryptedWriter};
-use p2p::client::udp::UdpClientReader;
+use p2p::client::{ClientReader, ClientWriter};
+
 use p2p::error::ErrorKind;
 
 use crate::error::{ClientError, ClientErrorKind};
-use crate::events::{send_disconnect, send_offer};
+use crate::events::{send_disconnect};
 
 #[derive(Clone)]
 pub struct File {
-    hash: String,
-    path: String,
-    name: String,
-    size: u64,
+    pub(crate) hash: String,
+    pub(crate) path: String,
+    pub(crate) size: u64,
+    pub(crate) name: String,
     cache: Vec<u8>,
 }
 
@@ -47,7 +47,7 @@ pub struct Client<W: ClientWriter + Send, R: ClientReader + Send> {
     reader_thread: JoinHandle<Result<(), ClientError>>,
     writer_thread: JoinHandle<Result<(), ClientError>>,
     read_command: Sender<ReadCommand>,
-    write_command: Sender<WriteCommand>
+    write_command: Sender<WriteCommand>,
 }
 
 impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<W, R> {
@@ -131,9 +131,11 @@ enum ReadCommand {
 enum WriteCommand {
     Request(ActiveFile),
     Offer(File),
-    Stop(String), // Sends stop command to other client
-    StopSend(String), // Stops self sending
-    Send(String, u64, u64) // HASH + START CHUNK + END CHUNK
+    Stop(String),
+    // Sends stop command to other client
+    StopSend(String),
+    // Stops self sending
+    Send(String, u64, u64), // HASH + START CHUNK + END CHUNK
 }
 
 
@@ -177,7 +179,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                             let hash = file.file.hash.clone();
                             command_sender.send(WriteCommand::Stop(hash))?;
                             paused_files.push(file);
-                        },
+                        }
                     }
                 }
                 ReadCommand::Resume(hash) => {
@@ -187,13 +189,13 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                             let file = paused_files.swap_remove(index);
                             command_sender.send(WriteCommand::Request(file.clone()))?;
                             active_files.push(file);
-                        },
+                        }
                     }
                 }
                 ReadCommand::Stop(hash) => {
                     match active_files.iter().position(|wf| wf.file.hash == hash) {
                         None => {}
-                        Some(index) => {active_files.swap_remove(index);},
+                        Some(index) => { active_files.swap_remove(index); }
                     }
                 }
             },
@@ -267,7 +269,7 @@ struct ActiveFile {
     file: File,
     start: u64,
     stop: u64,
-    current: u64
+    current: u64,
 }
 
 impl ActiveFile {
@@ -308,9 +310,9 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                                 println!("(send) : request");
                             }
                             Err(_err) => {
-                               println!("disconnect");
-                               send_disconnect(&app_handle)?;
-                               return Err(ClientError::new(ClientErrorKind::SocketClosed));
+                                println!("disconnect");
+                                send_disconnect(&app_handle)?;
+                                return Err(ClientError::new(ClientErrorKind::SocketClosed));
                             }
                         };
                     }
@@ -332,7 +334,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                     WriteCommand::StopSend(hash) => {
                         match files.iter().position(|wf| wf.file.hash == hash) {
                             None => {}
-                            Some(index) => {files.swap_remove(index);},
+                            Some(index) => { files.swap_remove(index); }
                         }
                     }
                     WriteCommand::Send(hash, start, stop) => {
@@ -340,7 +342,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                             None => {}
                             Some(index) => {
                                 let file = offers.swap_remove(index);
-                                let active_file = ActiveFile {file, stop, start, current: 0};
+                                let active_file = ActiveFile { file, stop, start, current: 0 };
                             }
                         }
                     }
@@ -387,6 +389,5 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
         if files.len() == 0 {
             sleep(Duration::from_millis(100));
         }
-
     }
 }
