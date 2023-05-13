@@ -8,8 +8,8 @@ use crate::error::error::RError;
 
 pub const USER_HASH:&str = "0123456789abcdef";
 pub const CHUNK_HASH_TYPE:Hash = Hash::SIPHASH24;
-pub const CHUNK_SIZE:usize = 1024 * 1024*1;
-pub const BUFFER_SIZE:usize = 1024 * 1024;
+pub const CHUNK_SIZE:usize = 1024 * 1024*20;
+pub const BUFFER_SIZE:usize = 1024 * 1024*20;
 pub const LOGGER_REGEX:&str = r"\[(\d{2}\.\d{2}\.\d{4} \- \d{2}:\d{2}:\d{2}\.\d{3})\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\][\t\f\v ]*-[\t\f\v ]*\[(SHA256|SHA512|MD5|SIPHASH24)\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+) bytes\][\t\f\v ]*(-[\t\f\v ]*\[(SHA256|SHA512|MD5|SIPHASH24)\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\])?";
 
 #[derive(Debug)]
@@ -236,6 +236,47 @@ impl HeaderData {
         })
     }
 }
+
+
+//pub functions
+
+pub fn get_file_data(filepath:&str) -> Result<(File, String, u64), Error>{
+
+    let metadata = match metadata(filepath){
+        Ok(metadata) => metadata,
+        Err(_) => return Err(Error::new(ErrorKind::InvalidInput, "Path is not a file or directory")),
+    };
+
+    if metadata.is_dir() {
+        //return error, only files can be splitted
+        return Err(Error::new(ErrorKind::InvalidInput, "Path is a directory. Can only send Files (includes .zip)"));
+    }
+
+    let file = File::open(filepath)?;
+    let name = Path::new(filepath).file_name().unwrap().to_string_lossy().to_string();
+    let size = metadata.len();
+
+
+    return Ok((file, name, size));
+}
+
+// calc chunk count
+pub fn get_chunk_count(file_size:u64) -> Result<u64,Error> {
+
+    let chunk_size = CHUNK_SIZE as u64;
+
+    let mut full_val = file_size / chunk_size;
+    
+    if file_size % chunk_size != 0 {
+        full_val += 1;
+    }
+
+    return Ok(full_val);
+}
+
+
+//
+
 
 
 

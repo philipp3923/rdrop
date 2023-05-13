@@ -3,7 +3,7 @@ use std::{fs::{File}, io::{BufReader, Read, SeekFrom, Seek}, io::{Error}, collec
 use sha2::{Sha256, Sha512, Digest};
 use md5::Md5;
 
-use crate::general::general::AppSettings;
+use crate::general::general::{AppSettings, BUFFER_SIZE};
 
 
 //Enum with string-len of hash
@@ -24,6 +24,12 @@ impl Hash{
             Hash::SHA512 => "SHA512".to_string(),
         }
     }
+}
+
+
+pub fn get_hash_from_file(file:&File) -> Result<String, Error>{
+
+    return get_file_hash(file, BUFFER_SIZE, &Hash::SIPHASH24, 0);
 }
 
 
