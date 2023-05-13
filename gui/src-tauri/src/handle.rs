@@ -177,6 +177,24 @@ pub fn deny_file(app_state: State<AppState>, hash: String) -> Result<(), ClientE
 }
 
 #[tauri::command]
+pub fn stop_file(app_state: State<AppState>, hash: String) -> Result<(), ClientError> {
+    println!("[EVENT] deny_file");
+    let mut unlocked_state = (*app_state).0.lock()?;
+
+    match unlocked_state.deref_mut() {
+        &mut Current::ConnectedUdp(ref mut client) => {
+            client.stop_file(hash)
+        },
+        &mut Current::ConnectedTcp(ref mut client) => {
+            client.stop_file(hash)
+        },
+        _ => {
+            Err(ClientError::new(ClientErrorKind::WrongState))
+        }
+    }
+}
+
+#[tauri::command]
 pub fn pause_file(app_state: State<AppState>, hash: String) -> Result<(), ClientError> {
     println!("[EVENT] pause_file");
     let mut unlocked_state = (*app_state).0.lock()?;

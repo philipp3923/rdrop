@@ -73,14 +73,13 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
         self.port
     }
 
-    //TODO @Simon notwendige Logik implementieren
     pub fn offer_file(&mut self, path: String) -> Result<(), ClientError> {
         // hash erstellen größe berechnen - wenn file nicht existiert entsprechend client error returnen
 
-        //let (file, file_name, file_size) = chunk::file::get_file_data(&path);
+        let (file, file_name, file_size) = chunk::general::general::get_file_data(&path)?;
+        let file_hash = chunk::hash::hash::get_hash_from_file(&file)?;
 
-
-        let new_file = File::new("HASH".into(), path, 100, Vec::new());
+        let new_file = File::new(file_hash, path, file_size, Vec::new());
 
         self.write_command.send(WriteCommand::Offer(new_file))?;
         Ok(())
@@ -95,6 +94,11 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
 
     pub fn deny_file(&mut self, hash: String) -> Result<(), ClientError> {
         self.read_command.send(ReadCommand::Stop(hash))?;
+        Ok(())
+    }
+
+    pub fn stop_file(&mut self, hash: String) -> Result<(), ClientError> {
+        self.write_command.send(WriteCommand::StopSend(hash))?;
         Ok(())
     }
 
@@ -134,8 +138,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                                 timeout: Option<Duration>,
                                 command_receiver: mpsc::Receiver<ReadCommand>,
                                 command_sender: Sender<WriteCommand>) -> Result<(), ClientError> {
-    // TODO remove unwrap
-    let mut reader = reader.lock().unwrap();
+    let mut reader = reader.lock()?;
     let mut paused_files: Vec<ActiveFile> = vec![];
     let mut active_files: Vec<ActiveFile> = vec![];
     let mut pending_files: Vec<File> = vec![];
@@ -221,6 +224,18 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 // command_sender.send(WriteCommand::StopSend("HAHS")) - tell command sender to stop sending
             }
             0x11 => {
+                // 1. file mit dem hash aus der nachricht in der liste finden
+                /*match active_files.iter().position(|wf| wf.file.hash == #HASH AUS NACHRICHT) {
+                    None => {}
+                    Some(index) => {
+                        let file = active_files[index];
+
+                        // wenn gefunden paket einlesen und an file.file.path schreiben mit position file.current
+
+                        // wenn file.current >= file.stop dann aus liste entfernen
+                    },
+                }*/
+
                 println!("(recv) : package");
             } // file package bitte cachen und wenn cache groß genug > 20 zb dann auf festplatte schreiben
             _ => {} // illegal opcode
@@ -263,7 +278,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
             Ok(c) =>
                 match c {
                     WriteCommand::Request(file) => {
-                        //TODO SEND REQUEST WITH GIVEN CHUNKS
+                        //TODO @Simon file order erstellen mit file.start und file.stop und hash
 
                         match writer.write(&[0x0A]) {
                             Ok(_) => {
@@ -277,8 +292,8 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                         };
                     }
                     WriteCommand::Offer(file) => {
-                        //TODO SEND OFFER
-
+                        //TODO @Simon file offer erstellen und bei writer.write reintun
+                        offers.push(file);
                         match writer.write(&[0xAB]) {
                             Ok(_) => {
                                 println!("(send) : offer");

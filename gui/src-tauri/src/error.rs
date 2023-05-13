@@ -26,6 +26,7 @@ pub enum ClientErrorKind {
     Ipv6ParseFailed,
     SendToFrontendFailed,
     NotFound,
+    IOError,
     CommunicationError
 }
 
@@ -84,6 +85,12 @@ impl<T> From<PoisonError<T>> for ClientError {
 impl From<p2p::error::Error> for ClientError {
     fn from(_value: p2p::error::Error) -> Self {
         ClientError::new(ClientErrorKind::CommunicationError)
+    }
+}
+
+impl From<std::io::Error> for ClientError {
+    fn from(_value: std::io::Error) -> Self {
+        ClientError::new(ClientErrorKind::IOError)
     }
 }
 
