@@ -11,6 +11,7 @@ import Loader from '../components/Loader';
 import useTauriEvent from '../components/hooks/useTauriEvent';
 import { writeText } from '@tauri-apps/api/clipboard';
 import { isValidIP, isValidPort } from '../vendor/ip';
+import Link from 'next/link';
 
 export default function Home() {
     const router = useRouter();
@@ -22,7 +23,6 @@ export default function Home() {
     const ipRef = useRef(null);
     const portRef = useRef(null);
     const ip = usePublicIP();
-
 
     useEffect(() => {
         invoke('start');
@@ -44,7 +44,6 @@ export default function Home() {
     useTauriEvent('app://connected', () => {
         router.push('/transfer');
     });
-    
 
     async function handleConnect() {
         let ip = ipRef.current.value;
@@ -94,7 +93,7 @@ export default function Home() {
     }
 
     function handleCopyIPv6() {
-        writeText(ip.ipv6+":"+ipv6Port);
+        writeText(ip.ipv6 + ':' + ipv6Port);
     }
 
     return (
@@ -149,18 +148,25 @@ export default function Home() {
                         error={portError}
                         defaultValue='2000'
                     />
-                    {isConnecting === 'connecting' && (
-                        <Button tonal large onClick={handleAbort}>
-                            Cancel
-                            <MatIcon right>close</MatIcon>
-                        </Button>
-                    )}
-                    {isConnecting !== 'connecting' && (
-                        <Button type='submit' tonal large>
-                            Connect
-                            <MatIcon right>arrow_forward</MatIcon>
-                        </Button>
-                    )}
+                    <div className="home-actions">
+                        <Link href='/transfer'>
+                            <Button text large>
+                                Transfer
+                            </Button>
+                        </Link>
+                        {isConnecting === 'connecting' && (
+                            <Button tonal large onClick={handleAbort}>
+                                Cancel
+                                <MatIcon right>close</MatIcon>
+                            </Button>
+                        )}
+                        {isConnecting !== 'connecting' && (
+                            <Button type='submit' tonal large>
+                                Connect
+                                <MatIcon right>arrow_forward</MatIcon>
+                            </Button>
+                        )}
+                    </div>
                 </form>
             </section>
         </div>

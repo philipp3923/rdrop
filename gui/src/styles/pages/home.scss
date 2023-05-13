@@ -13,8 +13,10 @@
             }
         }
         
-        button {
-            margin-left: 100px;
+        .home-actions {
+            margin-left: 16px;
+            display: flex;
+            gap: 16px;
         }
     }
 

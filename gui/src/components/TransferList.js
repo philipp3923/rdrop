@@ -37,6 +37,15 @@ export default function TransferList() {
             state: 'completed',
             is_sender: true,
             path: "C:\\Users\\Lzoch\\Music\\RAF Camora  Bonez MC - Leer.mp3"
+        },
+        {
+            hash: 2,
+            name: 'RAF CAMORA.mp3',
+            size: 4864846843,
+            percent: 72,
+            state: 'completed',
+            is_sender: false,
+            path: "C:\\Users\\Lzoch\\Music\\RAF Camora  Bonez MC - Leer.mp3"
         }];
 
         files = [...files, ...files, ...files, ...files, ...files];
@@ -131,7 +140,7 @@ export default function TransferList() {
                             <div className='transfer-list-item-actions flex'>
                                 {canDownload && <IconButton text onClick={()=>handleDownload(file)}>download</IconButton>}
                                 {canCancel && <IconButton text onClick={()=>handleCancel(file)}>close</IconButton>}
-                                {canShowInExplorer && <IconButton text onClick={()=>handleCancel(file)}>folder</IconButton>}
+                                {canShowInExplorer && <IconButton text onClick={()=>handleShowInExplorer(file)}>folder</IconButton>}
                             </div>
                         </div>
                     );
