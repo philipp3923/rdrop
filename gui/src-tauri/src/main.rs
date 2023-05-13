@@ -45,7 +45,7 @@ fn main() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![greet, handle::connect, handle::disconnect, handle::offer_file, handle::accept_file, handle::deny_file, handle::pause_file, handle::start])
+        .invoke_handler(tauri::generate_handler![greet, handle::connect, handle::disconnect, handle::offer_file, handle::accept_file, handle::deny_file, handle::pause_file, handle::start, handle::show_in_folder])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

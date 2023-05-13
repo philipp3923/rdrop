@@ -36,6 +36,7 @@ export default function TransferList() {
             percent: 72,
             state: 'completed',
             is_sender: true,
+            path: "C:\\Users\\Lzoch\\Music\\RAF Camora  Bonez MC - Leer.mp3"
         }];
 
         files = [...files, ...files, ...files, ...files, ...files];
@@ -91,11 +92,11 @@ export default function TransferList() {
     const handleDownload = async (file) => {
         const filePath = await save({ defaultPath: file.name });
         console.log(filePath);
-        invoke('accept_file', { hash: file.hash });
+        invoke('accept_file', { hash: file.hash, path: filePath });
     };
 
     const handleShowInExplorer = async (file) => {
-        
+        invoke('show_in_folder', { path: file.path });
     };
 
     let classes = 'transfer-list container container-secondary';
