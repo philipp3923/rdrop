@@ -24,8 +24,8 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
     let mut i = 0;
     let mut instant = Instant::now();
     while receiver.try_recv().is_err() {
-        if instant.elapsed() < Duration::from_millis(50){
-            sleep(Duration::from_millis(51) - instant.elapsed());
+        if instant.elapsed() < Duration::from_millis(25){
+            sleep(Duration::from_millis(30) - instant.elapsed());
         }
         instant = Instant::now();
         i += 1;
