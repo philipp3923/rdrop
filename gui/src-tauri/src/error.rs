@@ -27,6 +27,7 @@ pub enum ClientErrorKind {
     SendToFrontendFailed,
     NotFound,
     IOError,
+    DataCorruptionError,
     CommunicationError
 }
 

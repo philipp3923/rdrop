@@ -2,7 +2,7 @@ use std::{io::{ErrorKind, Error, Write}, fs::{create_dir_all, File}, path::PathB
 
 use regex::Regex;
 
-use crate::{hash::hash::Hash, error::error::{RError, RErrorKind}, general::general::{LOGGER_REGEX, read_log_file, validate_log_file, calc_chunk_count, append_header, HeaderByte}, offer::offer::Offer};
+use crate::{hash::hash::Hash, error::error::{RError, RErrorKind}, general::general::{LOGGER_REGEX, read_log_file, validate_log_file, calc_chunk_count, append_header, HeaderByte, CHUNK_SIZE, CHUNK_HASH_TYPE, get_chunk_count}, offer::offer::Offer};
 
 
 
@@ -16,8 +16,8 @@ pub struct Order{
     pub file_hash_type:Hash,
     pub file_hash:String,
     pub file_name:String,
-    pub start_num:usize,
-    pub end_num:usize,
+    pub start_num:u64,
+    pub end_num:u64,
 }
 
 impl Order{
@@ -36,12 +36,30 @@ impl Order{
         let file_hash = file_hash.to_string();
         let file_name = file_name.to_string();
         let chunk_size:usize = chunk_size.parse::<usize>().unwrap();
-        let start_num:usize = start_num.parse::<usize>().unwrap();
-        let end_num:usize = end_num.parse::<usize>().unwrap();
+        let start_num:u64 = start_num.parse::<u64>().unwrap();
+        let end_num:u64 = end_num.parse::<u64>().unwrap();
 
         Ok(Self{chunk_size, file_hash_type, file_hash, file_name, start_num, end_num})
         }
     }
+
+
+pub fn create_order_byte_vec(start:u64, end:u64, file_hash:&str) -> Result<Vec<u8>, Error>{
+
+    let mut order_byte_vec = create_order(start, end, CHUNK_SIZE, &Hash::SIPHASH24, file_hash, "", &Some(CHUNK_HASH_TYPE))?;
+
+    order_byte_vec = append_header(order_byte_vec, HeaderByte::SendOrder);
+
+    return Ok(order_byte_vec);
+}
+
+
+
+
+
+
+
+
 
 
 

@@ -10,6 +10,10 @@ use std::thread;
 use std::thread::{JoinHandle, sleep};
 use std::time::Duration;
 
+use chunk::file::file::{write_data_vec, create_data_vec};
+use chunk::general::general::{get_chunk_count, HeaderByte, separate_header, read_send_header};
+use chunk::offer::offer::{create_offer_vec, create_offer_byte_msg, read_offer_vec};
+use chunk::order::order::{create_order_byte_vec, read_order};
 use tauri::{AppHandle, Wry};
 
 use p2p::client::{ClientReader, ClientWriter, EncryptedReader, EncryptedWriter};
@@ -23,13 +27,14 @@ use crate::events::{send_disconnect, send_offer};
 pub struct File {
     hash: String,
     path: String,
+    name: String,
     size: u64,
     cache: Vec<u8>,
 }
 
 impl File {
-    fn new(hash: String, path: String, size: u64, cache: Vec<u8>) -> Self {
-        File { hash, path, size, cache }
+    fn new(hash: String, path: String, name:String, size: u64, cache: Vec<u8>) -> Self {
+        File { hash, path, name, size, cache }
     }
 }
 
@@ -79,14 +84,14 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
         let (file, file_name, file_size) = chunk::general::general::get_file_data(&path)?;
         let file_hash = chunk::hash::hash::get_hash_from_file(&file)?;
 
-        let new_file = File::new(file_hash, path, file_size, Vec::new());
+        let new_file = File::new(file_hash, path, file_name, file_size, Vec::new());
 
         self.write_command.send(WriteCommand::Offer(new_file))?;
         Ok(())
     }
 
     pub fn accept_file(&mut self, hash: String, path: String) -> Result<(), ClientError> {
-        let file = File::new(hash, path, 0, Vec::new());
+        let file = File::new(hash, path, "".to_string(), 0, Vec::new());
 
         self.read_command.send(ReadCommand::Receive(file))?;
         Ok(())
@@ -195,7 +200,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
             Err(_) => {}
         }
 
-        let msg = match reader.read(timeout) {
+        let mut msg = match reader.read(timeout) {
             Ok(msg) => msg,
             Err(err) => {
                 match err.kind() {
@@ -210,34 +215,48 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
 
         //TODO @Simon handle message
         match msg[0] {
-            0x0A => {//request file
+            0x02 => {//request file
                 println!("(recv) : request");
-                //command_sender.send(WriteCommand::Send("FILE HASH".into(), 0, 100))?; - Tell sender to start sending the file
+                //order
+                let order = read_order(&mut msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
+
+                command_sender.send(WriteCommand::Send(order.file_hash, order.start_num, order.end_num))?;
             }
-            0xAB => {//offer file
+            0x01 => {//offer file
                 println!("(recv) : offer");
-                // pending_files.push(); - file muss in pending liste gepusht werden
-                // send_offer(&app_handle, "NAME".into(), "HASH".into(), 100)?; - file im frontend anzeigen
+                //offer
+                let offer = read_offer_vec(&msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
+
+                let file = File::new(offer.file_hash, "".to_string(), offer.name, offer.size, msg);
+                pending_files.push(file); 
+                
+                send_offer(&app_handle, file.path, file.hash, file.size)?;
             }
             0xBB => {//stop send file
                 println!("(recv) : stop");
                 // command_sender.send(WriteCommand::StopSend("HAHS")) - tell command sender to stop sending
             }
-            0x11 => {
-                // 1. file mit dem hash aus der nachricht in der liste finden
-                /*match active_files.iter().position(|wf| wf.file.hash == #HASH AUS NACHRICHT) {
+            0x00 => { //file data
+
+                let (header_vector, data_vector) = separate_header(&msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
+                let header_data =  read_send_header(&header_vector).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
+
+                match active_files.iter().position(|wf| wf.file.hash == header_data.file_hash) {
                     None => {}
                     Some(index) => {
                         let file = active_files[index];
 
-                        // wenn gefunden paket einlesen und an file.file.path schreiben mit position file.current
+                        let path = write_data_vec(&header_data,&msg, &file.file.path)?;
 
+                        let act_num = header_data.chunk_pos;
+                        // wenn gefunden paket einlesen und an file.file.path schreiben mit position file.current
+                        // ??
                         // wenn file.current >= file.stop dann aus liste entfernen
                     },
-                }*/
+                }
 
                 println!("(recv) : package");
-            } // file package bitte cachen und wenn cache groß genug > 20 zb dann auf festplatte schreiben
+            } 
             _ => {} // illegal opcode
         }
     }
@@ -254,7 +273,10 @@ struct ActiveFile {
 impl ActiveFile {
     //TODO @Simon anhand der file und groesse anzahl der chunks berechnen und entsprechend anfuegen
     fn from_file(file: File) -> Self {
-        todo!()
+
+        let stop = get_chunk_count(file.size);
+        Self { file: file, start: 1, stop: stop, current: 1 }
+
     }
 }
 
@@ -278,9 +300,10 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
             Ok(c) =>
                 match c {
                     WriteCommand::Request(file) => {
-                        //TODO @Simon file order erstellen mit file.start und file.stop und hash
 
-                        match writer.write(&[0x0A]) {
+                        let vec = create_order_byte_vec(file.start, file.stop, &file.file.hash)?;
+
+                        match writer.write(&vec) {
                             Ok(_) => {
                                 println!("(send) : request");
                             }
@@ -292,9 +315,10 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                         };
                     }
                     WriteCommand::Offer(file) => {
-                        //TODO @Simon file offer erstellen und bei writer.write reintun
+
+                        let vec = create_offer_byte_msg(&file.hash, file.size, &file.path)?;
                         offers.push(file);
-                        match writer.write(&[0xAB]) {
+                        match writer.write(&vec) {
                             Ok(_) => {
                                 println!("(send) : offer");
                             }
@@ -341,6 +365,8 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
         for file in &mut files {
             // TODO jeweils max 10mb aus dateisystem lesen und versenden
             // current ist die aktuelle positon (offset), start und stop sind die grenzen angegeben in chunks
+
+            let data_vec = create_data_vec(&file.file.path, file.current, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
 
             match writer.write(file.file.hash.as_bytes()) {
                 Ok(_) => {

@@ -261,7 +261,7 @@ pub fn get_file_data(filepath:&str) -> Result<(File, String, u64), Error>{
 }
 
 // calc chunk count
-pub fn get_chunk_count(file_size:u64) -> Result<u64,Error> {
+pub fn get_chunk_count(file_size:u64) -> u64 {
 
     let chunk_size = CHUNK_SIZE as u64;
 
@@ -271,7 +271,7 @@ pub fn get_chunk_count(file_size:u64) -> Result<u64,Error> {
         full_val += 1;
     }
 
-    return Ok(full_val);
+    return full_val;
 }
 
 
@@ -741,7 +741,7 @@ pub fn check_chunk_hash(header_hash:&Option<String>, calc_hash_alg:&Option<Hash>
 }
 
 //writes logfile after merging a data-vec into a file
-pub fn write_to_log_file(path: &str, user_hash: &str, parent_hash_alg: &Hash, part_num: u64, max_num:u64, part_size:u64, parent_hash:&str, part_hash_alg: &Option<Hash>, part_hash: &Option<String>) -> Result<bool,Error> {
+pub fn write_to_log_file(path: &str, user_hash: &str, parent_hash_alg: &Hash, part_num: u64, max_num:u64, part_size:u64, parent_hash:&str, part_hash_alg: &Option<Hash>, part_hash: &Option<String>) -> Result<String,Error> {
     
     let time = Utc::now().format("%d.%m.%Y - %H:%M:%S%.3f").to_string();
     
@@ -761,7 +761,7 @@ pub fn write_to_log_file(path: &str, user_hash: &str, parent_hash_alg: &Hash, pa
         .open(path).unwrap();
     writeln!(file, "{}", log_line).unwrap();
 
-    Ok(true)
+    Ok(path.to_string())
 }
 
 
