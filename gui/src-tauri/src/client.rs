@@ -21,7 +21,7 @@ use p2p::client::{ClientReader, ClientWriter};
 use p2p::error::ErrorKind;
 
 use crate::error::{ClientError, ClientErrorKind};
-use crate::events::{send_disconnect};
+use crate::events::{FileState, send_disconnect, send_file_state};
 
 #[derive(Clone)]
 pub struct File {
@@ -84,7 +84,11 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
         let (file, file_name, file_size) = chunk::general::general::get_file_data(&path)?;
         let file_hash = chunk::hash::hash::get_hash_from_file(&file)?;
 
+        println!("send file state");
+
         let new_file = File::new(file_hash, path, file_name, file_size, Vec::new());
+
+        send_file_state(&self.app_handle, new_file.clone(), FileState::Pending, 0.0, true)?;
 
         self.write_command.send(WriteCommand::Offer(new_file))?;
         Ok(())
