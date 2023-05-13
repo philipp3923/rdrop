@@ -5,7 +5,7 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::thread::JoinHandle;
+use std::thread::{JoinHandle, sleep};
 use std::time::{Duration, Instant};
 use crate::error::{Error as P2pError};
 
@@ -106,6 +106,8 @@ impl UdpClientReader {
                 let mut instant = Instant::now();
                 let mut msg_counter = 0;
 
+                udp_socket.set_nonblocking(false)?;
+
                 loop {
                     if stop_receiver.try_recv().is_ok() {
                         println!("shutting down");
@@ -117,10 +119,14 @@ impl UdpClientReader {
                     match udp_socket.peek(header.as_mut_slice()) {
                         Ok(_) => {}
                         Err(_e) => {
+                            if instant.elapsed() > Duration::from_secs(1) {
+                                return Ok(());
+                            }
 
                             if instant.elapsed() > Duration::from_millis(100){
                                 println!("recv err: {}", _e);
                                 udp_socket.send([0xCA, 0x00].as_slice())?;
+                                sleep(Duration::from_millis(5));
                                 instant = Instant::now();
                             }
 
@@ -213,7 +219,17 @@ impl ClientReader for UdpClientReader {
 
     fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, P2pError> {
         return match timeout {
-            None => Ok(self.message_receiver.recv()?),
+            None => {
+                match self.thread_handle.as_ref() {
+                    None => return Err(P2pError::new(ErrorKind::TimedOut)),
+                    Some(th) => {
+                        if th.is_finished() {
+                            return Err(P2pError::new(ErrorKind::TimedOut));
+                        }
+                    },
+                }
+                Ok(self.message_receiver.recv()?)
+            },
             Some(t) => Ok(self.message_receiver.recv_timeout(t)?),
         };
     }
