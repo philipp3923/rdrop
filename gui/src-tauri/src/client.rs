@@ -246,7 +246,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 match active_files.iter().position(|wf| wf.file.hash == header_data.file_hash) {
                     None => {}
                     Some(index) => {
-                        let file = active_files[index];
+                        let file = &active_files[index];
 
                         let path = write_data_vec(&header_data,&msg, &file.file.path)?;
 
