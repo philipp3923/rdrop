@@ -232,7 +232,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 let file = File::new(offer.file_hash, "".to_string(), offer.name, offer.size, msg);
                 pending_files.push(file); 
                 
-                send_offer(&app_handle, file.path, file.hash, file.size)?;
+                //send_offer(&app_handle, file.path, file.hash, file.size)?;
             }
             0xBB => {//stop send file
                 println!("(recv) : stop");
