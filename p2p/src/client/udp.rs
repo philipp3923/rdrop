@@ -214,6 +214,14 @@ impl UdpClientReader {
 
 impl ClientReader for UdpClientReader {
     fn try_read(&mut self) -> Result<Vec<u8>, P2pError> {
+        match self.thread_handle.as_ref() {
+            None => return Err(P2pError::new(ErrorKind::CommunicationFailed)),
+            Some(th) => {
+                if th.is_finished() {
+                    return Err(P2pError::new(ErrorKind::CommunicationFailed));
+                }
+            },
+        }
         Ok(self.message_receiver.try_recv()?)
     }
 
@@ -221,10 +229,10 @@ impl ClientReader for UdpClientReader {
         return match timeout {
             None => {
                 match self.thread_handle.as_ref() {
-                    None => return Err(P2pError::new(ErrorKind::TimedOut)),
+                    None => return Err(P2pError::new(ErrorKind::CommunicationFailed)),
                     Some(th) => {
                         if th.is_finished() {
-                            return Err(P2pError::new(ErrorKind::TimedOut));
+                            return Err(P2pError::new(ErrorKind::CommunicationFailed));
                         }
                     },
                 }
