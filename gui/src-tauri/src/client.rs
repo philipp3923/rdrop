@@ -235,9 +235,10 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 let offer = read_offer_vec(&msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
 
                 let file = File::new(offer.file_hash, "".to_string(), offer.name, offer.size, msg);
-                pending_files.push(file); 
-                
+                pending_files.push(file.clone());
+
                 //send_offer(&app_handle, file.path, file.hash, file.size)?;
+                send_file_state(&app_handle, file, FileState::Transferring, 0.0, false)?;
             }
             0xBB => {//stop send file
                 println!("(recv) : stop");
@@ -252,6 +253,10 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                     None => {}
                     Some(index) => {
                         let file = &active_files[index];
+
+                        // send file status to front end
+                        let percent = file.current as f32/ file.stop as f32;
+                        send_file_state(&app_handle, file.file.clone(), FileState::Transferring, percent, false)?;
 
                         let path = write_data_vec(&header_data,&msg, &file.file.path)?;
 
@@ -282,7 +287,7 @@ impl ActiveFile {
     fn from_file(file: File) -> Self {
 
         let stop = get_chunk_count(file.size);
-        Self { file: file, start: 1, stop: stop, current: 1 }
+        Self { file, start: 1, stop, current: 1 }
 
     }
 }
@@ -291,8 +296,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                                  app_handle: AppHandle<Wry>,
                                  writer: Arc<Mutex<W>>,
                                  command_receiver: mpsc::Receiver<WriteCommand>) -> Result<(), ClientError> {
-    // TODO remove unwrap
-    let mut writer = writer.lock().unwrap();
+    let mut writer = writer.lock()?;
     let mut files = Vec::<ActiveFile>::new();
     let mut offers = Vec::<File>::new();
 
@@ -346,8 +350,13 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                         match offers.iter().position(|of| of.hash == hash) {
                             None => {}
                             Some(index) => {
-                                let file = offers.swap_remove(index);
-                                let active_file = ActiveFile { file, stop, start, current: 0 };
+                                if stop != 0 {
+                                    let file = offers.swap_remove(index);
+                                    send_file_state(&app_handle, file.clone(), FileState::Transferring, 0.0, false)?;
+                                    let active_file = ActiveFile { file, stop, start, current: 0 };
+                                    files.push(active_file);
+                                }
+
                             }
                         }
                     }
@@ -371,7 +380,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
 
         for file in &mut files {
             // TODO jeweils max 10mb aus dateisystem lesen und versenden
-            // current ist die aktuelle positon (offset), start und stop sind die grenzen angegeben in chunks
+            // current ist die aktuelle positon, start und stop sind die grenzen angegeben in chunks
 
             let data_vec = create_data_vec(&file.file.path, file.current, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
 
