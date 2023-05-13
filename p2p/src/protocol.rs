@@ -282,7 +282,7 @@ impl Connection<Active<Encrypted<Udp>>> {
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
 
-        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 0) {
+        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 3) {
             Ok(client) => client,
             Err(client) => match self.sample_and_connect(client, peer_port) {
                 Ok(c) => c,
