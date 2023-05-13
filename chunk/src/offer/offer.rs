@@ -1,5 +1,6 @@
-use std::fs::File;
+use std::fs::{File, metadata};
 use std::io::{Error, ErrorKind, Write};
+use std::path::Path;
 
 use regex::Regex;
 
@@ -34,8 +35,29 @@ impl Offer{
     }
 }
 
+//calc offer-stream
+pub fn create_offer_byte_msg(hash:&str, size:u64, path:&str) -> Result<Vec<u8>, Error>{
 
+    let metadata = match metadata(path){
+        Ok(metadata) => metadata,
+        Err(_) => return Err(Error::new(ErrorKind::InvalidInput, "Path is not a file or directory")),
+    };
 
+    if metadata.is_dir() {
+        //return error, only files can be splitted
+        return Err(Error::new(ErrorKind::InvalidInput, "Path is a directory. Can only send Files (includes .zip)"));
+    }
+
+    let name = Path::new(path).file_name().unwrap().to_string_lossy().to_string();
+
+    let mut offer = Vec::new();
+
+    write!(offer,"[{}] - [{}] - [{}] - [{}]", name, size, Hash::SIPHASH24.to_string(), &hash)?;
+
+    offer = append_header(offer, HeaderByte::SendOffer);
+
+    return Ok(offer);
+}
 
 
 // creates offer - byte-vector
