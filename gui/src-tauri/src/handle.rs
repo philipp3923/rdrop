@@ -178,7 +178,7 @@ pub fn deny_file(app_state: State<AppState>, hash: String) -> Result<(), ClientE
 
 #[tauri::command]
 pub fn stop_file(app_state: State<AppState>, hash: String) -> Result<(), ClientError> {
-    println!("[EVENT] deny_file");
+    println!("[EVENT] stop_file");
     let mut unlocked_state = (*app_state).0.lock()?;
 
     match unlocked_state.deref_mut() {
