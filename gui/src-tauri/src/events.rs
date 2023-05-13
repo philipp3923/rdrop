@@ -102,11 +102,3 @@ pub fn send_file_state(handle: &AppHandle<Wry>, file: File, file_state: FileStat
 
     Ok(())
 }
-
-pub fn send_offer(handle: &AppHandle<Wry>, name: String, hash: String, size: u64)  -> Result<(), ClientError> {
-    handle
-        .emit_all("app://new-offer", (name, hash, size))
-        ?;
-
-    Ok(())
-}
