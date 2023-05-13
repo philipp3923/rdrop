@@ -1,9 +1,10 @@
+use std::io;
 use crate::client::{ActiveClient, ClientReader, ClientWriter, WaitingClient};
-use crate::error::{Error as P2pError, ChangeStateError};
+use crate::error::{Error as P2pError, ChangeStateError, ErrorKind};
 use socket2::{Domain, SockAddr, Socket, Type};
 
 
-use std::io::{Read, Write};
+use std::io::{Read, read_to_string, Write};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
 use std::thread::sleep;
 use std::time::Duration;
@@ -122,7 +123,22 @@ impl ClientReader for TcpClientReader {
 
         let mut header = [0u8; 4];
 
-        self.tcp_stream.read_exact(header.as_mut_slice())?;
+        match self.tcp_stream.read_exact(header.as_mut_slice()) {
+            Ok(_) => {},
+            Err(err) => {
+                return match err.kind() {
+                    io::ErrorKind::WouldBlock => {
+                        Err(P2pError::new(ErrorKind::TimedOut))
+                    }
+                    io::ErrorKind::TimedOut => {
+                        Err(P2pError::new(ErrorKind::TimedOut))
+                    }
+                    _ => {
+                        Err(P2pError::new(ErrorKind::CommunicationFailed))
+                    }
+                }
+            },
+        };
 
         let size = u32::from_be_bytes(header) as usize;
 
@@ -161,7 +177,17 @@ impl ClientWriter for TcpClientWriter {
         let msg = self.prepare_msg(msg);
         match self.tcp_stream.write(&msg) {
             Ok(_) => Ok(()),
-            Err(e) => Err(P2pError::from(e)),
+            Err(err) => return match err.kind() {
+                io::ErrorKind::WouldBlock => {
+                    Err(P2pError::new(ErrorKind::TimedOut))
+                }
+                io::ErrorKind::TimedOut => {
+                    Err(P2pError::new(ErrorKind::TimedOut))
+                }
+                _ => {
+                    Err(P2pError::new(ErrorKind::CommunicationFailed))
+                }
+            },
         }
     }
 }
