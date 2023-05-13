@@ -13,44 +13,6 @@ export default function TransferList() {
     const [files, setFiles] = useState([]);
 
     useEffect(() => {
-        let files = [{
-            hash: 1,
-            name: 'test.txt',
-            size: 84684438,
-            percent: 89,
-            state: 'pending',
-            is_sender: false,
-        },
-        {
-            hash: 1,
-            name: 'test.txt',
-            size: 84684438,
-            percent: 89,
-            state: 'transfering',
-            is_sender: false,
-        },
-        {
-            hash: 2,
-            name: 'RAF CAMORA.mp3',
-            size: 4864846843,
-            percent: 72,
-            state: 'completed',
-            is_sender: true,
-            path: "C:\\Users\\Lzoch\\Music\\RAF Camora  Bonez MC - Leer.mp3"
-        },
-        {
-            hash: 2,
-            name: 'RAF CAMORA.mp3',
-            size: 4864846843,
-            percent: 72,
-            state: 'completed',
-            is_sender: false,
-            path: "C:\\Users\\Lzoch\\Music\\RAF Camora  Bonez MC - Leer.mp3"
-        }];
-
-        files = [...files, ...files, ...files, ...files, ...files];
-
-        setFiles(files.map(mutateFile));
     }, []);
 
     const mutateFile = (file) => {
@@ -80,14 +42,12 @@ export default function TransferList() {
         setHover(false);
     });
 
-    useTauriEvent('app://file-added', (event) => {
+    useTauriEvent('app://file-update', (event) => {
         const file = mutateFile(event.payload);
-        setFiles([...files, file]);
-    });
-
-    useTauriEvent('app://file-updated', (event) => {
-        const file = mutateFile(event.payload);
-        setFiles([...files.filter((f) => f.hash !== file.hash), file]);
+        let newFiles = files.map((f) => f.hash === file.hash ? file : f);
+        if(!newFiles.some((f) => f.hash === file.hash))
+            newFiles = [file, ...newFiles];
+        setFiles(newFiles);
     });
 
 
