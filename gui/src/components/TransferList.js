@@ -5,6 +5,8 @@ import useTauriEvent from './hooks/useTauriEvent';
 import { emit } from '@tauri-apps/api/event';
 import {filesize} from 'filesize';
 import { invoke } from '@tauri-apps/api/tauri';
+import { FileState } from '../vendor/file';
+import { save } from '@tauri-apps/api/dialog';
 
 export default function TransferList() {
     const [hover, setHover] = useState(false);
@@ -12,26 +14,26 @@ export default function TransferList() {
 
     useEffect(() => {
         let files = [{
-            id: 1,
+            hash: 1,
             name: 'test.txt',
             size: 84684438,
-            status: 89,
+            percent: 89,
             state: 'pending',
             is_sender: false,
         },
         {
-            id: 1,
+            hash: 1,
             name: 'test.txt',
             size: 84684438,
-            status: 89,
+            percent: 89,
             state: 'transfering',
             is_sender: false,
         },
         {
-            id: 2,
+            hash: 2,
             name: 'RAF CAMORA.mp3',
             size: 4864846843,
-            status: 72,
+            percent: 72,
             state: 'completed',
             is_sender: true,
         }];
@@ -75,8 +77,26 @@ export default function TransferList() {
 
     useTauriEvent('app://file-updated', (event) => {
         const file = mutateFile(event.payload);
-        setFiles([...files.filter((f) => f.id !== file.id), file]);
+        setFiles([...files.filter((f) => f.hash !== file.hash), file]);
     });
+
+
+    const handleCancel = (file) => {
+        if(file.state === FileState.PENDING)
+            invoke('deny_file', { hash: file.hash });
+        else if(file.state === FileState.TRANSFERING)
+            invoke('stop_file', { hash: file.hash });
+    };
+
+    const handleDownload = async (file) => {
+        const filePath = await save({ defaultPath: file.name });
+        console.log(filePath);
+        invoke('accept_file', { hash: file.hash });
+    };
+
+    const handleShowInExplorer = async (file) => {
+        
+    };
 
     let classes = 'transfer-list container container-secondary';
     if (hover) classes += ' hover';
@@ -91,6 +111,7 @@ export default function TransferList() {
                 {files.map((file) => {
                     const canDownload = file.state === 'pending' && !file.is_sender;
                     const canCancel = file.state !== 'completed' && !file.is_sender;
+                    const canShowInExplorer = file.state === 'completed' && !file.is_sender;
                     return (
                         <div className={'transfer-list-item' + (file.is_sender ? " sender" : "")} key={file.id}>
                             <div className='transfer-list-item-icon'>
@@ -107,8 +128,9 @@ export default function TransferList() {
                                 {file.state === "completed" && <p className='body-large'>Completed</p>}
                             </div>
                             <div className='transfer-list-item-actions flex'>
-                                {canDownload && <IconButton text>download</IconButton>}
-                                {canCancel && <IconButton text>close</IconButton>}
+                                {canDownload && <IconButton text onClick={()=>handleDownload(file)}>download</IconButton>}
+                                {canCancel && <IconButton text onClick={()=>handleCancel(file)}>close</IconButton>}
+                                {canShowInExplorer && <IconButton text onClick={()=>handleCancel(file)}>folder</IconButton>}
                             </div>
                         </div>
                     );

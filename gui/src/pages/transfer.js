@@ -5,9 +5,14 @@ import { useRouter } from 'next/router';
 import TransferList from '../components/TransferList';
 import { open } from '@tauri-apps/api/dialog';
 import { invoke } from '@tauri-apps/api/tauri';
+import useTauriEvent from '../components/hooks/useTauriEvent';
 
 export default function Transfer() {
     const router = useRouter();
+
+    useTauriEvent("app://disconnected", () => {
+        router.push('/');
+    });
 
     const handleClose = () => {
         router.push('/');
