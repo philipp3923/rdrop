@@ -76,6 +76,10 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
     //TODO @Simon notwendige Logik implementieren
     pub fn offer_file(&mut self, path: String) -> Result<(), ClientError> {
         // hash erstellen größe berechnen - wenn file nicht existiert entsprechend client error returnen
+
+        //let (file, file_name, file_size) = chunk::file::get_file_data(&path);
+
+
         let new_file = File::new("HASH".into(), path, 100, Vec::new());
 
         self.write_command.send(WriteCommand::Offer(new_file))?;

@@ -18,6 +18,7 @@ serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.2", features = ["clipboard-all", "dialog-all", "shell-open", "window-close", "window-hide", "window-maximize", "window-minimize", "window-show", "window-start-dragging", "window-unmaximize", "window-unminimize"] }
 window-shadows = "0.2.1"
 p2p = {path = "../../p2p"}
+chunk = {path = "../../chunk"}
 
 [features]
 # by default Tauri runs in production mode
