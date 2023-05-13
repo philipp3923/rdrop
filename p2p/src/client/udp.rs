@@ -83,6 +83,7 @@ pub struct UdpClientReader {
     thread_handle: Option<JoinHandle<Result<(), Box<dyn Error + Send + Sync>>>>,
     stop_thread: Sender<()>,
     message_receiver: Receiver<Vec<u8>>,
+    closed_sender: Sender<()>
 }
 
 pub struct UdpClientWriter {
@@ -90,12 +91,14 @@ pub struct UdpClientWriter {
     send_counter: u8,
     ack_receiver: Receiver<u8>,
     timeout: Duration,
+    closed_receiver: Receiver<()>
 }
 
 impl UdpClientReader {
     pub fn new(
         udp_socket: UdpSocket,
         ack_sender: Sender<u8>,
+        closed_sender: Sender<()>
     ) -> Result<UdpClientReader, P2pError> {
         let (stop_sender, stop_receiver) = mpsc::channel::<()>();
         let (message_sender, message_receiver) = mpsc::channel::<Vec<u8>>();
@@ -104,6 +107,7 @@ impl UdpClientReader {
         let thread_handle: JoinHandle<Result<(), Box<dyn Error + Send + Sync>>> =
             thread::spawn(move || {
                 let mut instant = Instant::now();
+                let mut interval = Instant::now();
                 let mut msg_counter = 0;
 
                 udp_socket.set_nonblocking(false)?;
@@ -119,16 +123,18 @@ impl UdpClientReader {
                     match udp_socket.peek(header.as_mut_slice()) {
                         Ok(_) => {
                             instant = Instant::now();
+                            interval = Instant::now();
                         }
                         Err(_e) => {
                             if instant.elapsed() > Duration::from_secs(1) {
                                 return Ok(());
                             }
 
-                            if instant.elapsed() > Duration::from_millis(100){
+                            if interval.elapsed() > Duration::from_millis(100){
                                 println!("recv err: {}", _e);
                                 udp_socket.send([0xCA, 0x00].as_slice())?;
                                 sleep(Duration::from_millis(10));
+                                interval = Instant::now();
                             }
 
                             if header[0] == 0 {
@@ -184,7 +190,7 @@ impl UdpClientReader {
                         }
                         0xCA => {
                             udp_socket.recv(header.as_mut_slice())?;
-                            println!("CA");
+                            //println!("CA");
                         }
                         0xCC => {
                             udp_socket.recv(header.as_mut_slice())?;
@@ -209,6 +215,7 @@ impl UdpClientReader {
             message_receiver,
             thread_handle: Some(thread_handle),
             stop_thread: stop_sender,
+            closed_sender
         });
     }
 }
@@ -262,12 +269,14 @@ impl UdpClientWriter {
         udp_socket: UdpSocket,
         ack_receiver: Receiver<u8>,
         timeout: Option<Duration>,
+        closed_receiver: Receiver<()>
     ) -> UdpClientWriter {
         return UdpClientWriter {
             udp_socket,
             ack_receiver,
             send_counter: 0,
             timeout: timeout.unwrap_or(Duration::from_secs(0)),
+            closed_receiver
         };
     }
 
@@ -316,6 +325,10 @@ impl UdpClientWriter {
 
 impl ClientWriter for UdpClientWriter {
     fn write(&mut self, msg: &[u8]) -> Result<(), P2pError> {
+        if self.closed_receiver.try_recv().is_ok() {
+            return Err(P2pError::new(ErrorKind::CommunicationFailed))
+        }
+
         let now = Instant::now();
         let timeout = self.timeout;
         let msg = self.prepare_msg(msg);
@@ -352,8 +365,10 @@ impl UdpActiveClient {
         let (ack_sender, ack_receiver) = mpsc::channel::<u8>();
         let udp_socket_clone = udp_socket.try_clone()?;
 
-        let reader = UdpClientReader::new(udp_socket, ack_sender)?;
-        let writer = UdpClientWriter::new(udp_socket_clone, ack_receiver, ack_timeout);
+        let (closed_writer, closed_receiver) = mpsc::channel::<()>();
+
+        let reader = UdpClientReader::new(udp_socket, ack_sender, closed_writer)?;
+        let writer = UdpClientWriter::new(udp_socket_clone, ack_receiver, ack_timeout, closed_receiver);
 
         return Ok(UdpActiveClient {
             reader_client: reader,
