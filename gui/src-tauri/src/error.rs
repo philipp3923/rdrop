@@ -5,7 +5,7 @@ use std::mem::size_of;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, mpsc, MutexGuard, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::sync::mpsc::SendError;
-use std::thread;
+use std::{io, thread};
 use std::time::Duration;
 use serde::{Serialize, Serializer};
 
@@ -89,8 +89,8 @@ impl From<p2p::error::Error> for ClientError {
     }
 }
 
-impl From<std::io::Error> for ClientError {
-    fn from(_value: std::io::Error) -> Self {
+impl From<io::Error> for ClientError {
+    fn from(_value: io::Error) -> Self {
         ClientError::new(ClientErrorKind::IOError)
     }
 }

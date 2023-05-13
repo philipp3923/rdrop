@@ -8,6 +8,7 @@ use std::io::{Read, read_to_string, Write};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
 use std::thread::sleep;
 use std::time::Duration;
+use crate::error;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
 
@@ -38,18 +39,21 @@ impl TcpWaitingClient {
         wait: Option<Duration>,
         timeout: Option<Duration>
     ) -> Result<TcpActiveClient, ChangeStateError<Self>> {
-        if wait.is_some() {
-            sleep(wait.unwrap());
+        if let Some(wait_duration) = wait {
+            sleep(wait_duration);
         }
 
         let sock_addr = SockAddr::from(SocketAddr::new(IpAddr::from(peer), port));
-        return match self.tcp_socket.connect_timeout(&sock_addr, timeout.unwrap_or(Duration::from_secs(1))) {
+
+        let connect_result = self.tcp_socket.connect_timeout(&sock_addr, timeout.unwrap_or(Duration::from_secs(1)));
+
+        match connect_result {
             Ok(_) => {
                 let tcp_stream = TcpStream::from(self.tcp_socket);
                 Ok(TcpActiveClient::new(tcp_stream))
             }
             Err(err) => Err(ChangeStateError::new(self, Box::new(err))),
-        };
+        }
     }
 }
 
@@ -57,9 +61,9 @@ impl WaitingClient for TcpWaitingClient {
     fn get_port(&self) -> u16 {
         self.tcp_socket
             .local_addr()
-            .unwrap()
+            .expect("Failed to retrieve local address")
             .as_socket()
-            .unwrap()
+            .expect("Failed to parse socket")
             .port()
     }
 }
@@ -124,22 +128,7 @@ impl ClientReader for TcpClientReader {
 
         let mut header = [0u8; 4];
 
-        match self.tcp_stream.read_exact(header.as_mut_slice()) {
-            Ok(_) => {},
-            Err(err) => {
-                return match err.kind() {
-                    io::ErrorKind::WouldBlock => {
-                        Err(P2pError::new(ErrorKind::TimedOut))
-                    }
-                    io::ErrorKind::TimedOut => {
-                        Err(P2pError::new(ErrorKind::TimedOut))
-                    }
-                    _ => {
-                        Err(P2pError::new(ErrorKind::CommunicationFailed))
-                    }
-                }
-            },
-        };
+        self.tcp_stream.read_exact(header.as_mut_slice())?;
 
         let size = u32::from_be_bytes(header) as usize;
 
@@ -176,20 +165,8 @@ impl TcpClientWriter {
 impl ClientWriter for TcpClientWriter {
     fn write(&mut self, msg: &[u8]) -> Result<(), P2pError> {
         let msg = self.prepare_msg(msg);
-        match self.tcp_stream.write(&msg) {
-            Ok(_) => Ok(()),
-            Err(err) => return match err.kind() {
-                io::ErrorKind::WouldBlock => {
-                    Err(P2pError::new(ErrorKind::TimedOut))
-                }
-                io::ErrorKind::TimedOut => {
-                    Err(P2pError::new(ErrorKind::TimedOut))
-                }
-                _ => {
-                    Err(P2pError::new(ErrorKind::CommunicationFailed))
-                }
-            },
-        }
+        self.tcp_stream.write(&msg)?;
+        Ok(())
     }
 }
 
@@ -219,6 +196,7 @@ mod tests {
                     ipv6,
                     p1,
                     Some(connect_time.duration_since(SystemTime::now()).unwrap()),
+                    Some(Duration::from_millis(50))
                 )
                 .unwrap();
         });
@@ -227,6 +205,7 @@ mod tests {
             ipv6,
             p2,
             Some(connect_time.duration_since(SystemTime::now()).unwrap()),
+            Some(Duration::from_millis(50))
         )?;
         let c2 = match thread_c2.join() {
             Ok(c) => c,

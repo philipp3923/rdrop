@@ -1,20 +1,17 @@
 use std::fmt::Debug;
 use std::net::Ipv6Addr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
 use dryoc::dryocbox::{Bytes, KeyPair};
 use dryoc::dryocstream::{DryocStream, Header, Pull, Push};
 use dryoc::kx::{Session, SessionKey};
 use dryoc::sign::PublicKey;
 use rand::{Rng, thread_rng};
-use sntpc::NtpContext;
-
 use crate::client::{
     ActiveClient, ClientReader, ClientWriter, EncryptedReader, EncryptedWriter, WaitingClient,
 };
 use crate::client::tcp::{TcpActiveClient, TcpClientReader, TcpClientWriter, TcpWaitingClient};
 use crate::client::udp::{UdpActiveClient, UdpClientReader, UdpClientWriter, UdpWaitingClient};
-use crate::error::{ChangeStateError, Error, ErrorKind};
+use crate::error::{ChangeStateError, ErrorKind};
 use crate::error::Error as P2pError;
 use crate::ntp_time::get_diff;
 
@@ -104,25 +101,21 @@ impl Connection<Waiting> {
     ) -> Result<Connection<Active<Plain<Udp>>>, ChangeStateError<Self>> {
         let own_port = self.get_port();
 
-        let udp_active_client =
-            match self
+        let udp_active_client = self
                 .state
                 .waiting_client
                 .connect(peer, port, connect_timeout, disconnect_timeout)
-            {
-                Ok(connection) => connection,
-                Err(err) => {
+                .map_err(|err| {
                     let err = err.split();
-                    return Err(ChangeStateError::new(
+                    ChangeStateError::new(
                         Connection {
                             state: Waiting {
                                 waiting_client: err.0,
                             },
                         },
                         err.1,
-                    ));
-                }
-            };
+                    )
+                })?;
 
         Ok(Connection::<Active<Plain<Udp>>>::new(
             udp_active_client,
@@ -158,33 +151,26 @@ impl Connection<Active<Plain<Udp>>> {
 
     pub fn encrypt(mut self) -> Result<Connection<Active<Encrypted<Udp>>>, ChangeStateError<Self>> {
         if self.state.role == Role::None {
-            match self.negotiate_roles() {
-                Ok(_) => {}
-                Err(e) => {
-                    return Err(ChangeStateError::new(self, Box::new(e)));
-                }
+            if let Err(e) = self.negotiate_roles() {
+                return Err(ChangeStateError::new(self, Box::new(e)));
             }
         }
 
         let (decrypt_key, encrypt_key) = match self.exchange_keys() {
             Ok(keys) => keys,
-            Err(e) => {
-                return Err(ChangeStateError::new(self, Box::new(e)));
-            }
+            Err(e) => return Err(ChangeStateError::new(self, Box::new(e))),
         };
 
         let (pull_stream, push_stream) =
             match self.generate_crypto_streams(decrypt_key, encrypt_key) {
                 Ok(streams) => streams,
-                Err(e) => {
-                    return Err(ChangeStateError::new(self, Box::new(e)));
-                }
+                Err(e) => return Err(ChangeStateError::new(self, Box::new(e))),
             };
 
         let encrypted_reader = EncryptedReader::new(pull_stream, self.state.client.plain_reader);
         let encrypted_writer = EncryptedWriter::new(push_stream, self.state.client.plain_writer);
 
-        let connection = Connection::<Active<Encrypted<Udp>>> {
+        let connection = Connection {
             state: Active {
                 peer_ip: self.state.peer_ip,
                 role: self.state.role,
@@ -203,7 +189,9 @@ impl Connection<Active<Plain<Udp>>> {
     }
 
     fn exchange_keys(&mut self) -> Result<(SessionKey, SessionKey), P2pError> {
-        assert_ne!(self.state.role, Role::None);
+        if self.state.role == Role::None {
+            return Err(P2pError::new(ErrorKind::UndefinedRole));
+        }
 
         let my_keypair = KeyPair::gen();
 
@@ -214,13 +202,10 @@ impl Connection<Active<Plain<Udp>>> {
 
         let peer_public_key = self.state.client.plain_reader.read(self.state.timeout)?;
 
-        assert_eq!(peer_public_key.len(), 32);
-
         let peer_public_key: [u8; 32] = peer_public_key.as_slice().try_into()?;
 
         let peer_public_key = PublicKey::from(peer_public_key);
 
-        // Role is either Server or Client. This is guaranteed by the assert_ne in the first line of this method
         let my_session_keys = match self.state.role {
             Role::Server => Session::new_server_with_defaults(&my_keypair, &peer_public_key)?,
             Role::Client => Session::new_client_with_defaults(&my_keypair, &peer_public_key)?,

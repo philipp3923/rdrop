@@ -2,8 +2,7 @@ use std::array::TryFromSliceError;
 use std::fmt::{Debug, Display, Formatter};
 use std::io;
 use std::sync::mpsc::{RecvError, RecvTimeoutError, TryRecvError};
-use std::time::{SystemTimeError};
-
+use std::time::SystemTimeError;
 
 /// A list specifying general categories of P2pError error.
 #[derive(Debug)]
@@ -20,10 +19,11 @@ pub enum ErrorKind {
     ChannelFailed,
     IllegalByteStream,
     UndefinedRole,
-    SntpcError,
-    NoDelayGiven
+    ChannelError,
+    NoDelayGiven,
 }
 
+/// Error type for the P2p crate.
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
@@ -32,87 +32,97 @@ pub struct Error {
 
 impl Error {
     pub fn new(kind: ErrorKind) -> Error {
-        Error {kind, source: None }
+        Error { kind, source: None }
     }
 
-    pub fn kind(&self) -> &ErrorKind{
+    pub fn kind(&self) -> &ErrorKind {
         &self.kind
     }
 
-    pub fn to_kind(self) -> ErrorKind {self.kind}
+    pub fn to_kind(self) -> ErrorKind { self.kind }
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.source.as_ref() {
-            None => {write!(f, "p2p Error of kind {:?} occurred.", self.kind)}
-            Some(src) => {write!(f, "p2p Error of kind {:?} occurred. Source: {}", self.kind, src)}
+            None => { write!(f, "p2p Error of kind {:?} occurred.", self.kind) }
+            Some(src) => { write!(f, "p2p Error of kind {:?} occurred. Source: {}", self.kind, src) }
         }
     }
 }
 
 impl std::error::Error for Error {
-
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self.source.as_ref() {
             None => None,
             Some(b) => Some(b.as_ref())
         }
     }
-
 }
 
 impl From<io::Error> for Error {
     fn from(value: io::Error) -> Self {
-        Error {source: Some(Box::new(value)), kind: ErrorKind::CommunicationFailed}
+       let kind = match value.kind() {
+            io::ErrorKind::WouldBlock => {
+                ErrorKind::TimedOut
+            }
+            io::ErrorKind::TimedOut => {
+                ErrorKind::TimedOut
+            }
+            _ => {
+                ErrorKind::CommunicationFailed
+            }
+        };
+
+        Error { source: Some(Box::new(value)), kind }
     }
 }
 
 impl<C: 'static> From<ChangeStateError<C>> for Error {
     fn from(value: ChangeStateError<C>) -> Self {
-        Error {source: Some(Box::new(value)), kind: ErrorKind::StateChangeFailed}
+        Error { source: Some(Box::new(value)), kind: ErrorKind::StateChangeFailed }
     }
 }
 
 impl From<SystemTimeError> for Error {
     fn from(value: SystemTimeError) -> Self {
-        Error {source: Some(Box::new(value)), kind: ErrorKind::SystemTimeError}
+        Error { source: Some(Box::new(value)), kind: ErrorKind::SystemTimeError }
     }
 }
 
 impl From<dryoc::Error> for Error {
     fn from(value: dryoc::Error) -> Self {
-        Error {source: Some(Box::new(value)), kind: ErrorKind::EncryptionFailed}
+        Error { source: Some(Box::new(value)), kind: ErrorKind::EncryptionFailed }
     }
 }
 
 impl From<TryRecvError> for Error {
     fn from(value: TryRecvError) -> Self {
-        Error {source: Some(Box::new(value)), kind: ErrorKind::ChannelFailed}
+        Error { source: Some(Box::new(value)), kind: ErrorKind::ChannelFailed }
     }
 }
 
 impl From<RecvError> for Error {
     fn from(value: RecvError) -> Self {
-        Error {source: Some(Box::new(value)), kind: ErrorKind::ChannelFailed}
+        Error { source: Some(Box::new(value)), kind: ErrorKind::ChannelFailed }
     }
 }
 
 impl From<RecvTimeoutError> for Error {
     fn from(value: RecvTimeoutError) -> Self {
-        Error {source: Some(Box::new(value)), kind: ErrorKind::TimedOut}
+        Error { source: Some(Box::new(value)), kind: ErrorKind::TimedOut }
     }
 }
 
 impl From<TryFromSliceError> for Error {
     fn from(value: TryFromSliceError) -> Self {
-        Error {source: Some(Box::new(value)), kind: ErrorKind::IllegalByteStream}
+        Error { source: Some(Box::new(value)), kind: ErrorKind::IllegalByteStream }
     }
 }
 
 impl From<sntpc::Error> for Error {
-    fn from(value: sntpc::Error) -> Self {
-        Error {source: None, kind: ErrorKind::SntpcError}
+    fn from(_value: sntpc::Error) -> Self {
+        Error { source: None, kind: ErrorKind::ChannelError }
     }
 }
 
