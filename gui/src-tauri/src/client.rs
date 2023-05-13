@@ -118,7 +118,8 @@ enum ReadCommand {
 enum WriteCommand {
     Request(ActiveFile),
     Offer(File),
-    Stop(String),
+    Stop(String), // Sends stop command to other client
+    StopSend(String), // Stops self sending
     Send(String, u64, u64) // HASH + START CHUNK + END CHUNK
 }
 
@@ -203,19 +204,21 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
         //TODO @Simon handle message
         match msg[0] {
             0x0A => {//request file
-
+                println!("(recv) : request");
                 //command_sender.send(WriteCommand::Send("FILE HASH".into(), 0, 100))?; - Tell sender to start sending the file
             }
             0xAB => {//offer file
-
+                println!("(recv) : offer");
                 // pending_files.push(); - file muss in pending liste gepusht werden
                 // send_offer(&app_handle, "NAME".into(), "HASH".into(), 100)?; - file im frontend anzeigen
             }
             0xBB => {//stop send file
-
-                // command_sender.send(WriteCommand::Stop("HAHS")) - tell command sender to stop sending
+                println!("(recv) : stop");
+                // command_sender.send(WriteCommand::StopSend("HAHS")) - tell command sender to stop sending
             }
-            0x11 => {} // file package bitte cachen und wenn cache groß genug > 20 zb dann auf festplatte schreiben
+            0x11 => {
+                println!("(recv) : package");
+            } // file package bitte cachen und wenn cache groß genug > 20 zb dann auf festplatte schreiben
             _ => {} // illegal opcode
         }
     }
@@ -258,36 +261,32 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                     WriteCommand::Request(file) => {
                         //TODO SEND REQUEST WITH GIVEN CHUNKS
 
-                        match writer.write(b"REQUEST") {
-                            Ok(_) => {}
-                            Err(err) => {
-                                match err.kind() {
-                                    ErrorKind::TimedOut => { continue; }
-                                    _ => {
-                                        send_disconnect(&app_handle)?;
-                                        return Err(ClientError::new(ClientErrorKind::SocketClosed));
-                                    }
-                                }
+                        match writer.write(&[0x0A]) {
+                            Ok(_) => {
+                                println!("(send) : request");
+                            }
+                            Err(_err) => {
+                               println!("disconnect");
+                               send_disconnect(&app_handle)?;
+                               return Err(ClientError::new(ClientErrorKind::SocketClosed));
                             }
                         };
                     }
                     WriteCommand::Offer(file) => {
                         //TODO SEND OFFER
 
-                        match writer.write(b"OFFER") {
-                            Ok(_) => {}
-                            Err(err) => {
-                                match err.kind() {
-                                    ErrorKind::TimedOut => { continue; }
-                                    _ => {
-                                        send_disconnect(&app_handle)?;
-                                        return Err(ClientError::new(ClientErrorKind::SocketClosed));
-                                    }
-                                }
+                        match writer.write(&[0xAB]) {
+                            Ok(_) => {
+                                println!("(send) : offer");
+                            }
+                            Err(_err) => {
+                                println!("disconnect");
+                                send_disconnect(&app_handle)?;
+                                return Err(ClientError::new(ClientErrorKind::SocketClosed));
                             }
                         };
                     }
-                    WriteCommand::Stop(hash) => {
+                    WriteCommand::StopSend(hash) => {
                         match files.iter().position(|wf| wf.file.hash == hash) {
                             None => {}
                             Some(index) => {files.swap_remove(index);},
@@ -302,6 +301,19 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                             }
                         }
                     }
+                    WriteCommand::Stop(hash) => {
+                        // hash zu msg hinzufuegen
+                        match writer.write(&[0xBB]) {
+                            Ok(_) => {
+                                println!("(send) : stop");
+                            }
+                            Err(_err) => {
+                                println!("disconnect");
+                                send_disconnect(&app_handle)?;
+                                return Err(ClientError::new(ClientErrorKind::SocketClosed));
+                            }
+                        };
+                    }
                 },
             Err(_) => {}
         };
@@ -312,7 +324,9 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
             // current ist die aktuelle positon (offset), start und stop sind die grenzen angegeben in chunks
 
             match writer.write(file.file.hash.as_bytes()) {
-                Ok(_) => {}
+                Ok(_) => {
+                    println!("(send) : package");
+                }
                 Err(err) => {
                     match err.kind() {
                         ErrorKind::TimedOut => { continue; }
