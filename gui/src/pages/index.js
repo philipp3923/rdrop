@@ -2,39 +2,71 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import Button from '../components/Button';
 import InputField from '../components/InputField';
+import IconButton from '../components/IconButton';
 import Layout from '../layouts/Layout';
 import MatIcon from '../components/MatIcon';
 import { usePublicIP } from '../components/hooks/usePublicIP';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Loader from '../components/Loader';
 import useTauriEvent from '../components/hooks/useTauriEvent';
-import { emit } from '@tauri-apps/api/event';
+import { writeText } from '@tauri-apps/api/clipboard';
 import { isValidIP, isValidPort } from '../vendor/ip';
 
 export default function Home() {
     const router = useRouter();
     const [isConnecting, setConnecting] = useState('none');
     const [connectionStatus, setConncectionStatus] = useState({ status: '' });
-    const [ipv6Port, setIPv6Port] = useState("");
+    const [ipv6Port, setIPv6Port] = useState('');
     const [ipError, setIPError] = useState(false);
     const [portError, setPortError] = useState(false);
     const ipRef = useRef(null);
     const portRef = useRef(null);
-
     const ip = usePublicIP();
-0
+
+
     useEffect(() => {
         invoke('start');
     }, []);
 
+    useTauriEvent('app://update-status', (event) => {
+        setConncectionStatus(event?.payload);
+    });
+
+    useTauriEvent('app://update-port', (event) => {
+        setIPv6Port(event?.payload);
+    });
+
+    useTauriEvent('app://socket-failed', (event) => {
+        setConnecting('failed');
+        setConncectionStatus(event?.payload);
+    });
+
+    useTauriEvent('app://connected', () => {
+        router.push('/transfer');
+    });
+    
+
     async function handleConnect() {
-        const ip = ipRef.current.value;
-        const port = portRef.current.value;
+        let ip = ipRef.current.value;
+        let port = portRef.current.value;
 
         if (!isValidIP(ip)) {
-            setIPError('Address is invalid');
-            return;
+            let invalidIp = true;
+            if (ip.includes(':')) {
+                let ipParts = ip.split(':');
+                let last = ipParts[ipParts.length - 1];
+
+                if (isValidPort(last)) {
+                    invalidIp = false;
+                    ipRef.current.value = ipParts.slice(0, -1).join(':');
+                    portRef.current.value = last;
+                }
+            }
+
+            if (invalidIp) {
+                setIPError('Address is invalid');
+                return;
+            }
         }
         setIPError(false);
 
@@ -54,22 +86,13 @@ export default function Home() {
         invoke('disconnect');
     }
 
-    useTauriEvent('app://update-status', (event) => {
-        setConncectionStatus(event?.payload);
-    });
+    function handleCopyIPv4() {
+        writeText(ip.ipv4);
+    }
 
-    useTauriEvent('app://update-port', (event) => {
-        setIPv6Port(event?.payload);
-    });
-
-    useTauriEvent('app://socket-failed', (event) => {
-        setConnecting('failed');
-        setConncectionStatus(event?.payload);
-    });
-
-    useTauriEvent('app://connected', () => {
-        router.push('/transfer');
-    });
+    function handleCopyIPv6() {
+        writeText(ip.ipv6+":"+ipv6Port);
+    }
 
     return (
         <div className='home layout-center-height'>
@@ -80,13 +103,24 @@ export default function Home() {
                 <div className={'home-container container container-secondary connection-' + isConnecting}>
                     <div className='home-ip'>
                         <h2 className='title-medium'>IPv4 Address</h2>
-                        <h1 className='headline-large'>{ip.ipv4}</h1>
+                        <h1 className='headline-medium'>
+                            {ip.ipv4}
+                            <IconButton text onClick={handleCopyIPv4}>
+                                content_copy
+                            </IconButton>
+                        </h1>
                         <h2 className='title-medium m-t-16'>IPv6 Address</h2>
-                        <h1 className='headline-large'>{ip.ipv6}{ipv6Port && <span>:{ipv6Port}</span>}</h1>
+                        <h1 className='headline-medium'>
+                            {ip.ipv6}
+                            {ipv6Port && <span>:{ipv6Port}</span>}
+                            <IconButton text onClick={handleCopyIPv6}>
+                                content_copy
+                            </IconButton>
+                        </h1>
                     </div>
                     <div className={'home-status' + (connectionStatus.error ? ' error' : '')}>
                         <Loader />
-                        <div className="m-l-24">
+                        <div className='m-l-24'>
                             <h2 className='headline-large'>{connectionStatus.status}</h2>
                             {connectionStatus.description && (
                                 <p className='title-medium'>{connectionStatus.description}</p>

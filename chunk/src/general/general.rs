@@ -8,8 +8,8 @@ use crate::error::error::RError;
 
 pub const USER_HASH:&str = "0123456789abcdef";
 pub const CHUNK_HASH_TYPE:Hash = Hash::SIPHASH24;
-pub const CHUNK_SIZE:usize = 1024 * 1024*1;
-pub const BUFFER_SIZE:usize = 1024 * 1024;
+pub const CHUNK_SIZE:usize = 1024 * 1024*20;
+pub const BUFFER_SIZE:usize = 1024 * 1024*20;
 pub const LOGGER_REGEX:&str = r"\[(\d{2}\.\d{2}\.\d{4} \- \d{2}:\d{2}:\d{2}\.\d{3})\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\][\t\f\v ]*-[\t\f\v ]*\[(SHA256|SHA512|MD5|SIPHASH24)\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+) bytes\][\t\f\v ]*(-[\t\f\v ]*\[(SHA256|SHA512|MD5|SIPHASH24)\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\])?";
 
 #[derive(Debug)]
@@ -73,6 +73,8 @@ impl HeaderByte{
     }
 }
 
+
+//deprecated
 pub struct AppSettings{
     pub buffer_size:usize,
     pub log_regex: String,
@@ -236,11 +238,49 @@ impl HeaderData {
 }
 
 
+//pub functions
+
+pub fn get_file_data(filepath:&str) -> Result<(File, String, u64), Error>{
+
+    let metadata = match metadata(filepath){
+        Ok(metadata) => metadata,
+        Err(_) => return Err(Error::new(ErrorKind::InvalidInput, "Path is not a file or directory")),
+    };
+
+    if metadata.is_dir() {
+        //return error, only files can be splitted
+        return Err(Error::new(ErrorKind::InvalidInput, "Path is a directory. Can only send Files (includes .zip)"));
+    }
+
+    let file = File::open(filepath)?;
+    let name = Path::new(filepath).file_name().unwrap().to_string_lossy().to_string();
+    let size = metadata.len();
+
+
+    return Ok((file, name, size));
+}
+
+// calc chunk count
+pub fn get_chunk_count(file_size:u64) -> Result<u64,Error> {
+
+    let chunk_size = CHUNK_SIZE as u64;
+
+    let mut full_val = file_size / chunk_size;
+    
+    if file_size % chunk_size != 0 {
+        full_val += 1;
+    }
+
+    return Ok(full_val);
+}
+
+
+//
+
+
+
 
 //append header to byte-stream
-/*
-    Used 85
-*/
 pub fn append_header(byte_vector:Vec<u8>, header_type:HeaderByte) -> Vec<u8>{
 
     let mut byte_vec:Vec<u8> =Vec::new();
@@ -253,9 +293,6 @@ pub fn append_header(byte_vector:Vec<u8>, header_type:HeaderByte) -> Vec<u8>{
 
 
 //calc how many chunks with certain file size will be produced
-/*
-    aktive 85
-*/
 pub fn calc_chunk_count(chunk_size:usize, file_size:u64) -> Result<u64,RError> {
 
     let chunk_size:u64 = match chunk_size.try_into() {
@@ -277,8 +314,10 @@ pub fn calc_chunk_count(chunk_size:usize, file_size:u64) -> Result<u64,RError> {
 
 
 
-//write header
+//read header of data-send-package
 pub fn read_header(header_vec:&Vec<u8>) -> Result<Header, RError>{
+    
+    //bitmasks for length of different data in header
     let bitmask_chunk_size:u8  = 0b10000000;
     let bitmask_file_hash  = 0b00011000;
     let bitmask_chunk_count:u8 = 0b01100000;
@@ -293,10 +332,10 @@ pub fn read_header(header_vec:&Vec<u8>) -> Result<Header, RError>{
     
     header.chunk_length_pos_s = length;
     match header.third_byte as u8 & bitmask_chunk_size {
-        0b00000000 => {// das erste bit ist 0
+        0b00000000 => {// first bit is 0
             length = length + 3
         },   
-        0b10000000 => {// das erste bit ist 1
+        0b10000000 => {// first bit is 1
             length = length + 4
         },
         _ => {
@@ -308,16 +347,16 @@ pub fn read_header(header_vec:&Vec<u8>) -> Result<Header, RError>{
 
     header.file_hash_pos_s = length;
     match header.third_byte as u8 & bitmask_file_hash {
-        0b00000000 => {// die ersten beiden Bits sind 00
+        0b00000000 => {// Bits 4 and 5 are 00
             length = length + 8;
         },   
-        0b00001000 => {// die ersten beiden Bits sind 01
+        0b00001000 => {// Bits 4 and 5 are 01
             length = length + 16;
         },   
-        0b00010000 => {// die ersten beiden Bits sind 10
+        0b00010000 => {// Bits 4 and 5 are 10
             length = length + 32;
         },   
-        0b00011000 => {// die ersten beiden Bits sind 11
+        0b00011000 => {// Bits 4 and 5 are 11
             length = length + 64;
         },
         _ => {
@@ -329,16 +368,16 @@ pub fn read_header(header_vec:&Vec<u8>) -> Result<Header, RError>{
 
     header.chunk_max_pos_s = length;
     match header.third_byte as u8 & bitmask_chunk_count {
-        0b00000000 => {// die ersten beiden Bits sind 00
+        0b00000000 => {// Bits 2 and 3 are 00
             length = length + 1;
         },   
-        0b00100000 => {// die ersten beiden Bits sind 01
+        0b00100000 => {// Bits 2 and 3 are 01
             length = length + 2;
         },   
-        0b01000000 => {// die ersten beiden Bits sind 10
+        0b01000000 => {// Bits 2 and 3 are 10
             length = length + 3;
         },   
-        0b01100000 => {// die ersten beiden Bits sind 11
+        0b01100000 => {// Bits 2 and 3 are 11
             length = length + 4;
         },
         _ => {
@@ -354,23 +393,23 @@ pub fn read_header(header_vec:&Vec<u8>) -> Result<Header, RError>{
     header.chunk_hash_pos_s = Some(length);
 
     match header.third_byte as u8 & bitmask_chunk_hash {
-        0b00000000 => {
+        0b00000000 => { // Bits 6, 7 and 8 are 000
             header.chunk_hash_pos_s = None;
             header.chunk_hash_pos_e = None;
         },   
-        0b00000100 => {
+        0b00000100 => { // Bits 6, 7 and 8 are 100
             length = length + 8;
             header.chunk_hash_pos_e = Some(length - 1);
         },   
-        0b00000101 => {
+        0b00000101 => { // Bits 6, 7 and 8 are 101
             length = length + 16;
             header.chunk_hash_pos_e = Some(length - 1);
         },   
-        0b00000110 => {
+        0b00000110 => { // Bits 6, 7 and 8 are 110
             length = length + 32;
             header.chunk_hash_pos_e = Some(length - 1);
         },
-        0b00000111 => {
+        0b00000111 => { // Bits 6, 7 and 8 are 111
             length = length + 64;
             header.chunk_hash_pos_e = Some(length - 1);
         },
@@ -392,7 +431,7 @@ pub fn read_header(header_vec:&Vec<u8>) -> Result<Header, RError>{
 }
 
 
-
+// extracts header data from header-struct
 pub fn extract_header_data(header:&Header) -> Result<HeaderData,RError>{
 
     let mut user_hash:String = "".to_string();
@@ -453,7 +492,7 @@ pub fn extract_header_data(header:&Header) -> Result<HeaderData,RError>{
 
 
 
-//write header
+// create header struct
 pub fn create_header(file_length: u64, chunk_count:u64, file_hash_type:&Hash, chunk_hash_type:&Option<Hash>) -> Header{
 
     let mut header = Header::new(0,0,3,10,11,0,0,0,0,0,0,0,Some(0),Some(0),Vec::new());
@@ -461,9 +500,9 @@ pub fn create_header(file_length: u64, chunk_count:u64, file_hash_type:&Hash, ch
     let mut length:usize = 11;
 
 
-    //setzte 1 bit im dritten byte 1 wenn 4 bytes benötigt werden für die länge
     let mut third_byte = [0;8];
 
+    //set 1 bit in third byte 1 when 4 bytes are needed for length
     header.chunk_length_pos_s = length;
     if file_length > 2^24 - 1 {
         third_byte[0] = 1;
@@ -474,8 +513,9 @@ pub fn create_header(file_length: u64, chunk_count:u64, file_hash_type:&Hash, ch
     }
     header.chunk_length_pos_e = length - 1;
 
+
     header.file_hash_pos_s = length;
-    //setze bytes für file_hash_size
+    // set bits for file_hash_size
     match file_hash_type{
         Hash::SIPHASH24 => {
             third_byte[3] = 0;
@@ -501,9 +541,7 @@ pub fn create_header(file_length: u64, chunk_count:u64, file_hash_type:&Hash, ch
     header.file_hash_pos_e = length - 1;
 
     header.chunk_max_pos_s = length;
-    //setzte die länge für size bytes
-
-
+    //set bits for chunk_count bytes
     if chunk_count < 2u64.pow(8) {
         third_byte[1] = 0;
         third_byte[2] = 0;
@@ -530,6 +568,7 @@ pub fn create_header(file_length: u64, chunk_count:u64, file_hash_type:&Hash, ch
     length = length + 1 + (header.chunk_max_pos_e - header.chunk_max_pos_s);
     header.chunk_pos_e = length -1;    
     
+    //set bits for chunk_hash bytes
     header.chunk_hash_pos_s = Some(length);
     let tmp_l = length;
     match chunk_hash_type{
@@ -597,6 +636,7 @@ pub fn create_header(file_length: u64, chunk_count:u64, file_hash_type:&Hash, ch
 }
 
 
+// writes value in header
 pub fn write_in_header(header:&mut Vec<u8>, value:u64, start_pos:usize, end_pos:usize){
 
     let value_bytes = value.to_be_bytes();
@@ -608,15 +648,12 @@ pub fn write_in_header(header:&mut Vec<u8>, value:u64, start_pos:usize, end_pos:
     }
 }
 
+// wirtes hex-value in header
 pub fn write_hex_in_header(header:&mut Vec<u8>, value:&str, start_pos:usize, end_pos:usize) -> Result<(),RError>{
 
     if end_pos - start_pos + 1 < value.len() / 2 {
         return Err(RError::new(RErrorKind::InputOutputError, "Can't write string in byte-vector. Reason: vector to short."));
     }
-
-
-    //let num = u64::from_str_radix(value, 16).map_err(|_err| RError::new( RErrorKind::ConvertionError, "Failed to parse hex string."))?;
-    //let bytes = num.to_be_bytes();
 
     let mut bytes = Vec::new();
     for i in (0..value.len()).step_by(2) {
@@ -634,6 +671,7 @@ pub fn write_hex_in_header(header:&mut Vec<u8>, value:&str, start_pos:usize, end
 }
 
 
+// separate header vec from data vec
 pub fn separate_header(data:&Vec<u8>) -> Result<(Vec<u8>, Vec<u8>), RError>{
 
     let first_byte = data[0];
@@ -652,7 +690,7 @@ pub fn separate_header(data:&Vec<u8>) -> Result<(Vec<u8>, Vec<u8>), RError>{
     return Ok((header,data));
 }
 
-
+// read header from send data and extract header data
 pub fn read_send_header(byte_vec:&Vec<u8>) -> Result<HeaderData, RError>{
 
     let new_header = read_header(&byte_vec)?;
@@ -683,7 +721,7 @@ pub fn load_file_data(filepath:&str) -> Result<FileData, Error>{
     return Ok(file_data);
 }
 
-
+// check chunk hash
 pub fn check_chunk_hash(header_hash:&Option<String>, calc_hash_alg:&Option<Hash>, byte_vec:&Vec<u8>) -> bool{
 
     if let Some(hash_alg) = calc_hash_alg{
@@ -702,9 +740,7 @@ pub fn check_chunk_hash(header_hash:&Option<String>, calc_hash_alg:&Option<Hash>
     true
 }
 
-/*
-    Aktuell schreibt log-file
-*/
+//writes logfile after merging a data-vec into a file
 pub fn write_to_log_file(path: &str, user_hash: &str, parent_hash_alg: &Hash, part_num: u64, max_num:u64, part_size:u64, parent_hash:&str, part_hash_alg: &Option<Hash>, part_hash: &Option<String>) -> Result<bool,Error> {
     
     let time = Utc::now().format("%d.%m.%Y - %H:%M:%S%.3f").to_string();
@@ -729,6 +765,7 @@ pub fn write_to_log_file(path: &str, user_hash: &str, parent_hash_alg: &Hash, pa
 }
 
 
+// validate vector of logfile and check for missing parts
 pub fn validate_log_file(vec:&Vec<LogEntry>) -> (u64, u64){
 
     let mut missing_vec = Vec::new();
@@ -759,7 +796,7 @@ pub fn validate_log_file(vec:&Vec<LogEntry>) -> (u64, u64){
 }
 
 
-
+// reads logfile and returns vec of logEnterys
 pub fn read_log_file(path: &str, buffer_size: usize, regex: &str) -> Result<Vec<LogEntry>, Error> {
 
     let file = match File::open(path) {
@@ -829,6 +866,7 @@ pub fn read_log_file(path: &str, buffer_size: usize, regex: &str) -> Result<Vec<
 
 }
 
+//get filename from dir by seearching for .rdroplog-files
 pub fn get_filename_from_dir(dir:&str) -> Result<String, RError>{
     
     for entry in fs::read_dir(dir).map_err(|_err| RError::new( RErrorKind::InputOutputError, "Can't open directory while trying to read the logfile for the filename."))? {
@@ -847,6 +885,7 @@ pub fn get_filename_from_dir(dir:&str) -> Result<String, RError>{
 }
 
 
+// check if file has missing parts
 pub fn validate_file(output_dir:&str, file_hash:&str) -> Result<(u64, u64),RError>{
 
     let outpath = format!("{}/{}",&output_dir, &file_hash);

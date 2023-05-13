@@ -65,7 +65,7 @@ pub fn create_offer(buffer_size:usize, hash_alg:&Hash, file_path:&str) -> Result
 
 
 
-//read offer
+//read offer as string and returns offer struct
 pub fn read_offer(offer_regex:&str, offer:&str) -> Result<Offer, RError>{
 
     let regex = Regex::new(offer_regex).map_err(|err| RError::new(RErrorKind::RegexError, &err.to_string()))?;
@@ -84,7 +84,7 @@ pub fn read_offer(offer_regex:&str, offer:&str) -> Result<Offer, RError>{
     return Err(RError::new(RErrorKind::InputOutputError, "Can't read Offer."));
 }
 
-
+// creates offer from file-path
 pub fn create_offer_vec(file_hash:&Hash, path:&str) -> Result<Vec<u8>, Error>{
 
     let mut offer_byte_vec = create_offer(BUFFER_SIZE, &file_hash, &path)?;
@@ -94,7 +94,7 @@ pub fn create_offer_vec(file_hash:&Hash, path:&str) -> Result<Vec<u8>, Error>{
     return Ok(offer_byte_vec);
 }
 
-
+//read byte-vector and creates offer struct
 pub fn read_offer_vec(byte_vec:&Vec<u8>) -> Result<Offer, RError>{
 
     let offer_as_string = String::from_utf8_lossy(&byte_vec).into_owned();

@@ -6,7 +6,7 @@ use crate::{hash::hash::Hash, general::general::{separate_header, read_send_head
 use crate::{error::error::{RError, RErrorKind}, hash::hash::get_hash, general::general::{write_hex_in_header, write_in_header, Header}};
 
 
-
+// splits a file and returns ordered part
 pub fn split_file_single(buf_reader:&mut BufReader<&mut File>, part_num:usize, file_size:usize, reg_chunk_size:usize, file_hash:&str, chunk_count_max:u64, user_hash:&str, header:&mut Header, chunk_hash:&Option<Hash>) -> Result<Vec<u8>, RError>{
 
     let mut chunk_size = reg_chunk_size;
@@ -42,7 +42,7 @@ return Ok(byte_vec);
 }
 
 
-
+// writes byte-vec in file
 pub fn merge_file(output_path:&str, file_name:&str, byte_vec:&Vec<u8>, chunk_number:u64, reg_chunk_size:usize) -> Result<String, Error>{
     
     let result_path = format!("{}/{}",&output_path, &file_name);
@@ -96,6 +96,7 @@ pub fn merge_file(output_path:&str, file_name:&str, byte_vec:&Vec<u8>, chunk_num
 }
 
 
+//wrapper for writing data in vector
 pub fn r_w_data_vec(byte_vec:&Vec<u8>, output_dir:&str) -> Result<HeaderData, RError>{
 
     let (header_vector, data_vector) = separate_header(&byte_vec)?;
@@ -119,6 +120,7 @@ pub fn r_w_data_vec(byte_vec:&Vec<u8>, output_dir:&str) -> Result<HeaderData, RE
 }
 
 
+// create data byte-vector
 pub fn create_data_vec(path:&str, order:&Order, chunk_num:usize) -> Result<Vec<u8>, RError>{
 
     let mut file = File::open(path).map_err(|err| RError::new(RErrorKind::InputOutputError, &err.to_string()))?;

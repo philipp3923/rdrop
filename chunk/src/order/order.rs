@@ -48,6 +48,7 @@ impl Order{
 //read_order
 pub fn read_order(byte_vec:&mut Vec<u8>) -> Result<Order, RError>{
 
+    //removes first entry
     byte_vec.remove(0);
     let order = String::from_utf8_lossy(&byte_vec).as_ref().to_string();
 
@@ -75,18 +76,11 @@ pub fn create_order(start_pos:u64, end_pos:u64, chunk_size:usize, file_hash_alg:
     let mut byte_vec = Vec::new();
     let order_str = format!("[{}] - [{}] - [{}] - [{}] - [{}] - [{}]",chunk_size, file_hash_alg.to_string(), file_hash, file_name, start_pos, end_pos);
     
-    /*
-        let opt_str = match chunk_hash_type{
-            Some(val) => format!(" - [{}]", val.to_string()),
-            None => "".to_string()
-        };
-        write!(byte_vec,"{}{}", order_str, opt_str)?;
-    */
     write!(byte_vec, "{}", order_str)?;
     return Ok(byte_vec);
 }
 
-
+//creates file and logfile in new dir (filehash)
 pub fn create_file_with_order(parent_path:&str, parent_hash:&str, file_name:&str) -> Result<String, Error>{
 
     let dir_path = format!("{}/{}", &parent_path, &parent_hash);
@@ -107,6 +101,7 @@ pub fn create_file_with_order(parent_path:&str, parent_hash:&str, file_name:&str
     Ok(file_path)
 }
 
+//reads offer data and creates an order
 pub fn create_order_from_offer(chunk_size:usize, file_hash_alg:&Hash, chunk_hash_type:&Option<Hash>, output_dir:&str, offer:&Offer) -> Result<Vec<u8>, RError>{
 
     let max_count = calc_chunk_count(chunk_size, offer.size)?;
@@ -120,6 +115,7 @@ pub fn create_order_from_offer(chunk_size:usize, file_hash_alg:&Hash, chunk_hash
     return Ok(order_byte_vec);
 }
 
+//reads and validates logfile and create order
 pub fn create_order_from_logfile(path:&str, buffer_size:usize, chunk_size:usize) -> Result<Vec<u8>, Error>{
 
     let vec = read_log_file(path, buffer_size, LOGGER_REGEX)?;

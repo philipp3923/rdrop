@@ -25,6 +25,9 @@ pub enum ClientErrorKind {
     MpscSendError,
     Ipv6ParseFailed,
     SendToFrontendFailed,
+    NotFound,
+    IOError,
+    CommunicationError
 }
 
 #[derive(Debug)]
@@ -61,26 +64,8 @@ impl Display for ClientError {
     }
 }
 
-impl From<PoisonError<RwLockReadGuard<'_, bool>>> for ClientError {
-    fn from(_value: PoisonError<RwLockReadGuard<'_, bool>>) -> Self {
-        ClientError::new(ClientErrorKind::LockPoisoned)
-    }
-}
-
-impl From<PoisonError<RwLockWriteGuard<'_, bool>>> for ClientError {
-    fn from(_value: PoisonError<RwLockWriteGuard<'_, bool>>) -> Self {
-        ClientError::new(ClientErrorKind::LockPoisoned)
-    }
-}
-
 impl From<tauri::Error> for ClientError {
     fn from(_value: tauri::Error) -> Self {
-        ClientError::new(ClientErrorKind::SendToFrontendFailed)
-    }
-}
-
-impl From<PoisonError<MutexGuard<'_, handle::Current>>> for ClientError {
-    fn from(_value: PoisonError<MutexGuard<'_, handle::Current>>) -> Self {
         ClientError::new(ClientErrorKind::SendToFrontendFailed)
     }
 }
@@ -88,6 +73,24 @@ impl From<PoisonError<MutexGuard<'_, handle::Current>>> for ClientError {
 impl<T> From<SendError<T>> for ClientError {
     fn from(_value: SendError<T>) -> Self {
         ClientError::new(ClientErrorKind::MpscSendError)
+    }
+}
+
+impl<T> From<PoisonError<T>> for ClientError {
+    fn from(_value: PoisonError<T>) -> Self {
+        ClientError::new(ClientErrorKind::LockPoisoned)
+    }
+}
+
+impl From<p2p::error::Error> for ClientError {
+    fn from(_value: p2p::error::Error) -> Self {
+        ClientError::new(ClientErrorKind::CommunicationError)
+    }
+}
+
+impl From<std::io::Error> for ClientError {
+    fn from(_value: std::io::Error) -> Self {
+        ClientError::new(ClientErrorKind::IOError)
     }
 }
 
