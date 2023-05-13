@@ -1,14 +1,13 @@
-use std::io;
 use crate::client::{ActiveClient, ClientReader, ClientWriter, WaitingClient};
-use crate::error::{Error as P2pError, ChangeStateError, ErrorKind};
+use crate::error::{ChangeStateError, Error as P2pError};
 use socket2::{Domain, SockAddr, Socket, Type};
 
 
-use std::io::{Read, read_to_string, Write};
+
+use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
 use std::thread::sleep;
 use std::time::Duration;
-use crate::error;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
 
@@ -37,7 +36,7 @@ impl TcpWaitingClient {
         peer: Ipv6Addr,
         port: u16,
         wait: Option<Duration>,
-        timeout: Option<Duration>
+        timeout: Option<Duration>,
     ) -> Result<TcpActiveClient, ChangeStateError<Self>> {
         if let Some(wait_duration) = wait {
             sleep(wait_duration);
@@ -45,7 +44,9 @@ impl TcpWaitingClient {
 
         let sock_addr = SockAddr::from(SocketAddr::new(IpAddr::from(peer), port));
 
-        let connect_result = self.tcp_socket.connect_timeout(&sock_addr, timeout.unwrap_or(Duration::from_secs(1)));
+        let connect_result = self
+            .tcp_socket
+            .connect_timeout(&sock_addr, timeout.unwrap_or(Duration::from_secs(1)));
 
         match connect_result {
             Ok(_) => {
@@ -174,10 +175,10 @@ impl ClientWriter for TcpClientWriter {
 mod tests {
     use super::*;
 
+    use crate::error::ErrorKind;
     use std::ops::Add;
     use std::thread;
     use std::time::SystemTime;
-    use crate::error::ErrorKind;
 
     fn connect() -> Result<(TcpActiveClient, TcpActiveClient), P2pError> {
         let ipv6 = Ipv6Addr::from(1);
@@ -196,7 +197,7 @@ mod tests {
                     ipv6,
                     p1,
                     Some(connect_time.duration_since(SystemTime::now()).unwrap()),
-                    Some(Duration::from_millis(50))
+                    Some(Duration::from_millis(50)),
                 )
                 .unwrap();
         });
@@ -205,7 +206,7 @@ mod tests {
             ipv6,
             p2,
             Some(connect_time.duration_since(SystemTime::now()).unwrap()),
-            Some(Duration::from_millis(50))
+            Some(Duration::from_millis(50)),
         )?;
         let c2 = match thread_c2.join() {
             Ok(c) => c,

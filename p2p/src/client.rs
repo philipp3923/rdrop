@@ -2,7 +2,6 @@ use dryoc::dryocstream::{DryocStream, Pull, Push, Tag};
 
 use crate::error::Error as P2pError;
 
-
 use std::time::Duration;
 pub mod tcp;
 pub mod udp;
@@ -161,9 +160,9 @@ impl<CW: ClientWriter> ClientWriter for EncryptedWriter<CW> {
 
 #[cfg(test)]
 mod tests {
-    use std::net::Ipv6Addr;
     use super::*;
     use crate::protocol::{Active, Connection, Encrypted, Udp, Waiting};
+    use std::net::Ipv6Addr;
     use std::thread;
 
     fn connect() -> (

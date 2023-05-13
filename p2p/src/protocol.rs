@@ -1,19 +1,19 @@
-use std::fmt::Debug;
-use std::net::Ipv6Addr;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::client::tcp::{TcpActiveClient, TcpClientReader, TcpClientWriter, TcpWaitingClient};
+use crate::client::udp::{UdpActiveClient, UdpClientReader, UdpClientWriter, UdpWaitingClient};
+use crate::client::{
+    ActiveClient, ClientReader, ClientWriter, EncryptedReader, EncryptedWriter, WaitingClient,
+};
+use crate::error::Error as P2pError;
+use crate::error::{ChangeStateError, ErrorKind};
+use crate::ntp_time::get_diff;
 use dryoc::dryocbox::{Bytes, KeyPair};
 use dryoc::dryocstream::{DryocStream, Header, Pull, Push};
 use dryoc::kx::{Session, SessionKey};
 use dryoc::sign::PublicKey;
-use rand::{Rng, thread_rng};
-use crate::client::{
-    ActiveClient, ClientReader, ClientWriter, EncryptedReader, EncryptedWriter, WaitingClient,
-};
-use crate::client::tcp::{TcpActiveClient, TcpClientReader, TcpClientWriter, TcpWaitingClient};
-use crate::client::udp::{UdpActiveClient, UdpClientReader, UdpClientWriter, UdpWaitingClient};
-use crate::error::{ChangeStateError, ErrorKind};
-use crate::error::Error as P2pError;
-use crate::ntp_time::get_diff;
+use rand::{thread_rng, Rng};
+use std::fmt::Debug;
+use std::net::Ipv6Addr;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub trait EncryptionState {}
 
@@ -102,20 +102,20 @@ impl Connection<Waiting> {
         let own_port = self.get_port();
 
         let udp_active_client = self
-                .state
-                .waiting_client
-                .connect(peer, port, connect_timeout, disconnect_timeout)
-                .map_err(|err| {
-                    let err = err.split();
-                    ChangeStateError::new(
-                        Connection {
-                            state: Waiting {
-                                waiting_client: err.0,
-                            },
+            .state
+            .waiting_client
+            .connect(peer, port, connect_timeout, disconnect_timeout)
+            .map_err(|err| {
+                let err = err.split();
+                ChangeStateError::new(
+                    Connection {
+                        state: Waiting {
+                            waiting_client: err.0,
                         },
-                        err.1,
-                    )
-                })?;
+                    },
+                    err.1,
+                )
+            })?;
 
         Ok(Connection::<Active<Plain<Udp>>>::new(
             udp_active_client,
@@ -209,7 +209,7 @@ impl Connection<Active<Plain<Udp>>> {
         let my_session_keys = match self.state.role {
             Role::Server => Session::new_server_with_defaults(&my_keypair, &peer_public_key)?,
             Role::Client => Session::new_client_with_defaults(&my_keypair, &peer_public_key)?,
-            Role::None => return Err(P2pError::new(ErrorKind::UndefinedRole))
+            Role::None => return Err(P2pError::new(ErrorKind::UndefinedRole)),
         };
 
         return Ok(my_session_keys.into_parts());
@@ -300,7 +300,9 @@ impl Connection<Active<Encrypted<Udp>>> {
         return Ok(connection);
     }
 
-    pub fn upgrade_using_ntp(mut self) -> Result<Connection<Active<Encrypted<Tcp>>>, ChangeStateError<Self>> {
+    pub fn upgrade_using_ntp(
+        mut self,
+    ) -> Result<Connection<Active<Encrypted<Tcp>>>, ChangeStateError<Self>> {
         let tcp_client = match TcpWaitingClient::new(None) {
             Ok(client) => client,
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
@@ -381,19 +383,22 @@ impl Connection<Active<Encrypted<Udp>>> {
         tcp_client: TcpWaitingClient,
         peer_port: u16,
     ) -> Result<TcpActiveClient, ChangeStateError<TcpWaitingClient>> {
-
         let wait_time = match self.prepare_ntp_connect() {
             Ok(dur) => dur,
             Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
         };
 
-        return tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time), self.state.timeout);
+        return tcp_client.connect(
+            self.state.peer_ip,
+            peer_port,
+            Some(wait_time),
+            self.state.timeout,
+        );
     }
 
     fn prepare_ntp_connect(&mut self) -> Result<Duration, P2pError> {
         let diff = get_diff()?;
         println!("diff            : {:?}", diff);
-
 
         match self.state.role {
             Role::Server => {
@@ -404,20 +409,23 @@ impl Connection<Active<Encrypted<Udp>>> {
                     return Err(P2pError::new(ErrorKind::NoDelayGiven));
                 }
 
-                let my_connect_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos() + self.state.client.max_delay * 10 + Duration::from_millis(100).as_nanos();
+                let my_connect_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
+                    + self.state.client.max_delay * 10
+                    + Duration::from_millis(100).as_nanos();
                 let my_connect_time = Duration::from_nanos(my_connect_time as u64);
                 let real_connect_time: Duration;
 
                 if diff.1 > 0 {
                     real_connect_time = my_connect_time + diff.0;
-                }else {
+                } else {
                     real_connect_time = my_connect_time - diff.0;
                 }
 
-                self.state
-                    .client
-                    .encrypted_writer
-                    .write((real_connect_time.as_nanos() as u64).to_be_bytes().as_slice())?;
+                self.state.client.encrypted_writer.write(
+                    (real_connect_time.as_nanos() as u64)
+                        .to_be_bytes()
+                        .as_slice(),
+                )?;
 
                 let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
 
@@ -438,24 +446,22 @@ impl Connection<Active<Encrypted<Udp>>> {
 
                 let real_connect_time = match nanos.try_into() {
                     Ok(t) => t,
-                    Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream))
+                    Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream)),
                 };
                 let real_connect_time = u64::from_be_bytes(real_connect_time);
                 let real_connect_time = Duration::from_nanos(real_connect_time);
 
-                let mut my_connect_time;
-
+                let my_connect_time;
 
                 println!("real_connect_time: {:?}", real_connect_time);
 
                 if diff.1 > 0 {
                     println!("sub 1");
                     my_connect_time = real_connect_time - diff.0;
-                }else {
+                } else {
                     println!("sub 2");
                     my_connect_time = real_connect_time + diff.0;
                 }
-
 
                 println!("my_connect_time  : {:?}", my_connect_time);
                 let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
@@ -466,7 +472,6 @@ impl Connection<Active<Encrypted<Udp>>> {
             Role::None => todo!(),
         }
     }
-
 
     fn sample_and_connect(
         &mut self,
@@ -503,7 +508,12 @@ impl Connection<Active<Encrypted<Udp>>> {
         }
 
         println!("trying to connect tcp");
-        return tcp_client.connect(self.state.peer_ip, peer_port, Some(wait_time), self.state.timeout);
+        return tcp_client.connect(
+            self.state.peer_ip,
+            peer_port,
+            Some(wait_time),
+            self.state.timeout,
+        );
     }
 
     fn set_connect_time(&mut self) -> Result<Duration, P2pError> {
@@ -542,7 +552,7 @@ impl Connection<Active<Encrypted<Udp>>> {
             .read(self.state.timeout)?;
         let connect_time = match nanos.try_into() {
             Ok(t) => t,
-            Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream))
+            Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream)),
         };
         let connect_time = u64::from_be_bytes(connect_time);
 
@@ -565,7 +575,7 @@ impl Connection<Active<Encrypted<Udp>>> {
             .read(self.state.timeout)?;
         let peer_port: [u8; 2] = match peer_port.try_into() {
             Ok(t) => t,
-            Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream))
+            Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream)),
         };
         let peer_port = u16::from_be_bytes(peer_port);
 
@@ -595,7 +605,6 @@ impl Connection<Active<Encrypted<Udp>>> {
                 Err(_) => return Err(P2pError::new(ErrorKind::IllegalByteStream)),
                 Ok(t) => t,
             };
-
 
             let peer_now_nanos = u128::from_be_bytes(time);
             let elapsed_nanos = start.elapsed()?.as_nanos();

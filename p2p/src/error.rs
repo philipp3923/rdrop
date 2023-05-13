@@ -39,14 +39,24 @@ impl Error {
         &self.kind
     }
 
-    pub fn to_kind(self) -> ErrorKind { self.kind }
+    pub fn to_kind(self) -> ErrorKind {
+        self.kind
+    }
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.source.as_ref() {
-            None => { write!(f, "p2p Error of kind {:?} occurred.", self.kind) }
-            Some(src) => { write!(f, "p2p Error of kind {:?} occurred. Source: {}", self.kind, src) }
+            None => {
+                write!(f, "p2p Error of kind {:?} occurred.", self.kind)
+            }
+            Some(src) => {
+                write!(
+                    f,
+                    "p2p Error of kind {:?} occurred. Source: {}",
+                    self.kind, src
+                )
+            }
         }
     }
 }
@@ -55,74 +65,95 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self.source.as_ref() {
             None => None,
-            Some(b) => Some(b.as_ref())
+            Some(b) => Some(b.as_ref()),
         }
     }
 }
 
 impl From<io::Error> for Error {
     fn from(value: io::Error) -> Self {
-       let kind = match value.kind() {
-            io::ErrorKind::WouldBlock => {
-                ErrorKind::TimedOut
-            }
-            io::ErrorKind::TimedOut => {
-                ErrorKind::TimedOut
-            }
-            _ => {
-                ErrorKind::CommunicationFailed
-            }
+        let kind = match value.kind() {
+            io::ErrorKind::WouldBlock => ErrorKind::TimedOut,
+            io::ErrorKind::TimedOut => ErrorKind::TimedOut,
+            _ => ErrorKind::CommunicationFailed,
         };
 
-        Error { source: Some(Box::new(value)), kind }
+        Error {
+            source: Some(Box::new(value)),
+            kind,
+        }
     }
 }
 
 impl<C: 'static> From<ChangeStateError<C>> for Error {
     fn from(value: ChangeStateError<C>) -> Self {
-        Error { source: Some(Box::new(value)), kind: ErrorKind::StateChangeFailed }
+        Error {
+            source: Some(Box::new(value)),
+            kind: ErrorKind::StateChangeFailed,
+        }
     }
 }
 
 impl From<SystemTimeError> for Error {
     fn from(value: SystemTimeError) -> Self {
-        Error { source: Some(Box::new(value)), kind: ErrorKind::SystemTimeError }
+        Error {
+            source: Some(Box::new(value)),
+            kind: ErrorKind::SystemTimeError,
+        }
     }
 }
 
 impl From<dryoc::Error> for Error {
     fn from(value: dryoc::Error) -> Self {
-        Error { source: Some(Box::new(value)), kind: ErrorKind::EncryptionFailed }
+        Error {
+            source: Some(Box::new(value)),
+            kind: ErrorKind::EncryptionFailed,
+        }
     }
 }
 
 impl From<TryRecvError> for Error {
     fn from(value: TryRecvError) -> Self {
-        Error { source: Some(Box::new(value)), kind: ErrorKind::ChannelFailed }
+        Error {
+            source: Some(Box::new(value)),
+            kind: ErrorKind::ChannelFailed,
+        }
     }
 }
 
 impl From<RecvError> for Error {
     fn from(value: RecvError) -> Self {
-        Error { source: Some(Box::new(value)), kind: ErrorKind::ChannelFailed }
+        Error {
+            source: Some(Box::new(value)),
+            kind: ErrorKind::ChannelFailed,
+        }
     }
 }
 
 impl From<RecvTimeoutError> for Error {
     fn from(value: RecvTimeoutError) -> Self {
-        Error { source: Some(Box::new(value)), kind: ErrorKind::TimedOut }
+        Error {
+            source: Some(Box::new(value)),
+            kind: ErrorKind::TimedOut,
+        }
     }
 }
 
 impl From<TryFromSliceError> for Error {
     fn from(value: TryFromSliceError) -> Self {
-        Error { source: Some(Box::new(value)), kind: ErrorKind::IllegalByteStream }
+        Error {
+            source: Some(Box::new(value)),
+            kind: ErrorKind::IllegalByteStream,
+        }
     }
 }
 
 impl From<sntpc::Error> for Error {
     fn from(_value: sntpc::Error) -> Self {
-        Error { source: None, kind: ErrorKind::ChannelError }
+        Error {
+            source: None,
+            kind: ErrorKind::ChannelError,
+        }
     }
 }
 
