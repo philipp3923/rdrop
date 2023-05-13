@@ -1,9 +1,9 @@
-use std::{fs::{File}, io::{BufReader, Read, SeekFrom, Seek}, io::{Error}, collections::hash_map::DefaultHasher, hash::Hasher, time::Instant};
+use std::{fs::{File}, io::{BufReader, Read, SeekFrom, Seek}, io::{Error}, collections::hash_map::DefaultHasher, hash::Hasher};
 
 use sha2::{Sha256, Sha512, Digest};
 use md5::Md5;
 
-use crate::general::general::{AppSettings, BUFFER_SIZE};
+use crate::general::general::{BUFFER_SIZE};
 
 
 //Enum with string-len of hash

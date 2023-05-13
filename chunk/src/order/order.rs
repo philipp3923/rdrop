@@ -2,7 +2,7 @@ use std::{io::{ErrorKind, Error, Write}, fs::{create_dir_all, File}, path::PathB
 
 use regex::Regex;
 
-use crate::{hash::hash::Hash, error::error::{RError, RErrorKind}, general::general::{LOGGER_REGEX, read_log_file, validate_log_file, calc_chunk_count, append_header, HeaderByte, CHUNK_SIZE, CHUNK_HASH_TYPE, get_chunk_count}, offer::offer::Offer};
+use crate::{hash::hash::Hash, error::error::{RError, RErrorKind}, general::general::{LOGGER_REGEX, read_log_file, validate_log_file, calc_chunk_count, append_header, HeaderByte, CHUNK_SIZE, CHUNK_HASH_TYPE}, offer::offer::Offer};
 
 
 

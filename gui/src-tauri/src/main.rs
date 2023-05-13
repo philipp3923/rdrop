@@ -3,21 +3,21 @@ all(not(debug_assertions), target_os = "windows"),
 windows_subsystem = "windows"
 )]
 
-use std::error::Error;
-use std::net::Ipv6Addr;
-use std::str::FromStr;
-use std::sync::{Arc, Mutex};
-use std::thread::sleep;
-use std::time::Duration;
 
-use serde::Deserialize;
-use tauri::{App, AppHandle, Manager, Wry};
+
+
+
+
+
+
+
+use tauri::{Manager};
 use window_shadows::set_shadow;
 
-use p2p::error::{ChangeStateError, Error as P2pError};
-use p2p::protocol::{Active, Connection, Encrypted, Plain, Tcp, Udp, Waiting};
 
-use crate::handle::{AppState, Current};
+
+
+use crate::handle::{AppState};
 
 mod client;
 mod handle;
@@ -36,7 +36,7 @@ fn main() {
     tauri::Builder::default()
         .manage(AppState::new())
         .setup(|app| {
-            let handle = app.handle();
+            let _handle = app.handle();
             let window = app.get_window("main").unwrap();
             match set_shadow(&window, true) {
                 Ok(_) => { println!("WINDOWS") }

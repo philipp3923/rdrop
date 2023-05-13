@@ -2,7 +2,7 @@
 
 use std::{io::{BufReader, SeekFrom, Seek, Read, Error, Write}, fs::{File, create_dir_all, OpenOptions, metadata}, path::{Path}};
 
-use crate::{hash::hash::Hash, general::general::{separate_header, read_send_header, check_chunk_hash, write_to_log_file, get_filename_from_dir, HeaderData, BUFFER_SIZE, CHUNK_SIZE, calc_chunk_count, CHUNK_HASH_TYPE, create_header, USER_HASH}, order::order::Order};
+use crate::{hash::hash::Hash, general::general::{separate_header, read_send_header, check_chunk_hash, write_to_log_file, get_filename_from_dir, HeaderData, BUFFER_SIZE, CHUNK_SIZE, calc_chunk_count, CHUNK_HASH_TYPE, create_header, USER_HASH}};
 use crate::{error::error::{RError, RErrorKind}, hash::hash::get_hash, general::general::{write_hex_in_header, write_in_header, Header}};
 
 

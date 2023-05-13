@@ -9,14 +9,14 @@ pub mod order;
 pub mod file;
 
 use error::error::RError;
-use general::general::{HeaderData, HeaderByte, FileData, load_file_data};
-use offer::offer::{Offer, create_offer_byte_msg, read_offer_vec};
-use order::order::{create_order_from_offer, Order, create_order_byte_vec};
+use general::general::{HeaderData};
+use offer::offer::{Offer, read_offer_vec};
+use order::order::{create_order_from_offer, Order};
 
-use crate::general::general::{validate_file, CHUNK_SIZE, CHUNK_HASH_TYPE, BUFFER_SIZE, get_file_data, get_chunk_count,separate_header, read_send_header};
-use crate::hash::hash::{ Hash, get_hash_from_file};
+use crate::general::general::{validate_file, CHUNK_SIZE, CHUNK_HASH_TYPE, BUFFER_SIZE};
+use crate::hash::hash::{ Hash};
 use crate::order::order::{read_order, create_order_from_logfile};
-use crate::file::file::{r_w_data_vec, create_data_vec, write_data_vec};
+use crate::file::file::{r_w_data_vec};
 
 
 

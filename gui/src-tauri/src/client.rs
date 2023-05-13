@@ -1,18 +1,18 @@
-use std::error::Error;
-use std::fmt::{Display, Formatter};
-use std::fs::read;
-use std::marker::PhantomData;
-use std::mem::size_of;
-use std::ops::{Deref, DerefMut, Index};
-use std::sync::{Arc, mpsc, Mutex, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::sync::mpsc::{RecvTimeoutError, Sender, TryRecvError};
+
+
+
+
+
+
+use std::sync::{Arc, mpsc, Mutex, RwLock};
+use std::sync::mpsc::{Sender};
 use std::thread;
 use std::thread::{JoinHandle, sleep};
 use std::time::Duration;
 
 use chunk::file::file::{write_data_vec, create_data_vec};
-use chunk::general::general::{get_chunk_count, HeaderByte, separate_header, read_send_header};
-use chunk::offer::offer::{create_offer_vec, create_offer_byte_msg, read_offer_vec};
+use chunk::general::general::{get_chunk_count, separate_header, read_send_header};
+use chunk::offer::offer::{create_offer_byte_msg, read_offer_vec};
 use chunk::order::order::{create_order_byte_vec, read_order};
 use tauri::{AppHandle, Wry};
 
@@ -246,7 +246,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
             }
             0x00 => { //file data
 
-                let (header_vector, data_vector) = separate_header(&msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
+                let (header_vector, _data_vector) = separate_header(&msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
                 let header_data =  read_send_header(&header_vector).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
 
                 match active_files.iter().position(|wf| wf.file.hash == header_data.file_hash) {
@@ -258,9 +258,9 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                         let percent = file.current as f32/ file.stop as f32;
                         send_file_state(&app_handle, file.file.clone(), FileState::Transferring, percent, false)?;
 
-                        let path = write_data_vec(&header_data,&msg, &file.file.path)?;
+                        let _path = write_data_vec(&header_data,&msg, &file.file.path)?;
 
-                        let act_num = header_data.chunk_pos;
+                        let _act_num = header_data.chunk_pos;
                         // wenn gefunden paket einlesen und an file.file.path schreiben mit position file.current
                         // ??
                         // wenn file.current >= file.stop dann aus liste entfernen
@@ -360,7 +360,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                             }
                         }
                     }
-                    WriteCommand::Stop(hash) => {
+                    WriteCommand::Stop(_hash) => {
                         // hash zu msg hinzufuegen
                         match writer.write(&[0xBB]) {
                             Ok(_) => {
@@ -382,7 +382,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
             // TODO jeweils max 10mb aus dateisystem lesen und versenden
             // current ist die aktuelle positon, start und stop sind die grenzen angegeben in chunks
 
-            let data_vec = create_data_vec(&file.file.path, file.current, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
+            let _data_vec = create_data_vec(&file.file.path, file.current, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
 
             match writer.write(file.file.hash.as_bytes()) {
                 Ok(_) => {

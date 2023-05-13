@@ -1,4 +1,4 @@
-use std::{time::{SystemTime, UNIX_EPOCH}, io::{Error, BufReader, BufRead, ErrorKind}, fs::File};
+use std::{time::{SystemTime}, io::{Error, BufReader, BufRead, ErrorKind}, fs::File};
 
 use rsntp::{SntpClient};
 

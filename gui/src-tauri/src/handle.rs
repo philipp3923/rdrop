@@ -1,4 +1,4 @@
-use std::fs;
+
 use std::fs::metadata;
 use std::mem::replace;
 use std::net::Ipv6Addr;
@@ -6,18 +6,18 @@ use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
-use std::sync::mpsc::{channel, Sender, SyncSender};
-use std::sync::{mpsc, Arc, Mutex, RwLock};
+use std::sync::mpsc::{SyncSender};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+
 
 use tauri::{AppHandle, State, Wry};
 
 use p2p::client::tcp::{TcpClientReader, TcpClientWriter};
 use p2p::client::udp::{UdpClientReader, UdpClientWriter};
 use p2p::client::{EncryptedReader, EncryptedWriter, WaitingClient};
-use p2p::error::{ChangeStateError, Error};
-use p2p::protocol::{Active, Connection, Encrypted, Plain, Tcp, Udp, Waiting};
+
+use p2p::protocol::{Connection, Waiting};
 
 use crate::client::Client;
 use crate::connect::thread_connect;
