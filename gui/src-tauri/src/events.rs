@@ -97,7 +97,7 @@ pub fn send_file_state(handle: &AppHandle<Wry>, file: File, file_state: FileStat
     };
 
     handle
-        .emit_all("app://new-offer", payload)
+        .emit_all("app://file-update", payload)
         ?;
 
     Ok(())
