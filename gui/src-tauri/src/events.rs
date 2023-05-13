@@ -87,7 +87,7 @@ pub struct FileJson {
 
 pub fn send_file_state(handle: &AppHandle<Wry>, file: File, file_state: FileState, percent: f32, is_sender: bool) -> Result<(), ClientError> {
     let payload = FileJson {
-        name: "TODO".into(), //TODO
+        name: file.name, //TODO
         path: file.path,
         size: file.size,
         hash: file.hash,
