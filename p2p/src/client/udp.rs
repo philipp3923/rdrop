@@ -117,7 +117,9 @@ impl UdpClientReader {
                     let mut header = [0u8; 6];
 
                     match udp_socket.peek(header.as_mut_slice()) {
-                        Ok(_) => {}
+                        Ok(_) => {
+                            instant = Instant::now();
+                        }
                         Err(_e) => {
                             if instant.elapsed() > Duration::from_secs(1) {
                                 return Ok(());
@@ -126,8 +128,7 @@ impl UdpClientReader {
                             if instant.elapsed() > Duration::from_millis(100){
                                 println!("recv err: {}", _e);
                                 udp_socket.send([0xCA, 0x00].as_slice())?;
-                                sleep(Duration::from_millis(5));
-                                instant = Instant::now();
+                                sleep(Duration::from_millis(10));
                             }
 
                             if header[0] == 0 {
@@ -226,16 +227,17 @@ impl ClientReader for UdpClientReader {
     }
 
     fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, P2pError> {
+        match self.thread_handle.as_ref() {
+            None => return Err(P2pError::new(ErrorKind::CommunicationFailed)),
+            Some(th) => {
+                if th.is_finished() {
+                    return Err(P2pError::new(ErrorKind::CommunicationFailed));
+                }
+            },
+        }
+
         return match timeout {
             None => {
-                match self.thread_handle.as_ref() {
-                    None => return Err(P2pError::new(ErrorKind::CommunicationFailed)),
-                    Some(th) => {
-                        if th.is_finished() {
-                            return Err(P2pError::new(ErrorKind::CommunicationFailed));
-                        }
-                    },
-                }
                 Ok(self.message_receiver.recv()?)
             },
             Some(t) => Ok(self.message_receiver.recv_timeout(t)?),

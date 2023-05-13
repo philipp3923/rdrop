@@ -205,9 +205,10 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
         let mut msg = match reader.read(timeout) {
             Ok(msg) => msg,
             Err(err) => {
+                println!("err: {:?}", err.kind());
                 match err.kind() {
                     ErrorKind::TimedOut => { continue; }
-                    _ => {
+                    _err => {
                         send_disconnect(&app_handle)?;
                         return Err(ClientError::new(ClientErrorKind::SocketClosed));
                     }

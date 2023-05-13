@@ -23,6 +23,7 @@ const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, mut connection: Connection<Waiting>, receiver: Receiver<()>, ipv6: Ipv6Addr, port: u16) -> Result<(), ClientError> {
     let mut i = 0;
     let mut instant = Instant::now();
+    let self_port = connection.get_port();
     while receiver.try_recv().is_err() {
         if instant.elapsed() < Duration::from_millis(50){
             sleep(Duration::from_millis(51) - instant.elapsed());
@@ -48,20 +49,6 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                     }
                 };
 
-                // TMP CODE
-
-                let mut write_state = current.lock().unwrap();
-
-                let (writer, reader) = active_connection.accept();
-                let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), port);
-
-                *write_state = Current::ConnectedUdp(client);
-                send_connected(&app_handle, Protocol::UDP)?;
-
-                return Ok(());
-
-                // TMP CODE ENDE
-
                 send_connect_status(&app_handle, "Upgrading", "Sampling time difference.")?;
 
                 let active_connection = match active_connection.upgrade() {
@@ -71,7 +58,7 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                         let port = connection.get_port();
 
                         let (writer, reader) = connection.accept();
-                        let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), port);
+                        let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), self_port);
 
                         *write_state = Current::ConnectedTcp(client);
                         send_connected(&app_handle, Protocol::TCP)?;
@@ -96,7 +83,7 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                         let port = connection.get_port();
 
                         let (writer, reader) = connection.accept();
-                        let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), port);
+                        let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), self_port);
 
                         *write_state = Current::ConnectedTcp(client);
                         send_connected(&app_handle, Protocol::TCP)?;
@@ -111,7 +98,7 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                         let mut write_state = current.lock().unwrap();
 
                         let (writer, reader) = connection.accept();
-                        let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), port);
+                        let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), self_port);
 
                         *write_state = Current::ConnectedUdp(client);
                         send_connected(&app_handle, Protocol::UDP)?;
