@@ -1,5 +1,6 @@
 use serde::Serialize;
 use tauri::{AppHandle, Manager, Wry};
+use crate::client::File;
 
 use crate::error::ClientError;
 
@@ -60,6 +61,43 @@ pub fn send_connected(handle: &AppHandle<Wry>, protocol: Protocol) -> Result<(),
 pub fn send_disconnect(handle: &AppHandle<Wry>) -> Result<(), ClientError> {
     handle
         .emit_all("app://disconnected", ())
+        ?;
+
+    Ok(())
+}
+
+#[derive(Serialize, Clone)]
+pub enum FileState{
+    Transferring,
+    Pending,
+    Completed,
+    Aborted
+}
+
+#[derive(Serialize, Clone)]
+pub struct FileJson {
+    name: String,
+    path: String,
+    size: u64,
+    hash: String,
+    percent: f32,
+    state: FileState,
+    is_sender: bool
+}
+
+pub fn send_file_state(handle: &AppHandle<Wry>, file: File, file_state: FileState, percent: f32, is_sender: bool) -> Result<(), ClientError> {
+    let payload = FileJson {
+        name: "TODO".into(), //TODO
+        path: file.path,
+        size: file.size,
+        hash: file.hash,
+        percent,
+        state: file_state,
+        is_sender
+    };
+
+    handle
+        .emit_all("app://new-offer", payload)
         ?;
 
     Ok(())

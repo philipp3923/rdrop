@@ -48,6 +48,20 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                     }
                 };
 
+                // TMP CODE
+
+                let mut write_state = current.lock().unwrap();
+
+                let (writer, reader) = active_connection.accept();
+                let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), port);
+
+                *write_state = Current::ConnectedUdp(client);
+                send_connected(&app_handle, Protocol::UDP)?;
+
+                return Ok(());
+
+                // TMP CODE ENDE
+
                 send_connect_status(&app_handle, "Upgrading", "Sampling time difference.")?;
 
                 let active_connection = match active_connection.upgrade() {
@@ -64,7 +78,6 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                         return Ok(());
                     }
                     Err(err) => {
-                        send_connect_status(&app_handle, "Upgrading failed", "Using fallback UDP protocol.")?;
 
                         let (old_connection, err) = err.split();
 
