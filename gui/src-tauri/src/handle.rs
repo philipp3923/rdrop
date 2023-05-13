@@ -1,6 +1,6 @@
 use std::mem::replace;
 use std::net::Ipv6Addr;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::str::FromStr;
 use std::sync::{Arc, mpsc, Mutex, RwLock};
 use std::sync::mpsc::{channel, Sender, SyncSender};
@@ -103,55 +103,129 @@ pub fn connect(app_handle: AppHandle<Wry>, app_state: State<AppState>, ip: Strin
 }
 
 #[tauri::command]
-pub fn disconnect(state: State<AppState>) -> Result<(), ClientError> {
-    let mut unlocked_state = (*state).0.lock().unwrap();
+pub fn disconnect(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(), ClientError> {
+    println!("[EVENT] Disconnect");
+    let unlocked_state = (*app_state).0.lock()?;
 
     match unlocked_state.deref() {
         Current::Connecting(sender) => {
+            println!("Connecting");
             sender.send(())?;
-            Ok(())
-        },
-        Current::ConnectedUdp(c) => {
-            let port = c.get_port();
-            *unlocked_state = Current::Broken;
-            *unlocked_state = Current::try_with_port(port);
-            Ok(())
-        },
-        Current::ConnectedTcp(c) => {
-            let port = c.get_port();
-            *unlocked_state = Current::Broken;
-            *unlocked_state = Current::try_with_port(port);
-            Ok(())
+            drop(unlocked_state);
+            start(app_handle, app_state)
         },
         _ => {
-            *unlocked_state = Current::new();
-            Ok(())
+            println!("Other");
+            drop(unlocked_state);
+            start(app_handle, app_state)
         }
     }
 }
 
 #[tauri::command]
-pub fn offer_file(state: State<AppState>, path: String) {}
+pub fn offer_file(app_state: State<AppState>, path: String) -> Result<(), ClientError> {
+    println!("[EVENT] offer_file");
+    let mut unlocked_state = (*app_state).0.lock()?;
+
+    match unlocked_state.deref_mut() {
+        &mut Current::ConnectedUdp(ref mut client) => {
+            client.offer_file(path)
+        },
+        &mut Current::ConnectedTcp(ref mut client) => {
+            client.offer_file(path)
+        },
+        _ => {
+            Err(ClientError::new(ClientErrorKind::WrongState))
+        }
+    }
+}
 
 #[tauri::command]
-pub fn accept_file(state: State<AppState>, hash: String) {}
+pub fn accept_file(app_state: State<AppState>, hash: String, path: String) -> Result<(), ClientError> {
+    println!("[EVENT] accept_file");
+    let mut unlocked_state = (*app_state).0.lock()?;
+
+    match unlocked_state.deref_mut() {
+        &mut Current::ConnectedUdp(ref mut client) => {
+            client.accept_file(hash, path)
+        },
+        &mut Current::ConnectedTcp(ref mut client) => {
+            client.accept_file(hash, path)
+        },
+        _ => {
+            Err(ClientError::new(ClientErrorKind::WrongState))
+        }
+    }
+}
 
 #[tauri::command]
-pub fn deny_file(state: State<AppState>, hash: String) {}
+pub fn deny_file(app_state: State<AppState>, hash: String) -> Result<(), ClientError> {
+    println!("[EVENT] deny_file");
+    let mut unlocked_state = (*app_state).0.lock()?;
+
+    match unlocked_state.deref_mut() {
+        &mut Current::ConnectedUdp(ref mut client) => {
+            client.deny_file(hash)
+        },
+        &mut Current::ConnectedTcp(ref mut client) => {
+            client.deny_file(hash)
+        },
+        _ => {
+            Err(ClientError::new(ClientErrorKind::WrongState))
+        }
+    }
+}
 
 #[tauri::command]
-pub fn pause_file(state: State<AppState>, hash: String) {}
+pub fn pause_file(app_state: State<AppState>, hash: String) -> Result<(), ClientError> {
+    println!("[EVENT] pause_file");
+    let mut unlocked_state = (*app_state).0.lock()?;
+
+    match unlocked_state.deref_mut() {
+        &mut Current::ConnectedUdp(ref mut client) => {
+            client.pause_file(hash)
+        },
+        &mut Current::ConnectedTcp(ref mut client) => {
+            client.pause_file(hash)
+        },
+        _ => {
+            Err(ClientError::new(ClientErrorKind::WrongState))
+        }
+    }
+}
 
 #[tauri::command]
-pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<u16, ClientError> {
-    let app_state = (*app_state).0.lock()?;
+pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(), ClientError> {
+    println!("[EVENT] start");
+    let mut unlocked_state = (*app_state).0.lock()?;
 
-    match app_state.deref() {
+    match unlocked_state.deref() {
         Current::Disconnected(c) => {
             send_bind_port(&app_handle, c.get_port())?;
             println!("port: {}", c.get_port());
-            Ok(c.get_port())
+            Ok(())
         },
-        _ => Err(ClientError::new(ClientErrorKind::WrongState))
+        Current::ConnectedUdp(c) => {
+            println!("ConnectedUdp");
+            let port = c.get_port();
+            *unlocked_state = Current::Broken;
+            *unlocked_state = Current::try_with_port(port);
+            drop(unlocked_state);
+            start(app_handle, app_state)
+        },
+        Current::ConnectedTcp(c) => {
+            println!("ConnectedTcp");
+            let port = c.get_port();
+            *unlocked_state = Current::Broken;
+            *unlocked_state = Current::try_with_port(port);
+            drop(unlocked_state);
+            start(app_handle, app_state)
+        },
+        _ => {
+            println!("Other");
+            *unlocked_state = Current::new();
+            drop(unlocked_state);
+            start(app_handle, app_state)
+        }
     }
 }
