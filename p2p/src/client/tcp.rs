@@ -6,6 +6,7 @@ use socket2::{Domain, SockAddr, Socket, Type};
 
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
+use std::ptr::replace;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -32,12 +33,44 @@ impl TcpWaitingClient {
     }
 
     pub fn connect(
-        self,
+        mut self,
         peer: Ipv6Addr,
         port: u16,
         wait: Option<Duration>,
         timeout: Option<Duration>,
     ) -> Result<TcpActiveClient, ChangeStateError<Self>> {
+
+        let port = self.get_port();
+        let tmp_socket = match Socket::new(Domain::IPV6, Type::STREAM, None) {
+            Ok(socket) => socket,
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        };
+
+        let old_socket = core::mem::replace(&mut self.tcp_socket, tmp_socket);
+        drop(old_socket);
+
+        let tcp_socket = match Socket::new(Domain::IPV6, Type::STREAM, None) {
+            Ok(socket) => socket,
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        };
+
+        match tcp_socket.set_write_timeout(Some(CONNECT_TIMEOUT)) {
+            Ok(_) => {},
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        }
+
+        let sock_addr = SockAddr::from(SocketAddr::new(
+            IpAddr::from(Ipv6Addr::from(0)),
+            port,
+        ));
+
+        match tcp_socket.bind(&sock_addr) {
+            Ok(_) => {},
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        }
+
+        self.tcp_socket = tcp_socket;
+
         if let Some(wait_duration) = wait {
             sleep(wait_duration);
         }
@@ -53,7 +86,10 @@ impl TcpWaitingClient {
                 let tcp_stream = TcpStream::from(self.tcp_socket);
                 Ok(TcpActiveClient::new(tcp_stream))
             }
-            Err(err) => Err(ChangeStateError::new(self, Box::new(err))),
+            Err(err) => {
+                println!("{}", err);
+                Err(ChangeStateError::new(self, Box::new(err)))
+            },
         }
     }
 }

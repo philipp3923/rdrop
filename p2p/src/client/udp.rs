@@ -9,7 +9,7 @@ use std::thread;
 use std::thread::{sleep, JoinHandle};
 use std::time::{Duration, Instant};
 
-const MSG_RESEND_DELAY: Duration = Duration::from_millis(127);
+const MSG_RESEND_DELAY: Duration = Duration::from_millis(31);
 const PING_RESEND_DELAY: Duration = Duration::from_millis(50);
 
 /// A UDP client that waits for a connection.
