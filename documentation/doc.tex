@@ -1,1 +1,35 @@
 \documentclass{article}
+
+\usepackage[ngerman]{babel}
+\usepackage[style=ieee]{biblatex}
+\usepackage{parskip}
+
+\linespread{1.5}
+\bibliography{bibliography.bib}
+
+\title{rdrop - Projekt Dokumentation}
+\author{Lars Zocher, Simon Stiegler, Philipp Eichwald}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Einleitung}
+\input{chapters/Einleitung.tex}
+
+\section{Anforderungen}
+\input{chapters/Anforderungen.tex}
+
+\section{Architektur}
+\input{chapters/Architektur.tex}
+
+\section{Umsetzung}
+\input{chapters/Umsetzung.tex}
+
+\section{Reflexion}
+\input{chapters/Reflexion.tex}
+
+\printbibliography
+
+\end{document}
