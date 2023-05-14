@@ -184,6 +184,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                             new_file.path = file.path;
 
                             let active_file = ActiveFile::from_file(new_file);
+                            send_file_state(&app_handle, active_file.file.clone(), FileState::Transferring, 0.0, false)?;
                             active_files.push(active_file.clone());
                             command_sender.send(WriteCommand::Request(active_file))?;
                         }

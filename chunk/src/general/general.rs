@@ -8,8 +8,8 @@ use crate::error::error::RError;
 
 pub const USER_HASH:&str = "0123456789abcdef";
 pub const CHUNK_HASH_TYPE:Hash = Hash::SIPHASH24;
-pub const CHUNK_SIZE:usize = 1024 * 1024*20;
-pub const BUFFER_SIZE:usize = 1024 * 1024*20;
+pub const CHUNK_SIZE:usize = 1024 * 1024*1;
+pub const BUFFER_SIZE:usize = 1024 * 1024*1;
 pub const LOGGER_REGEX:&str = r"\[(\d{2}\.\d{2}\.\d{4} \- \d{2}:\d{2}:\d{2}\.\d{3})\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\][\t\f\v ]*-[\t\f\v ]*\[(SHA256|SHA512|MD5|SIPHASH24)\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+) bytes\][\t\f\v ]*(-[\t\f\v ]*\[(SHA256|SHA512|MD5|SIPHASH24)\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\])?";
 pub const STOP_REGEX:&str = r"\[([a-fA-F0-9]+)\]";
 
