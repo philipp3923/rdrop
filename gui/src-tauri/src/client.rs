@@ -63,7 +63,8 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
 
         let reader_thread = thread::spawn(move || {
             let app_handle_clone_3 = app_handle_clone_1.clone();
-            match read_thread(drop_threads_clone_1, reader_clone, app_handle_clone_1, timeout, read_command_receiver, write_command_clone){
+            let read = read_thread(drop_threads_clone_1, reader_clone, app_handle_clone_1, timeout, read_command_receiver, write_command_clone);
+            match read {
                 Ok(_) => println!("[CLIENT]: Read thread exited successfully"),
                 Err(e) => {
                     println!("[CLIENT]: Read thread exited with error {}", e);
@@ -74,7 +75,8 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
     });
     let writer_thread = thread::spawn( move | | {
         let app_handle_clone_3 = app_handle_clone_2.clone();
-        match write_thread(drop_threads_clone_2, app_handle_clone_2, writer_clone, write_command_receiver){
+        let write = write_thread(drop_threads_clone_2, app_handle_clone_2, writer_clone, write_command_receiver);
+        match write {
             Ok(_) => println!("[CLIENT]: Write thread exited successfully"),
             Err(e) => {
                 println!("[CLIENT]: Write thread exited with error {}", e);
@@ -228,7 +230,18 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
             Err(_) => {}
         }
 
-        let mut msg = reader.read(timeout)?;
+        let mut msg = match reader.read(timeout) {
+            Ok(msg) => msg,
+            Err(_err) => {
+                match _err.kind() {
+                    ErrorKind::TimedOut => continue,
+                    _ => {
+                        println!("[READER] : error reading {}", _err);
+                        return Err(ClientError::new(ClientErrorKind::SocketClosed));
+                    }
+                }
+            }
+        };
 
         //println!("[READER] : msg {}", msg[0]);
 
@@ -326,6 +339,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
     loop {
         {
             if *dropper.read()? {
+                println!("dropper is true");
                 return Ok(());
             }
         }
