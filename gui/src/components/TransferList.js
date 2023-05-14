@@ -54,8 +54,6 @@ export default function TransferList() {
     };
 
     useTauriEvent('tauri://file-drop', (event) => {
-        console.log(event);
-
         if (event.payload.length > 0) {
             event.payload.forEach((file) => {
                 invoke('offer_file', { path: file });
