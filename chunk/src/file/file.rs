@@ -73,6 +73,7 @@ return Ok(byte_vec);
 // writes byte-vec in file
 pub fn merge_file_on_path(output_path:&str, byte_vec:&Vec<u8>, chunk_number:u64, reg_chunk_size:usize) -> Result<String, Error>{
     
+    println!("1");
     
     //create output file in outputDir if not there
     let mut output_file = match OpenOptions::new()
@@ -86,12 +87,16 @@ pub fn merge_file_on_path(output_path:&str, byte_vec:&Vec<u8>, chunk_number:u64,
             }      
     };
 
+    println!("2");
+    
     //get start_pos
     let start_pos = reg_chunk_size as u64 * (chunk_number - 1);
 
     //check file_size
     let output_file_size = output_file.metadata().unwrap().len();
 
+    println!("3");
+    
     if output_file_size < start_pos{
 
         output_file.seek(SeekFrom::End(0)).unwrap();
@@ -110,6 +115,8 @@ pub fn merge_file_on_path(output_path:&str, byte_vec:&Vec<u8>, chunk_number:u64,
             output_file.write_all(&zero_byte_vec[0..size_modulo as usize]).unwrap();
         }
     }
+                                    
+    println!("4");
 
     output_file.seek(SeekFrom::Start(start_pos)).unwrap();
     output_file.write_all(byte_vec).unwrap();
