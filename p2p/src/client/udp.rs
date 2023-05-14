@@ -575,17 +575,17 @@ impl ClientHandler {
     }
 
     fn read_messages(&mut self) -> Result<(), P2pError>{
+        self.message_buffer.sort_by(|a, b| a.0.cmp(&b.0));
         for i in 0..self.message_buffer.len() {
             let (number, _) = &self.message_buffer[i];
 
-            if number != &self.received_counter {
+            if number > &self.received_counter {
                 continue;
             }else {
                 let (_number, content) = self.message_buffer.remove(i);
                 //println!("RECEIVED number: {} content: {:2x?}", _number, content.as_slice());
                 self.message_sender.send(content)?;
                 self.received_counter = self.received_counter.wrapping_add(1);
-                return Ok(())
             }
         }
 
