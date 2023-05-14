@@ -112,7 +112,7 @@ export default function TransferList() {
                     const canCancel = file.state !== FileState.COMPLETED && !file.is_sender;
                     const canShowInExplorer = file.state === FileState.COMPLETED && !file.is_sender;
                     return (
-                        <div className={'transfer-list-item' + (file.is_sender ? ' sender' : '')} key={file.id}>
+                        <div className={'transfer-list-item' + (file.is_sender ? ' sender' : '')} key={file.hash}>
                             <div className='transfer-list-item-icon'>
                                 {file.is_sender && <MatIcon>vertical_align_top</MatIcon>}
                                 {!file.is_sender && <MatIcon>vertical_align_bottom</MatIcon>}
