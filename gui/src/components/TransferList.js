@@ -42,6 +42,10 @@ export default function TransferList() {
         setFiles(files);
     }, []);
 
+    useEffect(() => {
+        console.log(files);
+    }, [files]);
+
     const mutateFile = (file) => {
         if (typeof file?.size !== 'string') {
             file.size = filesize(file.size, { standard: 'jedec' });
