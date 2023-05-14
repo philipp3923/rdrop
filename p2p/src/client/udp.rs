@@ -292,16 +292,15 @@ impl UdpClientReader {
         println!("[UDP] receive thread started");
 
         loop {
+            if keep_alive_time.elapsed() > KEEP_ALIVE_INTERVAL {
+                udp_socket.send(&[MessageType::KeepAlive as u8])?;
+                println!("[UDP] send keep alive");
+            }
+
             if stop_receiver.try_recv().is_ok() {
                 println!("[UDP] read thread stopped");
                 closed_sender.send(())?;
                 return Ok(());
-            }
-
-            if keep_alive_time.elapsed() > KEEP_ALIVE_INTERVAL {
-                udp_socket.send(&[MessageType::KeepAlive as u8])?;
-                sleep(Duration::from_millis(1));
-                keep_alive_time = Instant::now();
             }
 
             let mut header = [0u8; 6];
@@ -322,6 +321,7 @@ impl UdpClientReader {
 
                     // continue if no data is available
                     if header[0] == 0 {
+                        sleep(RECEIVE_INTERVAL);
                         continue;
                     }
                 }
