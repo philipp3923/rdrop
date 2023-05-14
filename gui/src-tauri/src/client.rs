@@ -79,12 +79,8 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
     }
 
     pub fn offer_file(&mut self, path: String) -> Result<(), ClientError> {
-        // hash erstellen größe berechnen - wenn file nicht existiert entsprechend client error returnen
-
         let (file, file_name, file_size) = chunk::general::general::get_file_data(&path)?;
         let file_hash = chunk::hash::hash::get_hash_from_file(&file)?;
-
-        println!("send file state");
 
         let new_file = File::new(file_hash, path, file_name, file_size, Vec::new());
 
@@ -213,10 +209,11 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
         let mut msg = match reader.read(timeout) {
             Ok(msg) => msg,
             Err(err) => {
-                println!("err: {:?}", err.kind());
+
                 match err.kind() {
                     ErrorKind::TimedOut => { continue; }
                     _err => {
+                        println!("[READER]: error {:?} occurred", err.kind());
                         send_disconnect(&app_handle)?;
                         return Err(ClientError::new(ClientErrorKind::SocketClosed));
                     }
@@ -224,21 +221,17 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
             }
         };
 
-        println!("(recv) : {:?}", msg[0]);
-
-        //TODO @Simon handle message
         match msg[0] {
             0x02 => {//request file
-                println!("(recv) : request");
-                //order
                 let order = read_order(&mut msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
+                println!("[READER] : request {}", order.file_hash);
 
                 command_sender.send(WriteCommand::Send(order.file_hash, order.start_num, order.end_num))?;
             }
             0x01 => {//offer file
-                println!("(recv) : offer");
-                //offer
                 let offer = read_offer_vec(&msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
+
+                println!("[READER] : offer {}", offer.file_hash);
 
                 let file = File::new(offer.file_hash, "".to_string(), offer.name, offer.size, msg);
                 pending_files.push(file.clone());
@@ -247,19 +240,24 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 send_file_state(&app_handle, file, FileState::Pending, 0.0, false)?;
             }
             0x03 => {//stop send file
-                println!("(recv) : stop");
                 let hash = read_stop(&msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
-                command_sender.send(WriteCommand::StopSend(hash));
+
+                println!("[READER] : stop {}", hash);
+
+                command_sender.send(WriteCommand::StopSend(hash))?;
             }
             0x00 => { //file data
-
                 let (header_vector, _data_vector) = separate_header(&msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
                 let header_data =  read_send_header(&header_vector).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
 
                 match active_files.iter().position(|wf| wf.file.hash == header_data.file_hash) {
-                    None => {}
+                    None => {
+                        println!("[READER] : unknown file {}", header_data.file_hash);
+                    }
                     Some(index) => {
-                        let file = &active_files[index];
+                        let mut file = &mut active_files[index];
+
+                        println!("[READER] : file {}", header_data.file_hash);
 
                         // send file status to front end
                         let percent = file.current as f32/ file.stop as f32;
@@ -267,24 +265,21 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
 
                         let _path = write_data_vec(&header_data,&msg, &file.file.path)?;
 
-                        let _act_num = header_data.chunk_pos;
+                        let act_num = header_data.chunk_pos;
 
-                        let (start, end) = validate_file(&file.file.path, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;;
+                        file.current = act_num;
+
+                        let (start, end) = validate_file(&file.file.path, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
                         
                         if start == end && start == 0 {
                             active_files.remove(index);
                         }
-                        // wenn gefunden paket einlesen und an file.file.path schreiben mit position file.current
-                        // ??
-                        // wenn file.current >= file.stop dann aus liste entfernen
-                        // logfile auslesen und testen
-                        //@SIMON
                     },
                 }
-
-                println!("(recv) : package");
             } 
-            _ => {} // illegal opcode
+            _x => {// illegal opcode
+                println!("[READER] : unknown opcode {}", x);
+            }
         }
     }
 }
@@ -331,25 +326,22 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
 
                         match writer.write(&vec) {
                             Ok(_) => {
-                                println!("(send) : request");
+                                println!("[WRITER] SENT: request {}", file.file.hash);
                             }
                             Err(_err) => {
-                                println!("disconnect");
                                 send_disconnect(&app_handle)?;
                                 return Err(ClientError::new(ClientErrorKind::SocketClosed));
                             }
                         };
                     }
                     WriteCommand::Offer(file) => {
-
                         let vec = create_offer_byte_msg(&file.hash, file.size, &file.path)?;
                         offers.push(file);
                         match writer.write(&vec) {
                             Ok(_) => {
-                                println!("(send) : offer");
+                                println!("[WRITER] SENT: offer {}", file.hash);
                             }
                             Err(_err) => {
-                                println!("disconnect");
                                 send_disconnect(&app_handle)?;
                                 return Err(ClientError::new(ClientErrorKind::SocketClosed));
                             }
@@ -357,17 +349,25 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                     }
                     WriteCommand::StopSend(hash) => {
                         match files.iter().position(|wf| wf.file.hash == hash) {
-                            None => {}
-                            Some(index) => { files.swap_remove(index); }
+                            None => {
+                                println!("[WRITER]   OP: stop send unknown {}", hash);
+                            }
+                            Some(index) => {
+                                println!("[WRITER]   OP: stop send {}", hash);
+                                files.swap_remove(index);
+                            }
                         }
                     }
                     WriteCommand::Send(hash, start, stop) => {
                         match offers.iter().position(|of| of.hash == hash) {
-                            None => {}
+                            None => {
+                                println!("[WRITER]   OP: send unknown {}", hash);
+                            }
                             Some(index) => {
+                                println!("[WRITER]   OP: send {} with {} : {}", hash, start, stop);
                                 if stop != 0 {
                                     let file = offers.swap_remove(index);
-                                    send_file_state(&app_handle, file.clone(), FileState::Transferring, 0.0, false)?;
+                                    send_file_state(&app_handle, file.clone(), FileState::Transferring, 0.0, true)?;
                                     let active_file = ActiveFile { file, stop, start, current: 0 };
                                     files.push(active_file);
                                 }
@@ -376,15 +376,12 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                         }
                     }
                     WriteCommand::Stop(hash) => {
-
                         let vec = create_stop(&hash)?;
-                        // hash zu msg hinzufuegen
                         match writer.write(&vec) {
                             Ok(_) => {
-                                println!("(send) : stop");
+                                println!("[WRITER] SENT: stop {}", hash);
                             }
                             Err(_err) => {
-                                println!("disconnect");
                                 send_disconnect(&app_handle)?;
                                 return Err(ClientError::new(ClientErrorKind::SocketClosed));
                             }
@@ -396,26 +393,17 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
 
 
         for file in &mut files {
-
-
             let data_vec = create_data_vec(&file.file.path, file.current, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
 
             match writer.write(&data_vec) {
                 Ok(_) => {
-                    println!("(send) : package");
-
+                    println!("[WRITER] SENT: data {}", file.file.hash);
                     let percent = file.current as f32/ file.stop as f32;
                     send_file_state(&app_handle, file.file.clone(), FileState::Transferring, percent, true)?;
-
                 }
-                Err(err) => {
-                    match err.kind() {
-                        ErrorKind::TimedOut => { continue; }
-                        _ => {
-                            send_disconnect(&app_handle)?;
-                            return Err(ClientError::new(ClientErrorKind::SocketClosed));
-                        }
-                    }
+                Err(_err) => {
+                    send_disconnect(&app_handle)?;
+                    return Err(ClientError::new(ClientErrorKind::SocketClosed));
                 }
             };
 
