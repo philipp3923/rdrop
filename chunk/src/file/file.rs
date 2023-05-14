@@ -37,10 +37,17 @@ pub fn split_file_single(buf_reader:&mut BufReader<&mut File>, part_num:usize, f
         chunk_size = file_size - (chunk_size * (part_num - 1));
     }
 
-    let start_pos = (part_num - 1) * reg_chunk_size;
+    let mut start_pos:u64;
+    
+    if part_num == 1 {
+        start_pos = 0;
+    }
+    else {
+        start_pos = (part_num as u64 - 1) * reg_chunk_size as u64;
+    }
     let mut buffer = vec![0;chunk_size];
 
-    buf_reader.seek(SeekFrom::Start(start_pos as u64)).map_err(|err| RError::new(RErrorKind::InputOutputError, &err.to_string()))?;
+    buf_reader.seek(SeekFrom::Start(start_pos)).map_err(|err| RError::new(RErrorKind::InputOutputError, &err.to_string()))?;
 
     buf_reader.read(&mut buffer).map_err(|err| RError::new(RErrorKind::InputOutputError, &err.to_string()))?;
 
