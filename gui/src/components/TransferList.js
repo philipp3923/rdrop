@@ -121,7 +121,7 @@ export default function TransferList() {
                             </div>
                             <div className='transfer-list-item-status'>
                                 {file.state === FileState.PENDING && <p className='body-large'>Pending</p>}
-                                {file.state === FileState.TRANSFERRING && <p className='body-large'>{file.percent * 100}%</p>}
+                                {file.state === FileState.TRANSFERRING && <p className='body-large'>{(file.percent * 100).toFixed(2)}%</p>}
                                 {file.state === FileState.COMPLETED && <p className='body-large'>Completed</p>}
                             </div>
                             <div className='transfer-list-item-actions flex'>
