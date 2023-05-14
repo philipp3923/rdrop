@@ -11,6 +11,7 @@ pub const CHUNK_HASH_TYPE:Hash = Hash::SIPHASH24;
 pub const CHUNK_SIZE:usize = 1024 * 1024*20;
 pub const BUFFER_SIZE:usize = 1024 * 1024*20;
 pub const LOGGER_REGEX:&str = r"\[(\d{2}\.\d{2}\.\d{4} \- \d{2}:\d{2}:\d{2}\.\d{3})\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\][\t\f\v ]*-[\t\f\v ]*\[(SHA256|SHA512|MD5|SIPHASH24)\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+)\][\t\f\v ]*-[\t\f\v ]*\[(\d+) bytes\][\t\f\v ]*(-[\t\f\v ]*\[(SHA256|SHA512|MD5|SIPHASH24)\][\t\f\v ]*-[\t\f\v ]*\[([a-zA-Z0-9]+)\])?";
+pub const STOP_REGEX:&str = r"\[([a-fA-F0-9]+)]";
 
 #[derive(Debug)]
 pub struct LogEntry {
@@ -795,6 +796,31 @@ pub fn validate_log_file(vec:&Vec<LogEntry>) -> (u64, u64){
     }
 }
 
+
+pub fn read_stop(byte_vec:&Vec<u8>) -> Result<String, RError>{
+
+    let stop = String::from_utf8_lossy(&byte_vec).into_owned();
+
+    let regex = Regex::new(STOP_REGEX).map_err(|err| RError::new(RErrorKind::RegexError, &err.to_string()))?;
+
+    if let Some(captures) = regex.captures(&stop) {
+        let hash = captures.get(1).map_or("", |m| m.as_str()).to_string();
+
+        return Ok(hash);
+    }
+
+    return Err(RError::new(RErrorKind::InputOutputError, "Can't read StopSignal."));
+
+}
+
+pub fn create_stop(hash:&str) -> Result<Vec<u8>,Error>{
+
+    let mut vec = Vec::new();
+    vec.push(3);
+    write!(vec,"[{}]", hash)?;
+    
+    return Ok(vec);
+}
 
 // reads logfile and returns vec of logEnterys
 pub fn read_log_file(path: &str, buffer_size: usize, regex: &str) -> Result<Vec<LogEntry>, Error> {

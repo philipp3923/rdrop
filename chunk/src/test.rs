@@ -11,7 +11,7 @@ mod file;
 
 use offer::offer::{create_offer, read_offer, OFFER_REGEX};
 
-use crate::general::general::{AppSettings, write_to_log_file, read_log_file, create_header, separate_header, append_header, HeaderByte, calc_chunk_count, read_send_header, check_chunk_hash, LOGGER_REGEX, validate_log_file, get_filename_from_dir, validate_file, CHUNK_SIZE, CHUNK_HASH_TYPE, BUFFER_SIZE, USER_HASH};
+use crate::general::general::{AppSettings, write_to_log_file, read_log_file, create_header, separate_header, append_header, HeaderByte, calc_chunk_count, read_send_header, check_chunk_hash, LOGGER_REGEX, validate_log_file, get_filename_from_dir, validate_file, CHUNK_SIZE, CHUNK_HASH_TYPE, BUFFER_SIZE, USER_HASH, create_stop, read_stop};
 use crate::hash::hash::{get_file_hash, Hash};
 use crate::offer::offer::{create_offer_vec, read_offer_vec};
 use crate::order::order::{create_order, read_order, ORDER_REGEX, create_order_from_logfile, create_order_from_offer};
@@ -19,6 +19,12 @@ use crate::file::file::{split_file_single, merge_file, r_w_data_vec, create_data
 
 
 fn main() {
+    
+    let vec = create_stop("aabbccddeeff00112233445566778899").unwrap();
+
+    let a = read_stop(&vec).unwrap();
+
+    println!("a: {}", a);
 
     //vorgang: 0 App öffnet sich und erstellt ein appSettings-Struct
     let mut app_settings = AppSettings::default();
@@ -96,7 +102,7 @@ fn main() {
     */
     let u1_test_chunk_num = 1;
 
-    let split_byte_vec = create_data_vec(&u1_path, &u1_order, u1_test_chunk_num).unwrap();
+    //let split_byte_vec = create_data_vec(&u1_path, &u1_order, u1_test_chunk_num).unwrap();
 
 
 
@@ -105,8 +111,8 @@ fn main() {
     //simulate all splits and save them in an array...    
     for part_num in u1_order.start_num..=u1_order.end_num{
 
-        let split_byte_vec = create_data_vec(&u1_path, &u1_order, part_num).unwrap();
-        let _header_data = r_w_data_vec(&split_byte_vec, &u2_output_dir).unwrap();
+        //let split_byte_vec = create_data_vec(&u1_path, &u1_order, part_num).unwrap();
+        //let _header_data = r_w_data_vec(&split_byte_vec, &u2_output_dir).unwrap();
     }
 
     //Vorgang 6.A User 2 Liest byte-vec, schreibt daten in file und ergänzt log-file
@@ -117,8 +123,8 @@ fn main() {
 
     */
 
-    let header_data = r_w_data_vec(&split_byte_vec, &u2_output_dir).unwrap();
-    println!("header_data of written {:?}", header_data);
+    //let header_data = r_w_data_vec(&split_byte_vec, &u2_output_dir).unwrap();
+    //println!("header_data of written {:?}", header_data);
 
 
     //Vorgang 6.D User 2 kontrolliert logfiles, ob alle daten eingeschrieben wurden
@@ -128,9 +134,9 @@ fn main() {
         kann somit wieder order aufrufen und neu bestellen
     */
 
-    let (startpos, endpos) = validate_file(&u2_output_dir, &header_data.file_hash).unwrap();
+    //let (startpos, endpos) = validate_file(&u2_output_dir, &header_data.file_hash).unwrap();
 
-
+/* 
 
     println!("startpos for order: {}", startpos);
     println!("endeepos for order: {}", endpos);
@@ -149,5 +155,6 @@ fn main() {
 
     let order_from_offer = create_order_from_logfile(&logfile_path, BUFFER_SIZE, CHUNK_SIZE).unwrap();
     println!("order_from_offer: {:?}", order_from_offer);
+    */
 
 }

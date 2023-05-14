@@ -3,7 +3,7 @@ use std::io::Error;
 pub mod hash;
 pub mod general;
 mod time;
-mod error;
+pub mod error;
 pub mod offer;
 pub mod order;
 pub mod file;
@@ -13,7 +13,7 @@ use general::general::{HeaderData};
 use offer::offer::{Offer, read_offer_vec};
 use order::order::{create_order_from_offer, Order};
 
-use crate::general::general::{validate_file, CHUNK_SIZE, CHUNK_HASH_TYPE, BUFFER_SIZE};
+use crate::general::general::{validate_file, CHUNK_SIZE, CHUNK_HASH_TYPE, BUFFER_SIZE, read_stop, create_stop};
 use crate::hash::hash::{ Hash};
 use crate::order::order::{read_order, create_order_from_logfile};
 use crate::file::file::{r_w_data_vec};
