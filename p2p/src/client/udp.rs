@@ -584,13 +584,17 @@ impl ClientHandler {
             let (number, _) = &self.message_buffer[i];
 
             if number > &self.received_counter {
-                continue;
-            }else {
+                break;
+            }
+
+            if number == &self.received_counter {
                 let (_number, content) = self.message_buffer.remove(i);
                 //println!("RECEIVED number: {} content: {:2x?}", _number, content.as_slice());
                 self.message_sender.send(content)?;
                 self.received_counter = self.received_counter.wrapping_add(1);
             }
+
+
         }
 
         Ok(())
