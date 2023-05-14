@@ -208,7 +208,10 @@ pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(
         Current::ConnectedUdp(c) => {
             println!("ConnectedUdp");
             let port = c.get_port();
-            *unlocked_state = Current::Broken;
+
+            let old_state = replace(&mut *unlocked_state,Current::Broken);
+            drop(old_state);
+
             *unlocked_state = Current::try_with_port(port);
             drop(unlocked_state);
             start(app_handle, app_state)
@@ -216,7 +219,10 @@ pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(
         Current::ConnectedTcp(c) => {
             println!("ConnectedTcp");
             let port = c.get_port();
-            *unlocked_state = Current::Broken;
+
+            let old_state = replace(&mut *unlocked_state,Current::Broken);
+            drop(old_state);
+
             *unlocked_state = Current::try_with_port(port);
             drop(unlocked_state);
             start(app_handle, app_state)
