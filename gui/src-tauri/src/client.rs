@@ -1,23 +1,16 @@
-
-
-
-
-
-
 use std::sync::{Arc, mpsc, Mutex, RwLock};
-use std::sync::mpsc::{Sender};
+use std::sync::mpsc::Sender;
 use std::thread;
 use std::thread::{JoinHandle, sleep};
 use std::time::Duration;
 
-use chunk::file::file::{write_data_vec, create_data_vec};
-use chunk::general::general::{get_chunk_count, separate_header, read_send_header, read_stop, create_stop, validate_file};
-use chunk::offer::offer::{create_offer_byte_msg, read_offer_vec};
-use chunk::order::order::{create_order_byte_vec, read_order};
 use tauri::{AppHandle, Wry};
 
+use chunk::file::file::{create_data_vec, write_data_vec};
+use chunk::general::general::{create_stop, get_chunk_count, read_send_header, read_stop, separate_header, validate_file};
+use chunk::offer::offer::{create_offer_byte_msg, read_offer_vec};
+use chunk::order::order::{create_order_byte_vec, read_order};
 use p2p::client::{ClientReader, ClientWriter};
-
 use p2p::error::ErrorKind;
 
 use crate::error::{ClientError, ClientErrorKind};
@@ -33,7 +26,7 @@ pub struct File {
 }
 
 impl File {
-    fn new(hash: String, path: String, name:String, size: u64, cache: Vec<u8>) -> Self {
+    fn new(hash: String, path: String, name: String, size: u64, cache: Vec<u8>) -> Self {
         File { hash, path, name, size, cache }
     }
 }
@@ -68,49 +61,70 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
 
         let write_command_clone = write_command.clone();
 
-        let reader_thread = thread::spawn(move || read_thread(drop_threads_clone_1, reader_clone, app_handle_clone_1, timeout, read_command_receiver, write_command_clone));
-        let writer_thread = thread::spawn(move || write_thread(drop_threads_clone_2, app_handle_clone_2, writer_clone, write_command_receiver));
-
-        Client { read_command, write_command, app_handle, reader, writer, drop_threads, port, reader_thread, writer_thread }
-    }
-
-    pub fn get_port(&self) -> u16 {
-        self.port
-    }
-
-    pub fn offer_file(&mut self, path: String) -> Result<(), ClientError> {
-        let (file, file_name, file_size) = chunk::general::general::get_file_data(&path)?;
-        let file_hash = chunk::hash::hash::get_hash_from_file(&file)?;
-
-        let new_file = File::new(file_hash, path, file_name, file_size, Vec::new());
-
-        send_file_state(&self.app_handle, new_file.clone(), FileState::Pending, 0.0, true)?;
-
-        self.write_command.send(WriteCommand::Offer(new_file))?;
+        let reader_thread = thread::spawn(move || {
+            let app_handle_clone_3 = app_handle_clone_1.clone();
+            match read_thread(drop_threads_clone_1, reader_clone, app_handle_clone_1, timeout, read_command_receiver, write_command_clone){
+                Ok(_) => println!("[CLIENT]: Read thread exited successfully"),
+                Err(e) => {
+                    println!("[CLIENT]: Read thread exited with error {}", e);
+                    send_disconnect(&app_handle_clone_3).map_err(|_| ClientError::new(ClientErrorKind::MpscSendError))?;
+                }
+            };
+            Ok(())
+    });
+    let writer_thread = thread::spawn( move | | {
+        let app_handle_clone_3 = app_handle_clone_2.clone();
+        match write_thread(drop_threads_clone_2, app_handle_clone_2, writer_clone, write_command_receiver){
+            Ok(_) => println!("[CLIENT]: Write thread exited successfully"),
+            Err(e) => {
+                println!("[CLIENT]: Write thread exited with error {}", e);
+                send_disconnect(&app_handle_clone_3).map_err(|_| ClientError::new(ClientErrorKind::MpscSendError))?;
+            }
+        };
         Ok(())
-    }
+    });
 
-    pub fn accept_file(&mut self, hash: String, path: String) -> Result<(), ClientError> {
-        let file = File::new(hash, path, "".to_string(), 0, Vec::new());
+    Client { read_command, write_command, app_handle, reader, writer, drop_threads, port, reader_thread, writer_thread
+}
+}
 
-        self.read_command.send(ReadCommand::Receive(file))?;
-        Ok(())
-    }
+pub fn get_port(&self) -> u16 {
+    self.port
+}
 
-    pub fn deny_file(&mut self, hash: String) -> Result<(), ClientError> {
-        self.read_command.send(ReadCommand::Stop(hash))?;
-        Ok(())
-    }
+pub fn offer_file(&mut self, path: String) -> Result<(), ClientError> {
+    let (file, file_name, file_size) = chunk::general::general::get_file_data(&path)?;
+    let file_hash = chunk::hash::hash::get_hash_from_file(&file)?;
 
-    pub fn stop_file(&mut self, hash: String) -> Result<(), ClientError> {
-        self.write_command.send(WriteCommand::StopSend(hash))?;
-        Ok(())
-    }
+    let new_file = File::new(file_hash, path, file_name, file_size, Vec::new());
 
-    pub fn pause_file(&mut self, hash: String) -> Result<(), ClientError> {
-        self.read_command.send(ReadCommand::Pause(hash))?;
-        Ok(())
-    }
+    send_file_state(&self.app_handle, new_file.clone(), FileState::Pending, 0.0, true)?;
+
+    self.write_command.send(WriteCommand::Offer(new_file))?;
+    Ok(())
+}
+
+pub fn accept_file(&mut self, hash: String, path: String) -> Result<(), ClientError> {
+    let file = File::new(hash, path, "".to_string(), 0, Vec::new());
+
+    self.read_command.send(ReadCommand::Receive(file))?;
+    Ok(())
+}
+
+pub fn deny_file(&mut self, hash: String) -> Result<(), ClientError> {
+    self.read_command.send(ReadCommand::Stop(hash))?;
+    Ok(())
+}
+
+pub fn stop_file(&mut self, hash: String) -> Result<(), ClientError> {
+    self.write_command.send(WriteCommand::StopSend(hash))?;
+    Ok(())
+}
+
+pub fn pause_file(&mut self, hash: String) -> Result<(), ClientError> {
+    self.read_command.send(ReadCommand::Pause(hash))?;
+    Ok(())
+}
 }
 
 impl<W: ClientWriter + Send, R: ClientReader + Send> Drop for Client<W, R> {
@@ -160,7 +174,9 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
             Ok(c) => match c {
                 ReadCommand::Receive(file) => {
                     match pending_files.iter().position(|wf| wf.hash == file.hash) {
-                        None => {}
+                        None => {
+                            println!("[READER] COMMAND : receive not found {}", file.hash);
+                        }
                         Some(index) => {
                             let mut new_file = pending_files.swap_remove(index);
                             new_file.path = file.path;
@@ -173,7 +189,9 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 }
                 ReadCommand::Pause(hash) => {
                     match active_files.iter().position(|wf| wf.file.hash == hash) {
-                        None => {}
+                        None => {
+                            println!("[READER] COMMAND : pause not found {}", hash);
+                        }
                         Some(index) => {
                             let file = active_files.swap_remove(index);
                             let hash = file.file.hash.clone();
@@ -184,7 +202,9 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 }
                 ReadCommand::Resume(hash) => {
                     match paused_files.iter().position(|wf| wf.file.hash == hash) {
-                        None => {}
+                        None => {
+                            println!("[READER] COMMAND : resume not found {}", hash);
+                        }
                         Some(index) => {
                             let file = paused_files.swap_remove(index);
                             command_sender.send(WriteCommand::Request(file.clone()))?;
@@ -194,36 +214,31 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 }
                 ReadCommand::Stop(hash) => {
                     match active_files.iter().position(|wf| wf.file.hash == hash) {
-                        None => {}
+                        None => {
+                            println!("[READER] COMMAND : stop not found {}", hash);
+                        }
                         Some(index) => {
-                            send_file_state( &app_handle, active_files[index].file.clone(), FileState::Stopped, 0.0, false)?;
-                            active_files.swap_remove(index); }
+                            send_file_state(&app_handle, active_files[index].file.clone(), FileState::Stopped, 0.0, false)?;
+                            active_files.swap_remove(index);
+                        }
                     }
                     command_sender.send(WriteCommand::Stop(hash))?;
-
                 }
             },
             Err(_) => {}
         }
 
-        let mut msg = match reader.read(timeout) {
-            Ok(msg) => msg,
-            Err(err) => {
+        let mut msg = reader.read(timeout)?;
 
-                match err.kind() {
-                    ErrorKind::TimedOut => { continue; }
-                    _err => {
-                        println!("[READER]: error {:?} occurred", err.kind());
-                        send_disconnect(&app_handle)?;
-                        return Err(ClientError::new(ClientErrorKind::SocketClosed));
-                    }
-                }
-            }
-        };
+        //println!("[READER] : msg {}", msg[0]);
 
         match msg[0] {
             0x02 => {//request file
-                let order = read_order(&mut msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
+                println!("[READER DEBUG] : request {:2x?}", &msg);
+                let order = read_order(&mut msg).map_err(|_err| {
+                    println!("[READER] : error reading order {}", _err);
+                    ClientError::new(ClientErrorKind::DataCorruptionError)
+                })?;
                 println!("[READER] : request {}", order.file_hash);
 
                 command_sender.send(WriteCommand::Send(order.file_hash, order.start_num, order.end_num))?;
@@ -248,7 +263,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
             }
             0x00 => { //file data
                 let (header_vector, _data_vector) = separate_header(&msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
-                let header_data =  read_send_header(&header_vector).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
+                let header_data = read_send_header(&header_vector).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
 
                 match active_files.iter().position(|wf| wf.file.hash == header_data.file_hash) {
                     None => {
@@ -260,23 +275,23 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                         println!("[READER] : file {}", header_data.file_hash);
 
                         // send file status to front end
-                        let percent = file.current as f32/ file.stop as f32;
+                        let percent = file.current as f32 / file.stop as f32;
                         send_file_state(&app_handle, file.file.clone(), FileState::Transferring, percent, false)?;
 
-                        let _path = write_data_vec(&header_data,&msg, &file.file.path)?;
+                        let _path = write_data_vec(&header_data, &msg, &file.file.path)?;
 
                         let act_num = header_data.chunk_pos;
 
                         file.current = act_num;
 
                         let (start, end) = validate_file(&file.file.path, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
-                        
+
                         if start == end && start == 0 {
                             active_files.remove(index);
                         }
-                    },
+                    }
                 }
-            } 
+            }
             _x => {// illegal opcode
                 println!("[READER] : unknown opcode {}", _x);
             }
@@ -295,10 +310,8 @@ struct ActiveFile {
 impl ActiveFile {
     //TODO @Simon anhand der file und groesse anzahl der chunks berechnen und entsprechend anfuegen
     fn from_file(file: File) -> Self {
-
         let stop = get_chunk_count(file.size);
         Self { file, start: 1, stop, current: 1 }
-
     }
 }
 
@@ -322,28 +335,14 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                 match c {
                     WriteCommand::Request(file) => {
                         let vec = create_order_byte_vec(file.start, file.stop, &file.file.hash)?;
-
-                        match writer.write(&vec) {
-                            Ok(_) => {
-                                println!("[WRITER] SENT: request {}", file.file.hash);
-                            }
-                            Err(_err) => {
-                                send_disconnect(&app_handle)?;
-                                return Err(ClientError::new(ClientErrorKind::SocketClosed));
-                            }
-                        };
+                        println!("[WRITER] SENT: request {}", file.file.hash);
+                        writer.write(&vec)?;
                     }
                     WriteCommand::Offer(file) => {
                         println!("[WRITER] SENT: offer {}", file.hash);
                         let vec = create_offer_byte_msg(&file.hash, file.size, &file.path)?;
                         offers.push(file);
-                        match writer.write(&vec) {
-                            Ok(_) => {}
-                            Err(_err) => {
-                                send_disconnect(&app_handle)?;
-                                return Err(ClientError::new(ClientErrorKind::SocketClosed));
-                            }
-                        };
+                        writer.write(&vec)?;
                     }
                     WriteCommand::StopSend(hash) => {
                         match files.iter().position(|wf| wf.file.hash == hash) {
@@ -369,21 +368,13 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                                     let active_file = ActiveFile { file, stop, start, current: 0 };
                                     files.push(active_file);
                                 }
-
                             }
                         }
                     }
                     WriteCommand::Stop(hash) => {
                         let vec = create_stop(&hash)?;
-                        match writer.write(&vec) {
-                            Ok(_) => {
-                                println!("[WRITER] SENT: stop {}", hash);
-                            }
-                            Err(_err) => {
-                                send_disconnect(&app_handle)?;
-                                return Err(ClientError::new(ClientErrorKind::SocketClosed));
-                            }
-                        };
+                        println!("[WRITER] SENT: stop {}", hash);
+                        writer.write(&vec)?;
                     }
                 },
             Err(_) => {}
@@ -396,7 +387,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
             match writer.write(&data_vec) {
                 Ok(_) => {
                     println!("[WRITER] SENT: data {}", file.file.hash);
-                    let percent = file.current as f32/ file.stop as f32;
+                    let percent = file.current as f32 / file.stop as f32;
                     send_file_state(&app_handle, file.file.clone(), FileState::Transferring, percent, true)?;
                 }
                 Err(_err) => {
@@ -404,8 +395,6 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                     return Err(ClientError::new(ClientErrorKind::SocketClosed));
                 }
             };
-
-
         }
 
         if files.len() == 0 {
