@@ -556,8 +556,11 @@ impl ClientHandler {
                 }
                 MessageType::Data => {
                     let content = self.recv_data(message_size)?;
-                    self.message_buffer.push((message_number, content));
-                    self.send_acknowledgement(message_number)?;
+                    if self.message_buffer.len() <= SLIDE_WINDOW as usize {
+                        self.message_buffer.push((message_number, content));
+                        self.send_acknowledgement(message_number)?;
+                        println!("SLIDE WINDOW LIMIT");
+                    }
                 }
                 MessageType::Acknowledge => {
                     self.udp_socket.recv([0; 5].as_mut_slice())?;
