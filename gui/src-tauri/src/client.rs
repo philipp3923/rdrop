@@ -247,7 +247,6 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
 
         match msg[0] {
             0x02 => {//request file
-                println!("[READER DEBUG] : request {:2x?}", &msg);
                 let order = read_order(&mut msg).map_err(|_err| {
                     println!("[READER] : error reading order {}", _err);
                     ClientError::new(ClientErrorKind::DataCorruptionError)
@@ -395,7 +394,13 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
         };
 
 
-        for file in &mut files {
+        for i in 0..files.len() {
+            let mut file = &mut files[i];
+
+            if file.current < 1 {
+                file.current = 1;
+            }
+
             let data_vec = create_data_vec(&file.file.path, file.current, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
 
             match writer.write(&data_vec) {
@@ -409,6 +414,12 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                     return Err(ClientError::new(ClientErrorKind::SocketClosed));
                 }
             };
+
+            if file.current == file.stop{
+                files.remove(i);
+            }else {
+                file.current += 1;
+            }
         }
 
         if files.len() == 0 {
