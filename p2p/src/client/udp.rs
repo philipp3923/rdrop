@@ -435,7 +435,7 @@ impl UdpActiveClient {
         udp_socket: UdpSocket,
         timeout: Option<Duration>,
     ) -> Result<UdpActiveClient, P2pError> {
-        let (package_sender, package_receiver) = sync_channel::<Vec<u8>>(1);
+        let (package_sender, package_receiver) = sync_channel::<Vec<u8>>(SLIDE_WINDOW as usize);
 
         let (closed_writer, closed_receiver) = channel::<()>();
 
