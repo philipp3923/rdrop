@@ -9,3 +9,5 @@ Share you private files over an encrypted peer to peer ipv6 connection.
 4. Go into the gui folder `cd gui`
 5. Run `yarn` to install the project dependencies
 6. Run the development version `yarn tauri dev`
+7. Build the release version `yarn tauri build`
+8. The release version can be found in `/target/release/bundle`
