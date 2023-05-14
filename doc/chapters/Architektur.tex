@@ -24,5 +24,16 @@ Um die Verbindung während des Aufbaus der TCP-Verbindung abzusichern ist der er
 Benutzern der Schnittstelle ist offengestellt welche Art der Kommunikation sie verwenden möchten. Das Protokoll kann zu jedem Zeitpunkt in einen aktiven Client überführt werden, über den dann entsprechnder Datenaustausch möglich ist.
 
 \subsection{Datei-Ein-/Ausgabe}
-architektur und so
-% TODO @Simon
+Das I/O-Modul ist dafür zuständig, Dateien aufzuteilen und zusammenzuführen und Nachrichten zu kodieren, die zwischen den Clients ausgetauscht werden. Um eine klare Struktur zu gewährleisten, wird es in mehrere Untermodule aufgeteilt.
+
+Das \texttt{Error}-Modul hilft, verschiedene Fehlerarten abzufangen und zu behandeln.
+
+Das \texttt{Hash}-Modul sorgt dafür, dass die Integrität der übertragenen Daten gewahrt bleibt.
+
+Das \texttt{Order}-Modul erleichtert die Verwaltung von Bestellungen und den Informationsaustausch zwischen den Clients.
+
+Das \texttt{Offer}-Modul hat ähnliche Funktionen wie das \texttt{Order}-Modul, aber für Angebote.
+
+Das \texttt{File}-Modul greift auf das Dateisystem zu und liest die Daten ein, teilt sie auf und fügt sie wieder zusammen. Durch das aufteilen der Dateien in mehrere Stücke soll die Übertragen großer Datenmengen erleichtert werden.
+
+Das \texttt{General}-Modul beinhaltet alle weiteren Funktionen, die im System benötigt werden. Es ist eine Art "Catch-all"-Modul für alle Funktionen und Prozesse, die nicht in die anderen spezifischeren Module passen.
