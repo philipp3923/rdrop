@@ -72,7 +72,8 @@ pub enum FileState{
     Pending,
     Completed,
     Aborted,
-    Stopped
+    Stopped,
+    Corrupted
 }
 
 #[derive(Serialize, Clone)]

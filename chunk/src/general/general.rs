@@ -729,7 +729,6 @@ pub fn check_chunk_hash(header_hash:&Option<String>, calc_hash_alg:&Option<Hash>
         let hash = get_hash(byte_vec, &hash_alg);
 
         if let Some(h_hash) = header_hash{
-            println!("{} - {}", h_hash, hash);
             return h_hash.to_lowercase() == hash.to_lowercase()
         }
     }

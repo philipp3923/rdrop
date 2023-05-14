@@ -297,11 +297,18 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
 
                         file.current = act_num;
 
-                        let (start, end) = validate_file(&log_path, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
-
-                        if start == end && start == 0 {
-                            send_file_state(&app_handle, file.file.clone(), FileState::Completed, 1.0, false)?;
-                            active_files.remove(index);
+                        if file.current == file.stop {
+                            match validate_file(&log_path, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError)) {
+                                Ok((start, end)) => {
+                                    if start == end && start == 0 {
+                                        send_file_state(&app_handle, file.file.clone(), FileState::Completed, 1.0, false)?;
+                                        active_files.remove(index);
+                                    }
+                                },
+                                Err(_err) => {
+                                    send_file_state(&app_handle, file.file.clone(), FileState::Corrupted, 1.0, false)?;
+                                }
+                            };
                         }
                     }
                 }
