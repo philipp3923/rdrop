@@ -11,7 +11,7 @@ use std::thread::{JoinHandle, sleep};
 use std::time::Duration;
 
 use chunk::file::file::{write_data_vec, create_data_vec};
-use chunk::general::general::{get_chunk_count, separate_header, read_send_header};
+use chunk::general::general::{get_chunk_count, separate_header, read_send_header, read_stop, create_stop, validate_file};
 use chunk::offer::offer::{create_offer_byte_msg, read_offer_vec};
 use chunk::order::order::{create_order_byte_vec, read_order};
 use tauri::{AppHandle, Wry};
@@ -240,9 +240,10 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 //send_offer(&app_handle, file.path, file.hash, file.size)?;
                 send_file_state(&app_handle, file, FileState::Transferring, 0.0, false)?;
             }
-            0xBB => {//stop send file
+            0x03 => {//stop send file
                 println!("(recv) : stop");
-                // command_sender.send(WriteCommand::StopSend("HAHS")) - tell command sender to stop sending
+                let hash = read_stop(&msg).map_err(|_| ClientError::new(ClientErrorKind::DataCorruptionError))?;
+                command_sender.send(WriteCommand::StopSend(hash));
             }
             0x00 => { //file data
 
@@ -261,9 +262,17 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                         let _path = write_data_vec(&header_data,&msg, &file.file.path)?;
 
                         let _act_num = header_data.chunk_pos;
+
+                        let (start, end) = validate_file(&file.file.path, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;;
+                        
+                        if start == end && start == 0 {
+                            active_files.remove(index);
+                        }
                         // wenn gefunden paket einlesen und an file.file.path schreiben mit position file.current
                         // ??
                         // wenn file.current >= file.stop dann aus liste entfernen
+                        // logfile auslesen und testen
+                        //@SIMON
                     },
                 }
 
@@ -360,9 +369,11 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                             }
                         }
                     }
-                    WriteCommand::Stop(_hash) => {
+                    WriteCommand::Stop(hash) => {
+
+                        let vec = create_stop(&hash)?;
                         // hash zu msg hinzufuegen
-                        match writer.write(&[0xBB]) {
+                        match writer.write(&vec) {
                             Ok(_) => {
                                 println!("(send) : stop");
                             }
@@ -379,14 +390,17 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
 
 
         for file in &mut files {
-            // TODO jeweils max 10mb aus dateisystem lesen und versenden
-            // current ist die aktuelle positon, start und stop sind die grenzen angegeben in chunks
 
-            let _data_vec = create_data_vec(&file.file.path, file.current, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
 
-            match writer.write(file.file.hash.as_bytes()) {
+            let data_vec = create_data_vec(&file.file.path, file.current, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
+
+            match writer.write(&data_vec) {
                 Ok(_) => {
                     println!("(send) : package");
+
+                    let percent = file.current as f32/ file.stop as f32;
+                    send_file_state(&app_handle, file.file.clone(), FileState::Transferring, percent, true)?;
+
                 }
                 Err(err) => {
                     match err.kind() {
@@ -398,6 +412,8 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                     }
                 }
             };
+
+
         }
 
         if files.len() == 0 {

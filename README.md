@@ -1,6 +1,6 @@
 # rdrop
 
-Share you private files over an encrypted peer to peer connection.
+Share you private files over an encrypted peer to peer ipv6 connection.
 
 ## How To Install
 1. Install the [prerequisites](https://tauri.app/v1/guides/getting-started/prerequisites)
