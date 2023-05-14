@@ -21,6 +21,7 @@ pub enum ErrorKind {
     UndefinedRole,
     ChannelError,
     NoDelayGiven,
+    IO
 }
 
 /// Error type for the P2p crate.
@@ -205,5 +206,33 @@ impl<C> ChangeStateError<C> {
 
     pub fn split(self) -> (C, Box<dyn std::error::Error>) {
         (self.0, self.1)
+    }
+}
+
+
+#[derive(Debug)]
+pub struct ThreadError(ErrorKind);
+
+impl Display for ThreadError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Thread Error of kind {:?} occurred.", self.0)
+    }
+}
+
+impl From<Error> for ThreadError {
+    fn from(value: Error) -> Self {
+        ThreadError(value.kind)
+    }
+}
+
+impl From<io::Error> for ThreadError {
+    fn from(_value: io::Error) -> Self {
+        ThreadError(ErrorKind::IO)
+    }
+}
+
+impl<T> From<SendError<T>> for ThreadError {
+    fn from(_value: SendError<T>) -> Self {
+        ThreadError(ErrorKind::ChannelError)
     }
 }

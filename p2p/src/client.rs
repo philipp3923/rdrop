@@ -5,6 +5,7 @@ use crate::error::Error as P2pError;
 use std::time::Duration;
 pub mod tcp;
 pub mod udp;
+pub mod udp_slide;
 
 pub trait WaitingClient {
     fn get_port(&self) -> u16;
