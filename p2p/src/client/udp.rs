@@ -287,6 +287,7 @@ impl UdpClientReader {
         message_sender: Sender<Vec<u8>>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut keep_alive_time = Instant::now();
+        let mut dead_time = Instant::now();
         let mut msg_counter = 0;
         let mut opening = true;
         udp_socket.set_read_timeout(Some(RECEIVE_INTERVAL))?;
@@ -296,6 +297,7 @@ impl UdpClientReader {
         loop {
             if keep_alive_time.elapsed() > KEEP_ALIVE_INTERVAL {
                 udp_socket.send(&[MessageType::KeepAlive as u8])?;
+                keep_alive_time = Instant::now();
                 println!("[UDP] send keep alive");
             }
 
@@ -314,23 +316,20 @@ impl UdpClientReader {
                     }
                 }
                 Err(_e) => {
-                    if keep_alive_time.elapsed() > DISCONNECT_TIMEOUT {
+                    if dead_time.elapsed() > DISCONNECT_TIMEOUT {
                         println!("[UDP] read thread timeout");
                         closed_sender.send(())?;
                         return Ok(());
-                    }
-
-                    // continue if no data is available
-                    if header[0] == 0 {
-                        sleep(RECEIVE_INTERVAL);
-                        continue;
                     }
                 }
             }
 
             println!("[UDP] received message type: {:?}", MessageType::from(header[0]));
             if header[0] != 0 {
-                keep_alive_time = Instant::now();
+                dead_time = Instant::now();
+            }else {
+                sleep(RECEIVE_INTERVAL);
+                continue;
             }
 
             let msg_type = header[0];
@@ -377,7 +376,6 @@ impl UdpClientReader {
                     udp_socket.send([MessageType::Acknowledge as u8, msg_number].as_slice())?;
                 }
                 MessageType::KeepAlive => {
-                    keep_alive_time = Instant::now();
                     udp_socket.recv(header.as_mut_slice())?;
                 }
                 MessageType::Invalid => {
