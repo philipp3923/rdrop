@@ -11,7 +11,7 @@ use crate::error::{ChangeStateError, ErrorKind};
 use crate::error::Error as P2pError;
 
 const SEND_INTERVAL: Duration = Duration::from_millis(31);
-const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(50); //time between each keep alive message
+const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(50); //time between each keep alive message
 //time between each resend
 const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time after which the connection is considered dead
@@ -23,6 +23,7 @@ pub struct UdpWaitingClient {
 }
 
 #[repr(u8)]
+#[derive(Debug)]
 enum MessageType {
     Open = 0x01,
     Data = 0x02,
@@ -288,6 +289,7 @@ impl UdpClientReader {
         let mut keep_alive_time = Instant::now();
         let mut msg_counter = 0;
         let mut opening = true;
+        udp_socket.set_read_timeout(Some(RECEIVE_INTERVAL))?;
 
         println!("[UDP] receive thread started");
 
@@ -310,7 +312,11 @@ impl UdpClientReader {
                     if opening && header[0] != MessageType::Open as u8 {
                         opening = false;
                     }
-                    keep_alive_time = Instant::now();
+
+                    println!("[UDP] received message type: {:?}", MessageType::from(header[0]));
+                    if header[0] != 0 {
+                        keep_alive_time = Instant::now();
+                    }
                 }
                 Err(_e) => {
                     if keep_alive_time.elapsed() > DISCONNECT_TIMEOUT {
