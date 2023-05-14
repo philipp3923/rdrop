@@ -9,7 +9,7 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
 use std::thread::sleep;
 use std::time::Duration;
 
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(1);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct TcpWaitingClient {
     tcp_socket: Socket,

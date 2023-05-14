@@ -256,7 +256,7 @@ impl UdpClientReader {
                     }
 
                     if interval.elapsed() > Duration::from_millis(100) {
-                        println!("recv err: {}", _e);
+                        //println!("recv err: {}", _e);
                         udp_socket.send([0xCA, 0x00].as_slice())?;
                         sleep(Duration::from_millis(10));
                         interval = Instant::now();

@@ -238,7 +238,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 pending_files.push(file.clone());
 
                 //send_offer(&app_handle, file.path, file.hash, file.size)?;
-                send_file_state(&app_handle, file, FileState::Transferring, 0.0, false)?;
+                send_file_state(&app_handle, file, FileState::Pending, 0.0, false)?;
             }
             0x03 => {//stop send file
                 println!("(recv) : stop");
