@@ -531,7 +531,7 @@ impl ClientHandler {
 
             let (message_type, message_number, message_size) = match self.peek_header() {
                 Some(header) => {
-                    println!("RECEIVED {:?} number: {} size: {}", header.0, header.1, header.2);
+                    //println!("RECEIVED {:?} number: {} size: {}", header.0, header.1, header.2);
                     dead_time = Instant::now();
                     if opening && header.0 != MessageType::Open {
                         opening = false;
@@ -582,7 +582,7 @@ impl ClientHandler {
                 continue;
             }else {
                 let (_number, content) = self.message_buffer.remove(i);
-                println!("RECEIVED number: {} content: {:2x?}", _number, content.as_slice());
+                //println!("RECEIVED number: {} content: {:2x?}", _number, content.as_slice());
                 self.message_sender.send(content)?;
                 self.received_counter = self.received_counter.wrapping_add(1);
                 return Ok(())
@@ -608,11 +608,11 @@ impl ClientHandler {
         let mut buffer = vec![0u8; message_size as usize + 5];
         self.udp_socket.recv(&mut buffer)?;
 
-        println!("DATA {:2x?}", buffer.as_slice());
+        //println!("DATA {:2x?}", buffer.as_slice());
 
         buffer = buffer[5..].to_vec();
 
-        println!("DATA {:2x?}", buffer.as_slice());
+        //println!("DATA {:2x?}", buffer.as_slice());
         Ok(buffer)
     }
 
@@ -651,7 +651,7 @@ impl ClientHandler {
             match self.package_receiver.try_recv() {
                 Ok(content) => {
                     let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
-                    println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
+                    //println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
                     self.udp_socket.send(content.as_slice())?;
                     self.message_window.push(Package::new(content, size, self.send_counter, MessageType::Data));
                     self.send_counter = self.send_counter.wrapping_add(1);
