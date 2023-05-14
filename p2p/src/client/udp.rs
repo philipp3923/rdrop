@@ -577,6 +577,10 @@ impl ClientHandler {
     fn read_messages(&mut self) -> Result<(), P2pError>{
         self.message_buffer.sort_by(|a, b| a.0.cmp(&b.0));
         for i in 0..self.message_buffer.len() {
+            if i >= self.message_buffer.len() {
+                break;
+            }
+
             let (number, _) = &self.message_buffer[i];
 
             if number > &self.received_counter {

@@ -404,6 +404,10 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
 
 
         for i in 0..files.len() {
+            if i >= files.len() {
+                break;
+            }
+
             let mut file = &mut files[i];
 
             if file.current < 1 {
