@@ -1,6 +1,15 @@
-reflexion und so
+Insgesamt konnten fast alle der gestellten Anforderungen im Projektzeitraum erfüllt werden. Ausgenommen ist die dritte funktionale Anforderungen, da die Software bisher keine Authentisierungmethode bietet.
 
+\subsection{Ablauf}
+Der Ablauf des Entwicklung kann als stolpernd beschrieben werden. Problematisch war insbesondere die fehlende Erfahrung mit Netzwerkkommunikation, der verwendeten Programmiersprache Rust und Multithreading. Das fehlende Wissen wurde erst mit dem Verlauf des Projekts erworben, wodurch viele früh implementierte Lösungen verworfen werden mussten.
 
-% man in the middle attack
-% performance problem udp
-% mobile daten sampling und ntp server problem
+Ursprünglich war nicht geplant eine Kommunikation über das UDP-Protokoll zu unterstützen. Nachdem sich der Verbindungsaufbau über TCP allerdings als eindeutig zu unverlässig erwieß, blieb keine andere Wahl.
+
+Ebenfalls war zu Beginn des Projekts kein Verständnis für Netzwerkadressübersetzung vorhanden. Dies stellte sich als Problem heraus, weil dardurch keine direkte Kommunikation zwischen zwei Clients hinter seperaten Rechnernetzen zuverlässig aufgebaut werden kann. Somit musste im Verlauf des Projekts die Kommunikation mithilfe von IPv4 Adressen verworfen werden. Da Ipv6 keine Netzwerkadressübersetzung verwendet, war somit jedoch eine Alternative geboten.
+
+Ein weiterer nicht miteinberechneter Faktor war der asymmetrische Netzwerkjitter. Dieser tritt insbesondere bei der Verwendung von Mobilen Daten auf und sorgt dafür, dass keine TCP-Verbindung hergestellt werden kann. Alternativ wird in diesem die UDP-Verbindung für den Dateiaustausch verwendet. Aufgrund der spezifischen Implementierung des UDP-Clients ist die Übertragungsgeschwindigkeit allerdings stark eingeschränkt.
+
+Trifft man die Annahme, dass eine Verzögerung von 50 Millisekunden für den Weg von dem Sender zum Empfänger bei einer UDP-Paketgröße von einem Kilobyte besteht, so ergibt dies eine maximale Übertragungsgeschwindigkeit von maximal 10 Kilobyte pro Sekunde.
+
+\subsection{Ausblick}
+Die Softwarelösung bietet eine gute Grundlage für eine sichere und zuverlässige Kommunikation zwischen zwei Parteien. 
