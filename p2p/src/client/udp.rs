@@ -312,11 +312,6 @@ impl UdpClientReader {
                     if opening && header[0] != MessageType::Open as u8 {
                         opening = false;
                     }
-
-                    println!("[UDP] received message type: {:?}", MessageType::from(header[0]));
-                    if header[0] != 0 {
-                        keep_alive_time = Instant::now();
-                    }
                 }
                 Err(_e) => {
                     if keep_alive_time.elapsed() > DISCONNECT_TIMEOUT {
@@ -331,6 +326,11 @@ impl UdpClientReader {
                         continue;
                     }
                 }
+            }
+
+            println!("[UDP] received message type: {:?}", MessageType::from(header[0]));
+            if header[0] != 0 {
+                keep_alive_time = Instant::now();
             }
 
             let msg_type = header[0];
