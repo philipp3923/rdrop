@@ -1,7 +1,7 @@
 use std::array::TryFromSliceError;
 use std::fmt::{Debug, Display, Formatter};
 use std::io;
-use std::sync::mpsc::{RecvError, RecvTimeoutError, TryRecvError};
+use std::sync::mpsc::{RecvError, RecvTimeoutError, SendError, TryRecvError};
 use std::time::SystemTimeError;
 
 /// A list specifying general categories of P2pError error.
@@ -168,6 +168,15 @@ impl<C> Debug for ChangeStateError<C> {
 impl<C> Display for ChangeStateError<C> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Changing state failed with Error: {}", self.1)
+    }
+}
+
+impl<T> From<SendError<T>>  for Error {
+    fn from(_value: SendError<T>) -> Self {
+        Error {
+            source: None,
+            kind: ErrorKind::ChannelError,
+        }
     }
 }
 

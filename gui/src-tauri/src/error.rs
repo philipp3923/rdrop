@@ -100,3 +100,4 @@ impl Serialize for ClientError {
         serializer.serialize_str(format!("{:?}", self.kind).as_str())
     }
 }
+

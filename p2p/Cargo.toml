@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.24"
 dryoc = "0.5.0"
+log = "0.4.17"
 rand = "0.8.5"
 rsntp = "3.0.2"
 sntpc = "0.3.4"
