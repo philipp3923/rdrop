@@ -10,8 +10,8 @@ use crate::client::{ActiveClient, ClientReader, ClientWriter};
 use crate::error::{ChangeStateError, ErrorKind};
 use crate::error::Error as P2pError;
 
-const SEND_INTERVAL: Duration = Duration::from_millis(31);
-const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(50); //time between each keep alive message
+const SEND_INTERVAL: Duration = Duration::from_millis(70);
+const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200); //time between each keep alive message
 //time between each resend
 const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time after which the connection is considered dead
@@ -298,7 +298,7 @@ impl UdpClientReader {
             if keep_alive_time.elapsed() > KEEP_ALIVE_INTERVAL {
                 udp_socket.send(&[MessageType::KeepAlive as u8])?;
                 keep_alive_time = Instant::now();
-                println!("[UDP] send keep alive");
+                //println!("[UDP] send keep alive");
             }
 
             if stop_receiver.try_recv().is_ok() {
@@ -324,7 +324,7 @@ impl UdpClientReader {
                 }
             }
 
-            println!("[UDP] received message type: {:?}", MessageType::from(header[0]));
+            //println!("[UDP] received message type: {:?}", MessageType::from(header[0]));
             if header[0] != 0 {
                 dead_time = Instant::now();
             }else {
@@ -499,15 +499,15 @@ impl ClientWriter for UdpClientWriter {
     ///
     /// Returns `Ok(())` if the message is successfully sent and acknowledged or a `P2pError` if an error occurs or the operation times out.
     fn write(&mut self, msg: &[u8]) -> Result<(), P2pError> {
-        if self.closed_receiver.try_recv().is_ok() {
-            return Err(P2pError::new(ErrorKind::CommunicationFailed));
-        }
-
         let now = Instant::now();
         let timeout = self.timeout;
         let msg = self.prepare_msg(msg);
 
         while timeout.is_zero() || now.elapsed() <= timeout {
+            if self.closed_receiver.try_recv().is_ok() {
+                return Err(P2pError::new(ErrorKind::CommunicationFailed));
+            }
+
             self.udp_socket.send(msg.as_slice()).map_err(|_| P2pError::new(ErrorKind::CommunicationFailed))?;
 
             match self.ack_receiver.recv_timeout(SEND_INTERVAL) {
