@@ -39,7 +39,7 @@ export default function TransferList() {
             path: 'C:\\Users\\User\\Downloads\\test.txt',
         }];
 
-        setFiles(files);
+        // setFiles(files);
     }, []);
 
     useEffect(() => {
