@@ -1,0 +1,46 @@
+Dieses Kapitel beschreibt die Umsetzung der in Kapitel \ref{sec:architektur} beschriebenen Architektur. Dabei wird auf die einzelnen Module eingegangen und die Umsetzung erläutert. 
+
+Die Module Kommunikation und Datei-Ein-/Ausgabe werden dabei als Bibliotheken implementiert, die von der Benutzeroberfläche verwendet werden. Die Benutzeroberfläche wird als eigenständiges Programm implementiert.
+
+\subsection{Benutzeroberfläche}
+umsetzung und so
+% TODO @Lars
+
+\subsection{Kommunikation}
+Für die Umsetzung der Clients werden die notwendigen Funktionalitäten, die an einen Client gestellt werden, in Traits festgelegt. Jeder der Clients implementiert diese. Somit können alle der Clients im generischen Kontext austauschbar verwendet werden.
+
+Die Implementierung des TCP-Clients stellt dabei keine besondere herausforderung dar. In Addition zu dem standardmäßigen Protokoll muss lediglich die Länge eines Pakets hinzugefügt werden. Dies ist notwendig, da in einem TCP-Stream keine Paketgrenzen vorhanden sind.
+
+Nach der 6. Funktionalen Anforderung muss die Kommunikation zuverlässig erfolgen. Aus diesem Grund muss für den UDP-Client ein Protokoll implementiert werden, das die Zuverlässigkeit gewährleistet. Da der UDP-Client im Kontext der Anwendung nur für den Kommunikationsaufbau verwendet werden soll, wird das Send-and-Wait Protokoll implementiert. Dieses Protokoll zeichnet sich durch seine Simplizität in der Implementierung aus. \cite[195]{ethz-vernetzte-systeme}
+
+Für die Implementierung wird ein seperater Thread erstellt, der alle ankommenden Pakete bestätigt und für den Anwender über einen Kanal zur Verfügung stellt. Ebenfalls ist ein Mechanismus implemntiert, der die Verbindung nach einer bestimmten Zeit abbricht, falls keine Antwort vom der Gegenseite empfangen wird.
+
+Da die Kommunikation ebenfalls über das Internet läuft muss sichergestellt werden, dass die Firewalls durch welche die Pakete geroutet werden diese nicht verwerfen. Dazu werden Keep-Alive Pakete versendet, die die Löcher in den Firewalls geöffnet halten. \cite{enginner-man-udp}
+
+Die Verschlüsselung der Kommunikation wird mithilfe der Bibliothek dryoc umgesetzt. Grund dafür ist, dass eine Implementierung einer eigenen Verschlüsselungsmethode ein besonders hohes Risiko bietet. Die Bibliothek dryoc bietet dabei eine simple Schnittstelle, die die Verschlüsselung und Entschlüsselung von Daten ermöglicht.
+
+Es wurde sich expliziert gegen die Verwendung einer zertifizierten Verschlüsselung entscheiden, da die Validität der Zertifikate nicht überprüft werden kann. Stattdessen kann die Kommunikation auch über einen entsprechenden Hash der Schlüssel validiert werden, der über einen seperaten Kanal ausgetauscht werden muss.
+
+Eine Implementierung dieser Funktionalität ist bisher nicht implementiert, wäre aber eine sinnvolle Erweiterung, um Man-in-the-Middle Angriffe zu verhindern.
+
+Die für die Kommunikation verwendete Verschlüsselungsmethode basiert auf ChaCha20-Poly1305. Diese Methode ist in der Lage, die Daten zu verschlüsseln und zu authentifizieren. \cite{google-2015}
+
+Das Protokoll für den Verbindungsaufbau wird mithilfe eines Type-State-Patterns umgesetzt. Das Type-State-Pattern bietet den Vorteil, dass in jedem Zustand nur die erlaubten Aktionen ausgeführt werden können \cite{Apodaca-2023}.
+
+Der erste Status des Protokolls ist eine wartendes UDP-Sockets, dessen Port angefragt werden kann. Sobald beide Parteien ihre Ports ausgetauscht haben, kann ein Verbindungsaufbau versuch gestartet werden. Dafür sendet der Client in einem gegebenen Intervall Nachrichten an die andere Partei. Sobald eine Antwort empfangen wird ist die Verbindung erfolgreich. Andernfalls kann der Verbindungsversuch nach einer gegebenen Zeit automatisch abgebrochen werden.
+
+Im nächsten Schritt werden die Rollen der Parteien festgelegt, da diese für die Verschlüsselung der Kommunikation benötigt werden. Dazu generiert jeder Client eine zufällige Zahl und tauscht diese mit dem Gegenüber aus. Sind beide Zahlen gleich, wird der Prozess wiederholt.
+
+Anschließend werden die öffentlichen Schlüssel ausgetaucht und die Verschlüsselungsstreams initialisiert.
+
+Falls gewünscht kann nun versucht werden die Kommunikation auf eine TCP-Verbindung umzutellen. Dafür müssen beide Parteien zeitlich synchronisiert werden, da beide TCP-Pakete gleichzeitig abgesendet werden müssen. Das implementierte Protokoll verwendet dazu zwei Ansätze.
+
+Zum einen werden Zeitstempel zwischen den Partein versendet und mit dem Rountrip-Delay verrechnet. Dies wird über mehrere Iterationen wiederholt, da aufgrund von asymmetrischem Netzwerkjitter niemals eine perfekte Synchronisation erreicht werden kann. Schlussendlich wird der Median der gesammelten Werte verwendet. Es gilt festzuhalten, dass falls der Hinweg dauerhaft länger als der Rückweg ist, keine Synchronisation möglich ist.
+
+Alternativ besteht die Möglichkeit über einen externen NTP-Server die Zeit zu synchronisieren.
+
+Sind beide Uhren vermeintlich synchronisiert stimmen beide Clients einen Zeitpunkt ab an dem das TCP-Paket abgesendet wird. Ist der Verbindungsaufbau erfolgreich, wird die UDP-Verbindung geschlossen. Andernfalls kann die UDP-Verbindung weiterhin verwendet werden.
+
+\subsection{Datei-Ein-/Ausgabe}
+umsetzung und so
+% TODO @Simon
