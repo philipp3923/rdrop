@@ -10,7 +10,7 @@ use std::thread::{sleep, JoinHandle};
 use std::time::{Duration, Instant};
 
 const MSG_RESEND_DELAY: Duration = Duration::from_millis(100);
-const PING_RESEND_DELAY: Duration = Duration::from_millis(50);
+const PING_RESEND_DELAY: Duration = Duration::from_millis(70);
 
 /// A UDP client that waits for a connection.
 pub struct UdpWaitingClient {
@@ -255,7 +255,7 @@ impl UdpClientReader {
                         return Ok(());
                     }
 
-                    if interval.elapsed() > Duration::from_millis(100) {
+                    if interval.elapsed() > Duration::from_millis(50) {
                         //println!("recv err: {}", _e);
                         udp_socket.send([0xCA, 0x00].as_slice())?;
                         sleep(Duration::from_millis(10));
