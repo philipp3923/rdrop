@@ -556,16 +556,15 @@ impl ClientHandler {
                 }
                 MessageType::Data => {
                     let content = self.recv_data(message_size)?;
-                    if self.message_buffer.len() <= SLIDE_WINDOW as usize || message_number <= self.received_counter {
                         if self.message_buffer.iter().find(|x| x.0 == message_number).is_some() {
                             println!("[UDP] received duplicate msg n:{} s:{}", message_number, message_size);
                         }else{
                             self.message_buffer.push((message_number, content));
                         }
                         self.send_acknowledgement(message_number)?;
-                    }else{
-                        println!("SLIDE WINDOW FULL, {}", self.received_counter);
-                    }
+
+                        println!("SLIDE WINDOW, {} | {}", self.received_counter, self.message_buffer.len());
+
                 }
                 MessageType::Acknowledge => {
                     self.udp_socket.recv([0; 5].as_mut_slice())?;
@@ -610,6 +609,7 @@ impl ClientHandler {
 
     fn acknowledge_package(&mut self, message_number: u16) {
         if let Some(index) = self.message_window.iter().position(|package| &&package.number == &&message_number) {
+            println!("ACKNOWLEDGE {}", message_number);
             self.message_window.remove(index);
         }
     }
@@ -647,7 +647,7 @@ impl ClientHandler {
     }
 
     fn repeat_messages(&mut self) -> Result<(), P2pError> {
-        self.message_window.iter().rev().for_each(|package| {
+        self.message_window.iter().for_each(|package| {
             if package.timestamp.elapsed() > SEND_INTERVAL {
                 if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
                     println!("[UDP] send error: {:?}", e);
