@@ -8,7 +8,7 @@ use crate::client::{ActiveClient, ClientReader, ClientWriter};
 use crate::error::{ChangeStateError, ErrorKind, ThreadError};
 use crate::error::Error as P2pError;
 
-const SEND_INTERVAL: Duration = Duration::from_millis(70);
+const SEND_INTERVAL: Duration = Duration::from_millis(500);
 //time between each resend
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 //time between each keep alive message
@@ -556,12 +556,15 @@ impl ClientHandler {
                 }
                 MessageType::Data => {
                     let content = self.recv_data(message_size)?;
-                    if self.message_buffer.len() <= SLIDE_WINDOW as usize {
-                        self.message_buffer.push((message_number, content));
+                    if self.message_buffer.len() <= SLIDE_WINDOW as usize || message_number <= self.received_counter {
+                        if self.message_buffer.iter().find(|x| x.0 == message_number).is_some() {
+                            println!("[UDP] received duplicate msg n:{} s:{}", message_number, message_size);
+                        }else{
+                            self.message_buffer.push((message_number, content));
+                        }
                         self.send_acknowledgement(message_number)?;
-
                     }else{
-                        println!("SLIDE WINDOW FULL");
+                        println!("SLIDE WINDOW FULL, {}", self.received_counter);
                     }
                 }
                 MessageType::Acknowledge => {
