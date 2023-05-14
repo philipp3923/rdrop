@@ -285,7 +285,6 @@ impl UdpClientReader {
         closed_sender: Sender<()>,
         message_sender: Sender<Vec<u8>>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let mut current_timeout = Instant::now();
         let mut keep_alive_time = Instant::now();
         let mut msg_counter = 0;
         let mut opening = true;
@@ -312,11 +311,10 @@ impl UdpClientReader {
                     if opening && header[0] != MessageType::Open as u8 {
                         opening = false;
                     }
-                    current_timeout = Instant::now();
                     keep_alive_time = Instant::now();
                 }
                 Err(_e) => {
-                    if current_timeout.elapsed() > DISCONNECT_TIMEOUT {
+                    if keep_alive_time.elapsed() > DISCONNECT_TIMEOUT {
                         println!("[UDP] read thread timeout");
                         closed_sender.send(())?;
                         return Ok(());
