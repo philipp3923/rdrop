@@ -199,8 +199,12 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 ReadCommand::Stop(hash) => {
                     match active_files.iter().position(|wf| wf.file.hash == hash) {
                         None => {}
-                        Some(index) => { active_files.swap_remove(index); }
+                        Some(index) => {
+                            send_file_state( &app_handle, active_files[index].file.clone(), FileState::Stopped, 0.0, false)?;
+                            active_files.swap_remove(index); }
                     }
+                    command_sender.send(WriteCommand::Stop(hash))?;
+
                 }
             },
             Err(_) => {}
@@ -219,6 +223,8 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 }
             }
         };
+
+        println!("(recv) : {:?}", msg[0]);
 
         //TODO @Simon handle message
         match msg[0] {

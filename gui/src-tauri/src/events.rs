@@ -71,7 +71,8 @@ pub enum FileState{
     Transferring,
     Pending,
     Completed,
-    Aborted
+    Aborted,
+    Stopped
 }
 
 #[derive(Serialize, Clone)]
