@@ -539,7 +539,9 @@ impl ClientHandler {
                     header
                 }
                 None => {
-                    sleep(RECEIVE_INTERVAL);
+                    if self.message_buffer.len() < SLIDE_WINDOW as usize / 10 {
+                        sleep(RECEIVE_INTERVAL);
+                    }
                     continue;
                 }
             };
@@ -647,11 +649,17 @@ impl ClientHandler {
     }
 
     fn repeat_messages(&mut self) -> Result<(), P2pError> {
+        let mut i = 0;
         self.message_window.iter().for_each(|package| {
+            i += 1;
             if package.timestamp.elapsed() > SEND_INTERVAL {
                 if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
                     println!("[UDP] send error: {:?}", e);
                 }
+            }
+
+            if i > SLIDE_WINDOW {
+                return;
             }
         });
 
