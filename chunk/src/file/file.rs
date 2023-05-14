@@ -10,8 +10,7 @@ use crate::{error::error::{RError, RErrorKind}, hash::hash::get_hash, general::g
 
 //wrapper for writing data in vector
 pub fn write_data_vec(header_data:&HeaderData, data_vector:&Vec<u8>, output_path:&str) -> Result<String, Error>{
-
-    let mut outpath:String = "".to_string();
+    let mut outpath: String = "".to_string();
     if check_chunk_hash(&header_data.chunk_hash, &header_data.chunk_hash_alg, &data_vector) == true{
         outpath = merge_file_on_path(&output_path, &data_vector, header_data.chunk_pos, CHUNK_SIZE)?;
         let logfile_path = format!("{}.rdroplog", output_path);

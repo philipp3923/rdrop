@@ -299,6 +299,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                         let (start, end) = validate_file(&file.file.path, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
 
                         if start == end && start == 0 {
+                            send_file_state(&app_handle, file.file.clone(), FileState::Completed, 1.0, false)?;
                             active_files.remove(index);
                         }
                     }
@@ -416,6 +417,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
             };
 
             if file.current == file.stop{
+                send_file_state(&app_handle, file.file.clone(), FileState::Completed, 1.0, true)?;
                 files.remove(i);
             }else {
                 file.current += 1;
