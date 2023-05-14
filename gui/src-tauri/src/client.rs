@@ -321,7 +321,6 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
             Ok(c) =>
                 match c {
                     WriteCommand::Request(file) => {
-
                         let vec = create_order_byte_vec(file.start, file.stop, &file.file.hash)?;
 
                         match writer.write(&vec) {
@@ -335,12 +334,11 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
                         };
                     }
                     WriteCommand::Offer(file) => {
+                        println!("[WRITER] SENT: offer {}", file.hash);
                         let vec = create_offer_byte_msg(&file.hash, file.size, &file.path)?;
                         offers.push(file);
                         match writer.write(&vec) {
-                            Ok(_) => {
-                                println!("[WRITER] SENT: offer {}", file.hash);
-                            }
+                            Ok(_) => {}
                             Err(_err) => {
                                 send_disconnect(&app_handle)?;
                                 return Err(ClientError::new(ClientErrorKind::SocketClosed));
