@@ -130,7 +130,7 @@ export default function TransferList() {
                                         download
                                     </IconButton>
                                 )}
-                                {canCancel && (
+                                {false && (
                                     <IconButton text onClick={() => handleCancel(file)}>
                                         close
                                     </IconButton>
