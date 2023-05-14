@@ -3,4 +3,5 @@ export const FileState = Object.freeze({
     TRANSFERRING: 'Transferring',
     COMPLETED: 'Completed',
     ABORTED: 'Aborted',
+    CORRUPTED: 'Corrupted'
 });
