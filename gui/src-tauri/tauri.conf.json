@@ -7,8 +7,8 @@
         "withGlobalTauri": false
     },
     "package": {
-        "productName": "gui",
-        "version": "0.0.0"
+        "productName": "rdrop",
+        "version": "1.0.0"
     },
     "tauri": {
         "allowlist": {
@@ -81,7 +81,7 @@
                 "fullscreen": false,
                 "height": 600,
                 "resizable": true,
-                "title": "gui",
+                "title": "rdrop.",
                 "width": 800,
                 "decorations": false
             }

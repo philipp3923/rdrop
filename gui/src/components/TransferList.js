@@ -12,7 +12,35 @@ export default function TransferList() {
     const [hover, setHover] = useState(false);
     const [files, setFiles] = useState([]);
 
-    useEffect(() => {}, []);
+    useEffect(() => {
+        const files = [{
+            name: 'Super Secret File.docx',
+            size: '1.2 MB',
+            state: FileState.PENDING,
+            is_sender: false,
+            hash: '123',
+            path: 'C:\\Users\\User\\Downloads\\test.txt',
+        },
+        {
+            name: 'Other File.txt',
+            size: '8.2 MB',
+            state: FileState.PENDING,
+            is_sender: false,
+            hash: '123',
+            path: 'C:\\Users\\User\\Downloads\\test.txt',
+        },
+        {
+            name: 'Cool Song.mp3',
+            size: '4.4 MB',
+            state: FileState.TRANSFERRING,
+            is_sender: false,
+            percent: 0.5,
+            hash: '123',
+            path: 'C:\\Users\\User\\Downloads\\test.txt',
+        }];
+
+        setFiles(files);
+    }, []);
 
     const mutateFile = (file) => {
         if (typeof file?.size !== 'string') {
@@ -76,9 +104,9 @@ export default function TransferList() {
             </div>
             <div className='transfer-list-items'>
                 {files.map((file) => {
-                    const canDownload = file.state === 'pending' && !file.is_sender;
-                    const canCancel = file.state !== 'completed' && !file.is_sender;
-                    const canShowInExplorer = file.state === 'completed' && !file.is_sender;
+                    const canDownload = file.state === FileState.PENDING && !file.is_sender;
+                    const canCancel = file.state !== FileState.COMPLETED && !file.is_sender;
+                    const canShowInExplorer = file.state === FileState.COMPLETED && !file.is_sender;
                     return (
                         <div className={'transfer-list-item' + (file.is_sender ? ' sender' : '')} key={file.id}>
                             <div className='transfer-list-item-icon'>
@@ -90,9 +118,9 @@ export default function TransferList() {
                                 <p className='body-large'>{file.size}</p>
                             </div>
                             <div className='transfer-list-item-status'>
-                                {file.state === 'pending' && <p className='body-large'>Pending</p>}
-                                {file.state === 'transfering' && <p className='body-large'>{file.status}%</p>}
-                                {file.state === 'completed' && <p className='body-large'>Completed</p>}
+                                {file.state === FileState.PENDING && <p className='body-large'>Pending</p>}
+                                {file.state === FileState.TRANSFERRING && <p className='body-large'>{file.percent * 100}%</p>}
+                                {file.state === FileState.COMPLETED && <p className='body-large'>Completed</p>}
                             </div>
                             <div className='transfer-list-item-actions flex'>
                                 {canDownload && (
