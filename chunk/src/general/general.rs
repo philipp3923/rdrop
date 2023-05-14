@@ -479,7 +479,7 @@ pub fn extract_header_data(header:&Header) -> Result<HeaderData,RError>{
             chunk_hash = format!("{}{:02X}", chunk_hash, val);   
         }
     }
-    return HeaderData::new(user_hash, file_hash, chunk_hash, chunk_length as usize, chunk_pos as u64, chunk_max as u64);
+    return HeaderData::new(user_hash, file_hash.to_lower(), chunk_hash.to_lower(), chunk_length as usize, chunk_pos as u64, chunk_max as u64);
 
 }
 
