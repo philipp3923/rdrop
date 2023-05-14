@@ -559,7 +559,9 @@ impl ClientHandler {
                     if self.message_buffer.len() <= SLIDE_WINDOW as usize {
                         self.message_buffer.push((message_number, content));
                         self.send_acknowledgement(message_number)?;
-                        println!("SLIDE WINDOW LIMIT");
+
+                    }else{
+                        println!("SLIDE WINDOW FULL");
                     }
                 }
                 MessageType::Acknowledge => {
