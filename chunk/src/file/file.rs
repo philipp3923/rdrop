@@ -14,8 +14,8 @@ pub fn write_data_vec(header_data:&HeaderData, data_vector:&Vec<u8>, output_path
     if check_chunk_hash(&header_data.chunk_hash, &header_data.chunk_hash_alg, &data_vector) == true{
         outpath = merge_file_on_path(&output_path, &data_vector, header_data.chunk_pos, CHUNK_SIZE)?;
         let logfile_path = format!("{}.rdroplog", output_path);
-        let _ = write_to_log_file(&logfile_path, &header_data.user_hash, &header_data.file_hash_alg, header_data.chunk_pos, header_data.chunk_max, header_data.chunk_length as u64, &header_data.file_hash, &header_data.chunk_hash_alg, &header_data.chunk_hash)?;
-        return Ok(outpath)
+        let _log_path = write_to_log_file(&logfile_path, &header_data.user_hash, &header_data.file_hash_alg, header_data.chunk_pos, header_data.chunk_max, header_data.chunk_length as u64, &header_data.file_hash, &header_data.chunk_hash_alg, &header_data.chunk_hash)?;
+        return Ok(_log_path);
     }
 
     println!("CHECK CHUNK HASH FAILED");

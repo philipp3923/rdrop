@@ -909,13 +909,13 @@ pub fn get_filename_from_dir(dir:&str) -> Result<String, RError>{
 // check if file has missing parts
 pub fn validate_file(output_dir:&str, file_hash:&str) -> Result<(u64, u64),RError>{
 
-    let outpath = format!("{}/{}",&output_dir, &file_hash);
+    //let outpath = format!("{}/{}",&output_dir, &file_hash);
 
-    let file_name = get_filename_from_dir(&outpath).map_err(|err| RError::new( RErrorKind::InputOutputError, &err.to_string()))?;
+    //let file_name = get_filename_from_dir(&outpath).map_err(|err| RError::new( RErrorKind::InputOutputError, &err.to_string()))?;
 
-    let logfile_path = format!("{}/{}.rdroplog", outpath, &file_name);
+    //let logfile_path = format!("{}/{}.rdroplog", outpath, &file_name);
 
-    let mut log_entry_vec = read_log_file(&logfile_path, BUFFER_SIZE, LOGGER_REGEX).map_err(|err| RError::new( RErrorKind::InputOutputError, &err.to_string()))?;
+    let mut log_entry_vec = read_log_file(&output_dir, BUFFER_SIZE, LOGGER_REGEX).map_err(|err| RError::new( RErrorKind::InputOutputError, &err.to_string()))?;
 
     let (startpos, endpos) = validate_log_file(&mut log_entry_vec);
 

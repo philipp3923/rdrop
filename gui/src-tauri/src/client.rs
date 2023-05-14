@@ -290,13 +290,13 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                         let percent = file.current as f32 / file.stop as f32;
                         send_file_state(&app_handle, file.file.clone(), FileState::Transferring, percent, false)?;
 
-                        let _path = write_data_vec(&header_data, &data_vector, &file.file.path)?;
+                        let log_path = write_data_vec(&header_data, &data_vector, &file.file.path)?;
 
                         let act_num = header_data.chunk_pos;
 
                         file.current = act_num;
 
-                        let (start, end) = validate_file(&file.file.path, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
+                        let (start, end) = validate_file(&log_path, &file.file.hash).map_err(|_| ClientError::new(ClientErrorKind::IOError))?;
 
                         if start == end && start == 0 {
                             send_file_state(&app_handle, file.file.clone(), FileState::Completed, 1.0, false)?;
