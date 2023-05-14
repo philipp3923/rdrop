@@ -18,6 +18,7 @@ pub fn write_data_vec(header_data:&HeaderData, data_vector:&Vec<u8>, output_path
         return Ok(outpath)
     }
 
+    println!("CHECK CHUNK HASH FAILED");
     return Err(Error::new(std::io::ErrorKind::InvalidData, "Corrupted Data, can't verify hash"));
 
 }
