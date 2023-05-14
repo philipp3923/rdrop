@@ -7,7 +7,7 @@ use crate::{hash::hash::Hash, error::error::{RError, RErrorKind}, general::gener
 
 
 
-pub const ORDER_REGEX:&str = r"\[(\d+)\]\s-\s\[(SHA256|SHA512|MD5|SIPHASH24)\]\s-\s\[([a-fA-F0-9]+)\]\s-\s\[(.+)\]\s-\s\[(\d+)\]\s-\s\[(\d+)\](\s-\s\[(SHA256|SHA512|MD5|SIPHASH24)\])?";
+pub const ORDER_REGEX:&str = r"\[(\d+)\]\s-\s\[(SHA256|SHA512|MD5|SIPHASH24)\]\s-\s\[([a-fA-F0-9]+)\]\s-\s\[(.*)\]\s-\s\[(\d+)\]\s-\s\[(\d+)\](\s-\s\[(SHA256|SHA512|MD5|SIPHASH24)\])?";
 
 
 #[derive(Debug)]
