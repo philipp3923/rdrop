@@ -25,7 +25,9 @@ export default function Home() {
     const ip = usePublicIP();
 
     useEffect(() => {
-        invoke('start');
+        setTimeout(() => {
+            invoke('start');
+        }, 100);
     }, []);
 
     useTauriEvent('app://update-status', (event) => {
@@ -34,6 +36,7 @@ export default function Home() {
 
     useTauriEvent('app://update-port', (event) => {
         setIPv6Port(event?.payload);
+        console.log("GOT PORT:", event?.payload);
     });
 
     useTauriEvent('app://socket-failed', (event) => {
