@@ -278,7 +278,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                 }
             } 
             _x => {// illegal opcode
-                println!("[READER] : unknown opcode {}", x);
+                println!("[READER] : unknown opcode {}", _x);
             }
         }
     }
