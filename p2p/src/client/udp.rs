@@ -377,6 +377,7 @@ impl UdpClientReader {
                     udp_socket.send([MessageType::Acknowledge as u8, msg_number].as_slice())?;
                 }
                 MessageType::KeepAlive => {
+                    keep_alive_time = Instant::now();
                     udp_socket.recv(header.as_mut_slice())?;
                 }
                 MessageType::Invalid => {
