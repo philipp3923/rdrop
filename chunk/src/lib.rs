@@ -2,7 +2,6 @@ use std::io::Error;
 
 pub mod hash;
 pub mod general;
-mod time;
 pub mod error;
 pub mod offer;
 pub mod order;
