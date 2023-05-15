@@ -626,7 +626,7 @@ impl ClientHandler {
     fn acknowledge_package(&mut self, message_number: u32) {
         if let Some(index) = self.message_send_buffer.iter().position(|package| package.number == message_number) {
             self.message_send_buffer.remove(index);
-            println!("ACKNOWLEDGE {} RECV SLIDE {}/{}", message_number, self.message_send_buffer.len(), SLIDE_WINDOW);
+            //println!("ACKNOWLEDGE {} RECV SLIDE {}/{}", message_number, self.message_send_buffer.len(), SLIDE_WINDOW);
         }
 
         if let Some(first) = self.message_send_buffer.first() {
@@ -640,7 +640,7 @@ impl ClientHandler {
         let message = ClientHandler::encode_msg([0].as_slice(), MessageType::Acknowledge, message_number);
         //sleep(Duration::from_nanos(50));
         self.udp_socket.send(message.0.as_slice())?;
-        println!("SEND ACKNOWLEDGE {}", message_number);
+        //println!("SEND ACKNOWLEDGE {}", message_number);
         Ok(())
     }
 
