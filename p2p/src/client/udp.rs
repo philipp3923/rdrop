@@ -570,7 +570,7 @@ impl ClientHandler {
                     self.send_acknowledgement(message_number)?;
 
                     if message_number > self.received_counter && self.message_receive_buffer.iter().find(|(number, _)| *number == message_number).is_none() {
-                        println!("early package {}, missing package {}", message_number, self.received_counter);
+                        println!("early package {}, missing package {}, total buff {}", message_number, self.received_counter, self.message_receive_buffer.len());
                         self.message_receive_buffer.push((message_number, content));
                     } else if message_number == self.received_counter {
                         self.message_sender.send(content)?;
