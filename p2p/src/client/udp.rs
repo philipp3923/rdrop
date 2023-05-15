@@ -520,7 +520,7 @@ impl ClientHandler {
             if keep_alive_time.elapsed() > KEEP_ALIVE_INTERVAL {
                 println!("{:?}", dead_time.elapsed());
                 self.udp_socket.send(&[MessageType::KeepAlive as u8])?;
-                //println!("{:8} | SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.received_counter, self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
+                println!("{:8} | SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.received_counter, self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
                 keep_alive_time = Instant::now();
             }
 
