@@ -287,7 +287,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
                     Some(index) => {
                         let mut file = &mut active_files[index];
 
-                        println!("[READER] : file {}", header_data.file_hash);
+                        //println!("[READER] : file {}", header_data.file_hash);
 
                         // send file status to front end
                         let percent = file.current as f32 / file.stop as f32;
@@ -422,7 +422,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
 
             match writer.write(&data_vec) {
                 Ok(_) => {
-                    println!("[WRITER] SENT: data {}", file.file.hash);
+                    //println!("[WRITER] SENT: data {}", file.file.hash);
                     let percent = file.current as f32 / file.stop as f32;
                     send_file_state(&app_handle, file.file.clone(), FileState::Transferring, percent, true)?;
                 }

@@ -610,6 +610,7 @@ impl ClientHandler {
                     self.acknowledge_package(message_number);
                 }
                 MessageType::KeepAlive => {
+                    println!("KEEP ALIVE");
                     self.udp_socket.recv([0; 7].as_mut_slice())?;
                 }
                 MessageType::Invalid => {
