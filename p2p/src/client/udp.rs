@@ -16,7 +16,7 @@ const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time after which the connection is considered dead
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(10); //time between each receive timeout
 
-const SLIDE_WINDOW: u32 = 1024 * 1024 * 50; //number of packets in the slide window
+const SLIDE_WINDOW: u32 = 1024 * 1024; //number of packets in the slide window
 
 /// A UDP client that waits for a connection.
 pub struct UdpWaitingClient {
@@ -27,12 +27,12 @@ struct Package {
     message_type: MessageType,
     content: Vec<u8>,
     size: u16,
-    number: u16,
+    number: u32,
     timestamp: Instant,
 }
 
 impl Package {
-    fn new(content: Vec<u8>, size: u16, number: u16, message_type: MessageType) -> Package {
+    fn new(content: Vec<u8>, size: u16, number: u32, message_type: MessageType) -> Package {
         Package {
             message_type,
             content,
@@ -474,10 +474,10 @@ struct ClientHandler {
     package_receiver: Receiver<Vec<u8>>,
     closed_sender: Sender<()>,
     message_sender: Sender<Vec<u8>>,
-    send_counter: u16,
-    received_counter: u16,
+    send_counter: u32,
+    received_counter: u32,
     message_send_buffer: Vec<Package>,
-    message_receive_buffer: Vec<(u16, Vec<u8>)>,
+    message_receive_buffer: Vec<(u32, Vec<u8>)>,
 }
 
 impl ClientHandler {
@@ -485,7 +485,7 @@ impl ClientHandler {
            stop_receiver: Receiver<()>,
            package_receiver: Receiver<Vec<u8>>,
            closed_sender: Sender<()>,
-           message_sender: Sender<Vec<u8>>, ) -> ClientHandler {
+           message_sender: Sender<Vec<u8>>) -> ClientHandler {
         ClientHandler {
             message_sender,
             udp_socket,
@@ -548,7 +548,7 @@ impl ClientHandler {
 
             match message_type {
                 MessageType::Open => {
-                    self.udp_socket.recv([0; 5].as_mut_slice())?;
+                    self.udp_socket.recv([0; 7].as_mut_slice())?;
                     if opening {
                         continue;
                     }
@@ -566,14 +566,14 @@ impl ClientHandler {
 
                 }
                 MessageType::Acknowledge => {
-                    self.udp_socket.recv([0; 5].as_mut_slice())?;
+                    self.udp_socket.recv([0; 7].as_mut_slice())?;
                     self.acknowledge_package(message_number);
                 }
                 MessageType::KeepAlive => {
-                    self.udp_socket.recv([0; 5].as_mut_slice())?;
+                    self.udp_socket.recv([0; 7].as_mut_slice())?;
                 }
                 MessageType::Invalid => {
-                    self.udp_socket.recv([0; 5].as_mut_slice())?;
+                    self.udp_socket.recv([0; 7].as_mut_slice())?;
                     println!("[UDP] received invalid msg n:{} s:{}", message_number, message_size);
                 }
             }
@@ -603,33 +603,33 @@ impl ClientHandler {
         Ok(())
     }
 
-    fn acknowledge_package(&mut self, message_number: u16) {
+    fn acknowledge_package(&mut self, message_number: u32) {
         if let Some(index) = self.message_send_buffer.iter().position(|package| &&package.number == &&message_number) {
             self.message_send_buffer.remove(index);
             println!("ACKNOWLEDGE {} RECV SLIDE {}/{}", message_number, self.message_send_buffer.len(), SLIDE_WINDOW);
         }
     }
 
-    fn send_acknowledgement(&mut self, message_number: u16) -> Result<(), P2pError> {
+    fn send_acknowledgement(&mut self, message_number: u32) -> Result<(), P2pError> {
         let message = ClientHandler::encode_msg([0].as_slice(), MessageType::Acknowledge, message_number);
         self.udp_socket.send(message.0.as_slice())?;
         Ok(())
     }
 
     fn recv_data(&mut self, message_size: u16) -> Result<Vec<u8>, P2pError> {
-        let mut buffer = vec![0u8; message_size as usize + 5];
+        let mut buffer = vec![0u8; message_size as usize + 7];
         self.udp_socket.recv(&mut buffer)?;
 
         //println!("DATA {:2x?}", buffer.as_slice());
 
-        buffer = buffer[5..].to_vec();
+        buffer = buffer[7..].to_vec();
 
         //println!("DATA {:2x?}", buffer.as_slice());
         Ok(buffer)
     }
 
-    fn peek_header(&mut self) -> Option<(MessageType, u16, u16)> {
-        let mut header = [0u8; 5];
+    fn peek_header(&mut self) -> Option<(MessageType, u32, u16)> {
+        let mut header = [0u8; 7];
         if let Err(_e) = self.udp_socket.peek(&mut header) {
             return None;
         };
@@ -680,7 +680,7 @@ impl ClientHandler {
         Ok(())
     }
 
-    fn encode_msg(msg: &[u8], message_type: MessageType, message_number: u16) -> (Vec<u8>, u16) {
+    fn encode_msg(msg: &[u8], message_type: MessageType, message_number: u32) -> (Vec<u8>, u16) {
         let len = msg.len();
         let mut result = Vec::with_capacity(len + 4 + 4);
 
@@ -692,10 +692,10 @@ impl ClientHandler {
         (result, len as u16)
     }
 
-    fn decode_header(header: [u8; 5]) -> (MessageType, u16, u16) {
+    fn decode_header(header: [u8; 7]) -> (MessageType, u32, u16) {
         let message_type = MessageType::from(header[0]);
-        let message_number = u16::from_be_bytes([header[1], header[2]]);
-        let message_size = u16::from_be_bytes([header[3], header[4]]);
+        let message_number = u32::from_be_bytes([header[1], header[2], header[3], header[4]]);
+        let message_size = u16::from_be_bytes([header[5], header[6]]);
         (message_type, message_number, message_size)
     }
 }
