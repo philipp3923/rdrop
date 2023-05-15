@@ -16,7 +16,7 @@ const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time after which the connection is considered dead
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(1); //time between each receive timeout
 
-const SLIDE_WINDOW: u32 = 1024 * 100; //number of packets in the slide window
+const SLIDE_WINDOW: u32 = 1024 * 512; //number of packets in the slide window
 
 /// A UDP client that waits for a connection.
 pub struct UdpWaitingClient {
