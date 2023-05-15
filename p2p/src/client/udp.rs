@@ -583,27 +583,19 @@ impl ClientHandler {
     fn read_messages(&mut self) -> Result<(), P2pError>{
         self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
 
-        let mut mark_for_remove = Vec::<usize>::new();
-
-        for i in 0..self.message_receive_buffer.len() {
-
-            let (number, content) = &self.message_receive_buffer[i];
-
+        self.message_receive_buffer.retain(|(number, content)| {
             if number > &self.received_counter {
                 println!("self.received_counter: {} number: {}", self.received_counter, number);
-                break;
+                false;
             }
 
-            if number == &self.received_counter {
-                mark_for_remove.push(i);
-                self.message_sender.send(content.clone())?;
+            if number == &self.received_counter && self.message_sender.send(content.clone()).is_ok() {
                 self.received_counter = self.received_counter.wrapping_add(1);
+                return false;
             }
-        }
 
-        for rm in mark_for_remove {
-            self.message_receive_buffer.remove(rm);
-        }
+            return true;
+        });
 
         Ok(())
     }

@@ -403,7 +403,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
         };
 
 
-        let mut marked_for_remove = Vec::<usize>::new();
+        let mut marked_for_remove = Vec::<String>::new();
 
         for i in 0..files.len() {
             if i >= files.len() {
@@ -432,7 +432,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
 
             if file.current == file.stop{
                 send_file_state(&app_handle, file.file.clone(), FileState::Completed, 1.0, true)?;
-                marked_for_remove.push(i);
+                marked_for_remove.push(file.file.hash.clone());
             }else {
                 file.current += 1;
             }
@@ -442,8 +442,6 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
             sleep(Duration::from_millis(5));
         }
 
-        for rm in marked_for_remove{
-            files.remove(rm);
-        }
+        files.retain(|file| !marked_for_remove.contains(&file.file.hash));
     }
 }
