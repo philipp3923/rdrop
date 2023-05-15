@@ -8,7 +8,7 @@ use crate::client::{ActiveClient, ClientReader, ClientWriter};
 use crate::error::{ChangeStateError, ErrorKind, ThreadError};
 use crate::error::Error as P2pError;
 
-const SEND_INTERVAL: Duration = Duration::from_millis(500);
+const SEND_INTERVAL: Duration = Duration::from_millis(250);
 //time between each resend
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 //time between each keep alive message
@@ -525,6 +525,8 @@ impl ClientHandler {
                 return Ok(());
             }
 
+            println!("SEND BUFFER {:16}/{:16} RECV BUFFER {:16}/{:16}", self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
+
             self.send_messages()?;
             self.repeat_messages()?;
             self.read_messages()?;
@@ -585,7 +587,6 @@ impl ClientHandler {
 
         self.message_receive_buffer.retain(|(number, content)| {
             if number > &self.received_counter {
-                println!("self.received_counter: {} number: {}", self.received_counter, number);
                 false;
             }
 
@@ -603,7 +604,7 @@ impl ClientHandler {
     fn acknowledge_package(&mut self, message_number: u32) {
         if let Some(index) = self.message_send_buffer.iter().position(|package| &&package.number == &&message_number) {
             self.message_send_buffer.remove(index);
-            println!("ACKNOWLEDGE {} RECV SLIDE {}/{}", message_number, self.message_send_buffer.len(), SLIDE_WINDOW);
+            //println!("ACKNOWLEDGE {} RECV SLIDE {}/{}", message_number, self.message_send_buffer.len(), SLIDE_WINDOW);
         }
     }
 
