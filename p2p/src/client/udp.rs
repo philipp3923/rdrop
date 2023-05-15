@@ -582,24 +582,29 @@ impl ClientHandler {
 
     fn read_messages(&mut self) -> Result<(), P2pError>{
         self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
-        for i in 0..self.message_receive_buffer.len() {
-            if i >= self.message_receive_buffer.len() {
-                break;
-            }
 
-            let (number, _) = &self.message_receive_buffer[i];
+        let mut mark_for_remove = Vec::<usize>::new();
+
+        for i in 0..self.message_receive_buffer.len() {
+
+            let (number, content) = &self.message_receive_buffer[i];
 
             if number > &self.received_counter {
-                println!("RECV WINDOW {}/{} from {} to {}", self.message_receive_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.first().unwrap_or(&(0, vec![])).0, self.message_receive_buffer.last().unwrap_or(&(0, vec![])).0);
+                println!("self.received_counter: {} number: {}", self.received_counter, number);
                 break;
             }
 
             if number == &self.received_counter {
-                let (_number, content) = self.message_receive_buffer.remove(i);
-                self.message_sender.send(content)?;
+                mark_for_remove.push(i);
+                self.message_sender.send(content.clone())?;
                 self.received_counter = self.received_counter.wrapping_add(1);
             }
         }
+
+        for rm in mark_for_remove {
+            self.message_receive_buffer.remove(rm);
+        }
+
         Ok(())
     }
 
