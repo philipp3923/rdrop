@@ -566,7 +566,7 @@ impl ClientHandler {
                     let content = self.recv_data(message_size)?;
                     self.send_acknowledgement(message_number)?;
 
-                    if message_number > self.received_counter && self.message_receive_buffer.iter().find(|(number, _)| *number == message_number).is_none() {
+                    if message_number >= self.received_counter && self.message_receive_buffer.iter().find(|(number, _)| *number == message_number).is_none() {
                             self.message_receive_buffer.push((message_number, content));
                         }
                         else if message_number == self.received_counter {
