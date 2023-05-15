@@ -437,7 +437,7 @@ fn write_thread<W: ClientWriter>(dropper: Arc<RwLock<bool>>,
         }
 
         if files.len() == 0 {
-            sleep(Duration::from_millis(100));
+            sleep(Duration::from_millis(5));
         }
     }
 }
