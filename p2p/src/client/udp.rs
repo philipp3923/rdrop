@@ -564,6 +564,7 @@ impl ClientHandler {
                         if message_number >= self.received_counter {
                             self.message_receive_buffer.push((message_number, content));
                         }
+
                         self.send_acknowledgement(message_number)?;
 
 
@@ -590,9 +591,11 @@ impl ClientHandler {
 
             if number == &self.received_counter && self.message_sender.send(content.clone()).is_ok() {
                 self.received_counter = self.received_counter.wrapping_add(1);
+                println!("RM {} {}", number, self.received_counter);
                 return false;
             }
 
+            println!("KP {} {}", number, self.received_counter);
             return true;
         });
 
