@@ -559,9 +559,10 @@ impl ClientHandler {
                 }
                 MessageType::Data => {
                     let content = self.recv_data(message_size)?;
-                        if message_number != self.received_counter {
+                        if message_number > self.received_counter {
                             self.message_receive_buffer.push((message_number, content));
-                        }else {
+                        }
+                        else if message_number == self.received_counter {
                             self.message_sender.send(content)?;
                             self.received_counter = self.received_counter.wrapping_add(1);
 
@@ -592,6 +593,9 @@ impl ClientHandler {
                             for content in contents {
                                 self.message_sender.send(content)?;
                             }
+                        }
+                        else {
+                            println!("[UDP] received old message n:{}", message_number);
                         }
 
                         self.send_acknowledgement(message_number)?;
@@ -657,6 +661,7 @@ impl ClientHandler {
         self.message_send_buffer.iter().for_each(|package| {
             i += 1;
             if package.timestamp.elapsed() > SEND_INTERVAL {
+                sleep(Duration::from_nanos(100));
                 if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
                     println!("[UDP] send error: {:?}", e);
                 }
@@ -680,6 +685,7 @@ impl ClientHandler {
                 Ok(content) => {
                     let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
                     //println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
+                    sleep(Duration::from_nanos(100));
                     self.udp_socket.send(content.as_slice())?;
                     self.message_send_buffer.push(Package::new(content, size, self.send_counter, MessageType::Data));
                     self.send_counter = self.send_counter.wrapping_add(1);
