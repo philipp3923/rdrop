@@ -561,7 +561,9 @@ impl ClientHandler {
                 }
                 MessageType::Data => {
                     let content = self.recv_data(message_size)?;
-                        if message_number > self.received_counter {
+                    self.send_acknowledgement(message_number)?;
+
+                    if message_number > self.received_counter && self.message_receive_buffer.iter().find(|(number, _)| *number == message_number).is_none() {
                             self.message_receive_buffer.push((message_number, content));
                         }
                         else if message_number == self.received_counter {
@@ -590,7 +592,7 @@ impl ClientHandler {
                                 return true;
                             });
 
-                            //println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
+                            println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
 
                             for content in contents {
                                 self.message_sender.send(content)?;
@@ -599,10 +601,6 @@ impl ClientHandler {
                         else {
                             println!("[UDP] received old message n:{}", message_number);
                         }
-
-                        self.send_acknowledgement(message_number)?;
-
-
                 }
                 MessageType::Acknowledge => {
                     self.udp_socket.recv([0; 7].as_mut_slice())?;
@@ -620,27 +618,23 @@ impl ClientHandler {
     }
 
     fn acknowledge_package(&mut self, message_number: u32) {
-        if let Some(index) = self.message_send_buffer.iter().position(|package| &&package.number == &&message_number) {
+        if let Some(index) = self.message_send_buffer.iter().position(|package| package.number == message_number) {
             self.message_send_buffer.remove(index);
-            //println!("ACKNOWLEDGE {} RECV SLIDE {}/{}", message_number, self.message_send_buffer.len(), SLIDE_WINDOW);
+            println!("ACKNOWLEDGE {} RECV SLIDE {}/{}", message_number, self.message_send_buffer.len(), SLIDE_WINDOW);
         }
 
-        while let Some(first) = self.message_send_buffer.first() {
-            if first.number == self.lower_bound {
-                self.message_send_buffer.remove(0);
-                self.lower_bound = self.lower_bound.wrapping_add(1);
-                //println!("SLIDE WINDOW {}/{}", self.message_send_buffer.len(), SLIDE_WINDOW);
-            }
-            else {
-                break;
-            }
+        if let Some(first) = self.message_send_buffer.first() {
+            self.lower_bound = first.number;
+        } else {
+            self.lower_bound = 0;
         }
     }
 
     fn send_acknowledgement(&mut self, message_number: u32) -> Result<(), P2pError> {
         let message = ClientHandler::encode_msg([0].as_slice(), MessageType::Acknowledge, message_number);
-        sleep(Duration::from_nanos(50));
+        //sleep(Duration::from_nanos(50));
         self.udp_socket.send(message.0.as_slice())?;
+        println!("SEND ACKNOWLEDGE {}", message_number);
         Ok(())
     }
 
@@ -690,23 +684,19 @@ impl ClientHandler {
     }
 
     fn send_messages(&mut self) -> Result<(), P2pError> {
-        loop {
             if self.message_send_buffer.len() >= SLIDE_WINDOW as usize || self.lower_bound + SLIDE_WINDOW <= self.send_counter {
-                break;
+                return Ok(());
             }
 
-            match self.package_receiver.try_recv() {
-                Ok(content) => {
-                    let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
+            if let Ok(content) = self.package_receiver.try_recv() {
+                let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
                     //println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
-                    sleep(Duration::from_nanos(50));
+                    //sleep(Duration::from_nanos(50));
                     self.udp_socket.send(content.as_slice())?;
                     self.message_send_buffer.push(Package::new(content, size, self.send_counter, MessageType::Data));
                     self.send_counter = self.send_counter.wrapping_add(1);
-                }
-                Err(_) => break,
             }
-        }
+
         Ok(())
     }
 
@@ -737,6 +727,11 @@ mod tests {
     use super::*;
 
     const MAX_LEN: usize = 508u32 as usize;
+
+    #[test]
+    fn test_wrong_order() {
+
+    }
 
     #[test]
     fn test_same_port() {
