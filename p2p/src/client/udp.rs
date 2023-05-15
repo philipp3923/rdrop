@@ -16,7 +16,7 @@ const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time after which the connection is considered dead
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(10); //time between each receive timeout
 
-const SLIDE_WINDOW: u32 = 1024; //number of packets in the slide window
+const SLIDE_WINDOW: u32 = 1024 * 1024; //number of packets in the slide window
 
 /// A UDP client that waits for a connection.
 pub struct UdpWaitingClient {
@@ -661,7 +661,6 @@ impl ClientHandler {
         self.message_send_buffer.iter_mut().for_each(|package| {
             i += 1;
             if package.timestamp.elapsed() > SEND_INTERVAL {
-                sleep(Duration::from_nanos(1));
                 package.timestamp = Instant::now();
                 if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
                     println!("[UDP] send error: {:?}", e);
@@ -686,7 +685,6 @@ impl ClientHandler {
                 Ok(content) => {
                     let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
                     //println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
-                    sleep(Duration::from_nanos(1));
                     self.udp_socket.send(content.as_slice())?;
                     self.message_send_buffer.push(Package::new(content, size, self.send_counter, MessageType::Data));
                     self.send_counter = self.send_counter.wrapping_add(1);
