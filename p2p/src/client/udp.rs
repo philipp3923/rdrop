@@ -529,7 +529,6 @@ impl ClientHandler {
 
             self.send_messages()?;
             self.repeat_messages()?;
-            self.read_messages()?;
 
             let (message_type, message_number, message_size) = match self.peek_header() {
                 Some(header) => {
@@ -560,8 +559,39 @@ impl ClientHandler {
                 }
                 MessageType::Data => {
                     let content = self.recv_data(message_size)?;
-                        if message_number >= self.received_counter {
+                        if message_number != self.received_counter {
                             self.message_receive_buffer.push((message_number, content));
+                        }else {
+                            self.message_sender.send(content)?;
+                            self.received_counter = self.received_counter.wrapping_add(1);
+
+                            self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
+
+                            let mut contents = Vec::<Vec<u8>>::new();
+
+                            self.message_receive_buffer.retain(|(number, content)| {
+                                if *number == self.received_counter {
+                                    contents.push(content.clone());
+                                    self.received_counter = self.received_counter.wrapping_add(1);
+                                    return false;
+                                }
+                                return true;
+                            });
+
+                            self.message_receive_buffer.retain(|(number, content)| {
+                                if *number == self.received_counter {
+                                    contents.push(content.clone());
+                                    self.received_counter = self.received_counter.wrapping_add(1);
+                                    return false;
+                                }
+                                return true;
+                            });
+
+                            println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
+
+                            for content in contents {
+                                self.message_sender.send(content)?;
+                            }
                         }
 
                         self.send_acknowledgement(message_number)?;
@@ -581,30 +611,6 @@ impl ClientHandler {
                 }
             }
         }
-    }
-
-    fn read_messages(&mut self) -> Result<(), P2pError>{
-        self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
-
-        let mut count = 0;
-
-        self.message_receive_buffer.retain(|(number, content)| {
-
-            if number == &self.received_counter && self.message_sender.send(content.clone()).is_ok() {
-                self.received_counter = self.received_counter.wrapping_add(1);
-                //println!("RM {} {}", number, self.received_counter);
-                count += 1;
-                return false;
-            }
-
-            //println!("KP {} {}", number, self.received_counter);
-            return true;
-        });
-
-        if count > 0 {
-            println!("RECV {} MESSAGES WITH BUFFER {}", count, self.message_receive_buffer.len());
-        }
-        Ok(())
     }
 
     fn acknowledge_package(&mut self, message_number: u32) {
