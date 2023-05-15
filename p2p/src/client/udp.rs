@@ -16,12 +16,13 @@ const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time after which the connection is considered dead
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(10); //time between each receive timeout
 
-const SLIDE_WINDOW: u32 = 1024 * 1024; //number of packets in the slide window
+const SLIDE_WINDOW: u32 = 1024; //number of packets in the slide window
 
 /// A UDP client that waits for a connection.
 pub struct UdpWaitingClient {
     udp_socket: UdpSocket,
 }
+
 
 struct Package {
     message_type: MessageType,
@@ -525,7 +526,7 @@ impl ClientHandler {
                 return Ok(());
             }
 
-            println!("SEND BUFFER {:16}/{:16} RECV BUFFER {:16}/{:16}", self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
+            println!("SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
 
             self.send_messages()?;
             self.repeat_messages()?;
