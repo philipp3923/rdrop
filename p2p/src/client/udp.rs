@@ -661,7 +661,7 @@ impl ClientHandler {
         self.message_send_buffer.iter().for_each(|package| {
             i += 1;
             if package.timestamp.elapsed() > SEND_INTERVAL {
-                sleep(Duration::from_nanos(100));
+                sleep(Duration::from_nanos(10));
                 if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
                     println!("[UDP] send error: {:?}", e);
                 }
@@ -685,7 +685,7 @@ impl ClientHandler {
                 Ok(content) => {
                     let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
                     //println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
-                    sleep(Duration::from_nanos(100));
+                    sleep(Duration::from_nanos(10));
                     self.udp_socket.send(content.as_slice())?;
                     self.message_send_buffer.push(Package::new(content, size, self.send_counter, MessageType::Data));
                     self.send_counter = self.send_counter.wrapping_add(1);
