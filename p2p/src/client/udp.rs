@@ -537,7 +537,7 @@ impl ClientHandler {
 
             let (message_type, message_number, message_size) = match self.peek_header() {
                 Some(header) => {
-                    //println!("RECEIVED {:?} number: {} size: {}", header.0, header.1, header.2);
+                    println!("RECEIVED {:?} number: {} size: {}", header.0, header.1, header.2);
                     dead_time = Instant::now();
                     if opening && header.0 != MessageType::Open {
                         opening = false;
@@ -595,7 +595,7 @@ impl ClientHandler {
                                 return true;
                             });
 
-                            println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
+                            //println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
 
                             for content in contents {
                                 self.message_sender.send(content)?;
@@ -610,7 +610,7 @@ impl ClientHandler {
                     self.acknowledge_package(message_number);
                 }
                 MessageType::KeepAlive => {
-                    println!("KEEP ALIVE");
+                    //println!("KEEP ALIVE");
                     self.udp_socket.recv([0; 7].as_mut_slice())?;
                 }
                 MessageType::Invalid => {
