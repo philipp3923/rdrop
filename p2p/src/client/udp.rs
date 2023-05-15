@@ -286,7 +286,10 @@ impl UdpClientReader {
 
                 match client_handler.run() {
                     Ok(_) => Ok(()),
-                    Err(e) => {println!("ERR: {}", e);Err(e)},
+                    Err(e) => {
+                        println!("ERR: {}", e);
+                        Err(e)
+                    }
                 }
             });
 
@@ -515,6 +518,7 @@ impl ClientHandler {
 
         loop {
             if keep_alive_time.elapsed() > KEEP_ALIVE_INTERVAL {
+                println!("{:?}", dead_time);
                 self.udp_socket.send(&[MessageType::KeepAlive as u8])?;
                 //println!("{:8} | SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.received_counter, self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
                 keep_alive_time = Instant::now();
@@ -537,7 +541,6 @@ impl ClientHandler {
 
             let (message_type, message_number, message_size) = match self.peek_header() {
                 Some(header) => {
-                    println!("RECEIVED {:?} number: {} size: {}", header.0, header.1, header.2);
                     dead_time = Instant::now();
                     if opening && header.0 != MessageType::Open {
                         opening = false;
@@ -566,44 +569,42 @@ impl ClientHandler {
                     let content = self.recv_data(message_size)?;
                     self.send_acknowledgement(message_number)?;
 
-                    if message_number >= self.received_counter && self.message_receive_buffer.iter().find(|(number, _)| *number == message_number).is_none() {
-                            self.message_receive_buffer.push((message_number, content));
-                        }
-                        else if message_number == self.received_counter {
-                            self.message_sender.send(content)?;
-                            self.received_counter = self.received_counter.wrapping_add(1);
+                    if message_number > self.received_counter && self.message_receive_buffer.iter().find(|(number, _)| *number == message_number).is_none() {
+                        self.message_receive_buffer.push((message_number, content));
+                    } else if message_number == self.received_counter {
+                        self.message_sender.send(content)?;
+                        self.received_counter = self.received_counter.wrapping_add(1);
 
-                            self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
+                        self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
 
-                            let mut contents = Vec::<Vec<u8>>::new();
+                        let mut contents = Vec::<Vec<u8>>::new();
 
-                            self.message_receive_buffer.retain(|(number, content)| {
-                                if *number == self.received_counter {
-                                    contents.push(content.clone());
-                                    self.received_counter = self.received_counter.wrapping_add(1);
-                                    return false;
-                                }
-                                return true;
-                            });
-
-                            self.message_receive_buffer.retain(|(number, content)| {
-                                if *number == self.received_counter {
-                                    contents.push(content.clone());
-                                    self.received_counter = self.received_counter.wrapping_add(1);
-                                    return false;
-                                }
-                                return true;
-                            });
-
-                            //println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
-
-                            for content in contents {
-                                self.message_sender.send(content)?;
+                        self.message_receive_buffer.retain(|(number, content)| {
+                            if *number == self.received_counter {
+                                contents.push(content.clone());
+                                self.received_counter = self.received_counter.wrapping_add(1);
+                                return false;
                             }
+                            return true;
+                        });
+
+                        self.message_receive_buffer.retain(|(number, content)| {
+                            if *number == self.received_counter {
+                                contents.push(content.clone());
+                                self.received_counter = self.received_counter.wrapping_add(1);
+                                return false;
+                            }
+                            return true;
+                        });
+
+                        //println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
+
+                        for content in contents {
+                            self.message_sender.send(content)?;
                         }
-                        else {
-                            println!("[UDP] received old message n:{}", message_number);
-                        }
+                    } else {
+                        println!("[UDP] received old message n:{}", message_number);
+                    }
                 }
                 MessageType::Acknowledge => {
                     self.udp_socket.recv([0; 7].as_mut_slice())?;
@@ -688,18 +689,18 @@ impl ClientHandler {
     }
 
     fn send_messages(&mut self) -> Result<(), P2pError> {
-            if self.message_send_buffer.len() >= SLIDE_WINDOW as usize || self.lower_bound + SLIDE_WINDOW <= self.send_counter {
-                return Ok(());
-            }
+        if self.message_send_buffer.len() >= SLIDE_WINDOW as usize || self.lower_bound + SLIDE_WINDOW <= self.send_counter {
+            return Ok(());
+        }
 
-            if let Ok(content) = self.package_receiver.try_recv() {
-                let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
-                    //println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
-                    //sleep(Duration::from_nanos(50));
-                    self.udp_socket.send(content.as_slice())?;
-                    self.message_send_buffer.push(Package::new(content, size, self.send_counter, MessageType::Data));
-                    self.send_counter = self.send_counter.wrapping_add(1);
-            }
+        if let Ok(content) = self.package_receiver.try_recv() {
+            let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
+            //println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
+            //sleep(Duration::from_nanos(50));
+            self.udp_socket.send(content.as_slice())?;
+            self.message_send_buffer.push(Package::new(content, size, self.send_counter, MessageType::Data));
+            self.send_counter = self.send_counter.wrapping_add(1);
+        }
 
         Ok(())
     }
@@ -733,9 +734,7 @@ mod tests {
     const MAX_LEN: usize = 508u32 as usize;
 
     #[test]
-    fn test_wrong_order() {
-
-    }
+    fn test_wrong_order() {}
 
     #[test]
     fn test_same_port() {
