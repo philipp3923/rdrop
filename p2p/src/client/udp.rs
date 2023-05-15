@@ -658,10 +658,11 @@ impl ClientHandler {
 
     fn repeat_messages(&mut self) -> Result<(), P2pError> {
         let mut i = 0;
-        self.message_send_buffer.iter().for_each(|package| {
+        self.message_send_buffer.iter_mut().for_each(|package| {
             i += 1;
             if package.timestamp.elapsed() > SEND_INTERVAL {
                 sleep(Duration::from_nanos(1));
+                package.timestamp = Instant::now();
                 if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
                     println!("[UDP] send error: {:?}", e);
                 }
