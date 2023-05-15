@@ -79,10 +79,10 @@ impl UdpWaitingClient {
     ///
     /// match client {
     ///     Ok(client) => {
-    ///         println!("Client created");
+    ///         println!("6Client created");
     ///     }
     ///     Err(err) => {
-    ///         println!("Error: {}", err);
+    ///         println!("5Error: {}", err);
     ///     }
     /// }
     /// ```
@@ -121,10 +121,10 @@ impl UdpWaitingClient {
     ///
     /// match active_client {
     ///     Ok(client) => {
-    ///         println!("Connected to peer");
+    ///         println!("4Connected to peer");
     ///     }
     ///     Err(err) => {
-    ///         println!("Error: {}", err);
+    ///         println!("3Error: {}", err);
     ///     }
     /// }
     /// ```
@@ -190,7 +190,9 @@ impl UdpWaitingClient {
         let now = Instant::now();
 
         while !receive_thread.is_finished() {
-            self.udp_socket.send(&[MessageType::Open as u8])?;
+            if let Err(e) = self.udp_socket.send(&[MessageType::Open as u8]) {
+                println!("1 [UDP] Error: {}", e);
+            };
             sleep(RECEIVE_INTERVAL);
 
             if now.elapsed() > timeout {
@@ -199,7 +201,9 @@ impl UdpWaitingClient {
                 return Err(P2pError::new(ErrorKind::TimedOut));
             }
         }
-        self.udp_socket.send(&[MessageType::Open as u8])?;
+        if let Err(e) = self.udp_socket.send(&[MessageType::Open as u8]) {
+            println!("2 [UDP] Error: {}", e);
+        }
 
         let mut buf = [0; 1];
         while buf[0] == MessageType::Open as u8 && self.udp_socket.recv(&mut buf).is_ok() {}
@@ -525,13 +529,13 @@ impl ClientHandler {
             }
 
             if dead_time.elapsed() > DISCONNECT_TIMEOUT {
-                println!("[UDP] read thread timeout");
+                println!("[20UDP] read thread timeout");
                 self.closed_sender.send(())?;
                 return Ok(());
             }
 
             if self.stop_receiver.try_recv().is_ok() {
-                println!("[UDP] read thread stopped");
+                println!("19[UDP] read thread stopped");
                 self.closed_sender.send(())?;
                 return Ok(());
             }
@@ -557,11 +561,13 @@ impl ClientHandler {
 
             match message_type {
                 MessageType::Open => {
-                    self.udp_socket.recv([0; 7].as_mut_slice())?;
+                    if let Err(e) =  self.udp_socket.recv([0; 7].as_mut_slice()) {
+                        println!("18recv error: {:?}", e);
+                    };
                     if opening {
                         continue;
                     }
-                    println!("[UDP] received open message.. shutting down");
+                    println!("17[UDP] received open message.. shutting down");
                     self.closed_sender.send(())?;
                     return Ok(());
                 }
@@ -569,7 +575,7 @@ impl ClientHandler {
                     let content = self.recv_data(message_size)?;
 
                     if message_number > self.received_counter && self.message_receive_buffer.iter().find(|(number, _)| *number == message_number).is_none() {
-                        println!("early package {}, missing package {}, total buff {}", message_number, self.received_counter, self.message_receive_buffer.len());
+                        println!("16early package {}, missing package {}, total buff {}", message_number, self.received_counter, self.message_receive_buffer.len());
                         self.message_receive_buffer.push((message_number, content));
                     } else if message_number == self.received_counter {
                         //println!("good package {}, total buff {}", message_number, self.message_receive_buffer.len());
@@ -606,20 +612,26 @@ impl ClientHandler {
                             self.message_sender.send(content)?;
                         }
                     } else {
-                        println!("[UDP] received old message n:{}", message_number);
+                        println!("15[UDP] received old message n:{}", message_number);
                     }
                 }
                 MessageType::Acknowledge => {
-                    self.udp_socket.recv([0; 7].as_mut_slice())?;
+                    if let Err(e) = self.udp_socket.recv([0; 7].as_mut_slice())  {
+                        println!("14recv error: {:?}", e);
+                    };
                     self.acknowledge_package(message_number);
                 }
                 MessageType::KeepAlive => {
                     //println!("KEEP ALIVE");
-                    self.udp_socket.recv([0; 7].as_mut_slice())?;
+                    if let Err(e) = self.udp_socket.recv([0; 7].as_mut_slice())  {
+                        println!("13recv error: {:?}", e);
+                    };
                 }
                 MessageType::Invalid => {
-                    self.udp_socket.recv([0; 7].as_mut_slice())?;
-                    println!("[UDP] received invalid msg n:{} s:{}", message_number, message_size);
+                    if let Err(e) = self.udp_socket.recv([0; 7].as_mut_slice())  {
+                        println!("12recv error: {:?}", e);
+                    };
+                    println!("11[UDP] received invalid msg n:{} s:{}", message_number, message_size);
                 }
             }
         }
@@ -656,7 +668,9 @@ impl ClientHandler {
 
     fn recv_data(&mut self, message_size: u16) -> Result<Vec<u8>, P2pError> {
         let mut buffer = vec![0u8; message_size as usize + 7];
-        self.udp_socket.recv(&mut buffer)?;
+        if let Err(e) = self.udp_socket.recv(&mut buffer){
+            println!("10recv error: {:?}", e);
+        };
 
         //println!("DATA {:2x?}", buffer.as_slice());
 
@@ -687,7 +701,7 @@ impl ClientHandler {
             if package.timestamp.elapsed() > SEND_INTERVAL {
                 package.timestamp = Instant::now();
                 if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
-                    println!("[UDP] send error: {:?}", e);
+                    println!("9[UDP] send error: {:?}", e);
                 }
             }
 
@@ -708,7 +722,9 @@ impl ClientHandler {
             let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
             //println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
             //sleep(Duration::from_nanos(50));
-            self.udp_socket.send(content.as_slice())?;
+            if let Err(e) = self.udp_socket.send(content.as_slice()) {
+                println!("8[UDP] send error: {:?}", e);
+            };
             self.message_send_buffer.push(Package::new(content, size, self.send_counter, MessageType::Data));
             self.send_counter = self.send_counter.wrapping_add(1);
         }
@@ -815,7 +831,7 @@ mod tests {
 
         let thread_c2 = thread::spawn(move || {
             sleep(Duration::from_millis(100));
-            println!("start");
+            println!("7start");
             return w2.connect(ipv6, p1, Some(timeout), Some(timeout)).unwrap();
         });
 
