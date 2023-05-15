@@ -526,7 +526,7 @@ impl ClientHandler {
                 return Ok(());
             }
 
-            println!("{:8} | SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.received_counter, self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
+            //println!("{:8} | SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.received_counter, self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
 
             self.send_messages()?;
             self.repeat_messages()?;
