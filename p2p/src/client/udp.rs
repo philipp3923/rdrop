@@ -284,7 +284,10 @@ impl UdpClientReader {
                     closed_sender, message_sender,
                 );
 
-                client_handler.run()
+                match client_handler.run() {
+                    Ok(_) => Ok(()),
+                    Err(e) => {println!("ERR: {}", e);Err(e)},
+                }
             });
 
         return Ok(UdpClientReader {
