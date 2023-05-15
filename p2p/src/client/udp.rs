@@ -626,14 +626,18 @@ impl ClientHandler {
     }
 
     fn acknowledge_package(&mut self, message_number: u32) {
-        while let Some((number, _)) = self.message_receive_buffer.first() {
-            if *number != message_number {
-                self.message_receive_buffer.remove(0);
+        while let Some(package) = self.message_send_buffer.first() {
+            if package.number != message_number {
+                self.message_send_buffer.remove(0);
             } else {
                 break;
             }
         }
-        self.message_receive_buffer.remove(0);
+        if let Some(package) = self.message_send_buffer.first() {
+            if package.number == message_number {
+                self.message_send_buffer.remove(0);
+            }
+        }
 
         if let Some(first) = self.message_send_buffer.first() {
             self.lower_bound = first.number;
