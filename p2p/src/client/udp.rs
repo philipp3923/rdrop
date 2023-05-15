@@ -8,15 +8,15 @@ use crate::client::{ActiveClient, ClientReader, ClientWriter};
 use crate::error::{ChangeStateError, ErrorKind, ThreadError};
 use crate::error::Error as P2pError;
 
-const SEND_INTERVAL: Duration = Duration::from_millis(250);
+const SEND_INTERVAL: Duration = Duration::from_millis(100);
 //time between each resend
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
 //time between each keep alive message
 const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time after which the connection is considered dead
-const RECEIVE_INTERVAL: Duration = Duration::from_millis(10); //time between each receive timeout
+const RECEIVE_INTERVAL: Duration = Duration::from_millis(1); //time between each receive timeout
 
-const SLIDE_WINDOW: u32 = 1024 * 100; //number of packets in the slide window
+const SLIDE_WINDOW: u32 = 1024; //number of packets in the slide window
 
 /// A UDP client that waits for a connection.
 pub struct UdpWaitingClient {
@@ -518,9 +518,9 @@ impl ClientHandler {
 
         loop {
             if keep_alive_time.elapsed() > KEEP_ALIVE_INTERVAL {
-                println!("{:?}", dead_time.elapsed());
+                //println!("{:?}", dead_time.elapsed());
                 self.udp_socket.send(&[MessageType::KeepAlive as u8])?;
-                println!("{:8} | SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.received_counter, self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
+                //println!("{:8} | SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.received_counter, self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
                 keep_alive_time = Instant::now();
             }
 
@@ -567,13 +567,12 @@ impl ClientHandler {
                 }
                 MessageType::Data => {
                     let content = self.recv_data(message_size)?;
-                    self.send_acknowledgement(message_number)?;
 
                     if message_number > self.received_counter && self.message_receive_buffer.iter().find(|(number, _)| *number == message_number).is_none() {
                         println!("early package {}, missing package {}, total buff {}", message_number, self.received_counter, self.message_receive_buffer.len());
                         self.message_receive_buffer.push((message_number, content));
                     } else if message_number == self.received_counter {
-                        println!("good package {}, total buff {}", message_number, self.message_receive_buffer.len());
+                        //println!("good package {}, total buff {}", message_number, self.message_receive_buffer.len());
                         self.message_sender.send(content)?;
                         self.received_counter = self.received_counter.wrapping_add(1);
 
@@ -598,6 +597,8 @@ impl ClientHandler {
                             }
                             return true;
                         });
+
+                        self.send_acknowledgement(self.received_counter-1)?;
 
                         //println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
 
@@ -625,10 +626,14 @@ impl ClientHandler {
     }
 
     fn acknowledge_package(&mut self, message_number: u32) {
-        if let Some(index) = self.message_send_buffer.iter().position(|package| package.number == message_number) {
-            self.message_send_buffer.remove(index);
-            //println!("ACKNOWLEDGE {} RECV SLIDE {}/{}", message_number, self.message_send_buffer.len(), SLIDE_WINDOW);
+        while let Some((number, _)) = self.message_receive_buffer.first() {
+            if *number != message_number {
+                self.message_receive_buffer.remove(0);
+            } else {
+                break;
+            }
         }
+        self.message_receive_buffer.remove(0);
 
         if let Some(first) = self.message_send_buffer.first() {
             self.lower_bound = first.number;
