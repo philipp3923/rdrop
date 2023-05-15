@@ -16,6 +16,8 @@ use p2p::error::ErrorKind;
 use crate::error::{ClientError, ClientErrorKind};
 use crate::events::{FileState, send_disconnect, send_file_state};
 
+const READ_TIMEOUT: Duration = Duration::from_millis(50);
+
 #[derive(Clone)]
 pub struct File {
     pub(crate) hash: String,
@@ -231,7 +233,7 @@ fn read_thread<R: ClientReader>(dropper: Arc<RwLock<bool>>,
             Err(_) => {}
         }
 
-        let mut msg = match reader.read(timeout) {
+        let mut msg = match reader.read(Some(READ_TIMEOUT)) {
             Ok(msg) => msg,
             Err(_err) => {
                 match _err.kind() {
