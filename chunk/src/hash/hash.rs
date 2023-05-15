@@ -6,6 +6,8 @@ use md5::Md5;
 
 use crate::general::general::{AppSettings, BUFFER_SIZE};
 
+pub const BUFFER_HASH_SIZE:usize = 1024 * 1024*250;
+
 
 //Enum with string-len of hash
 #[derive(Debug)]
@@ -30,7 +32,7 @@ impl Hash{
 
 pub fn get_hash_from_file(file:&File) -> Result<String, Error>{
 
-    return get_file_hash(file, BUFFER_SIZE, &Hash::SIPHASH24, 0);
+    return get_file_hash(file, BUFFER_HASH_SIZE, &Hash::SIPHASH24, 0);
 }
 
 
