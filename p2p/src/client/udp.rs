@@ -657,7 +657,7 @@ impl ClientHandler {
 
     fn peek_header(&mut self) -> Option<(MessageType, u32, u16)> {
         let mut header = [0u8; 7];
-        if let Err(_e) = self.udp_socket.peek(&mut header) {
+        if (self.udp_socket.peek(&mut header).is_err()) && header[0] == 0 {
             return None;
         };
 
