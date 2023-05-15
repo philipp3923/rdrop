@@ -526,7 +526,7 @@ impl ClientHandler {
                 return Ok(());
             }
 
-            println!("SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
+            println!("{:8} | SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.received_counter, self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
 
             self.send_messages()?;
             self.repeat_messages()?;
@@ -561,7 +561,7 @@ impl ClientHandler {
                 }
                 MessageType::Data => {
                     let content = self.recv_data(message_size)?;
-                        if self.message_receive_buffer.iter().find(|x| x.0 == message_number).is_none() {
+                        if message_number >= self.received_counter {
                             self.message_receive_buffer.push((message_number, content));
                         }
                         self.send_acknowledgement(message_number)?;
