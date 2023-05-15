@@ -511,6 +511,7 @@ impl ClientHandler {
         loop {
             if keep_alive_time.elapsed() > KEEP_ALIVE_INTERVAL {
                 self.udp_socket.send(&[MessageType::KeepAlive as u8])?;
+                println!("{:8} | SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.received_counter, self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
                 keep_alive_time = Instant::now();
             }
 
@@ -525,8 +526,6 @@ impl ClientHandler {
                 self.closed_sender.send(())?;
                 return Ok(());
             }
-
-            //println!("{:8} | SEND BUFFER {:8}/{:8} RECV BUFFER {:8}/{:8}", self.received_counter, self.message_send_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.len(), SLIDE_WINDOW);
 
             self.send_messages()?;
             self.repeat_messages()?;
@@ -587,18 +586,24 @@ impl ClientHandler {
     fn read_messages(&mut self) -> Result<(), P2pError>{
         self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
 
+        let mut count = 0;
+
         self.message_receive_buffer.retain(|(number, content)| {
 
             if number == &self.received_counter && self.message_sender.send(content.clone()).is_ok() {
                 self.received_counter = self.received_counter.wrapping_add(1);
-                println!("RM {} {}", number, self.received_counter);
+                //println!("RM {} {}", number, self.received_counter);
+                count += 1;
                 return false;
             }
 
-            println!("KP {} {}", number, self.received_counter);
+            //println!("KP {} {}", number, self.received_counter);
             return true;
         });
 
+        if count > 0 {
+            println!("RECV {} MESSAGES WITH BUFFER {}", count, self.message_receive_buffer.len());
+        }
         Ok(())
     }
 
