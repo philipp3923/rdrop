@@ -476,8 +476,8 @@ struct ClientHandler {
     message_sender: Sender<Vec<u8>>,
     send_counter: u16,
     received_counter: u16,
-    message_window: Vec<Package>,
-    message_buffer: Vec<(u16, Vec<u8>)>,
+    message_send_buffer: Vec<Package>,
+    message_receive_buffer: Vec<(u16, Vec<u8>)>,
 }
 
 impl ClientHandler {
@@ -494,8 +494,8 @@ impl ClientHandler {
             closed_sender,
             send_counter: 0,
             received_counter: 0,
-            message_window: Vec::new(),
-            message_buffer: Vec::new(),
+            message_send_buffer: Vec::new(),
+            message_receive_buffer: Vec::new(),
         }
     }
 
@@ -539,7 +539,7 @@ impl ClientHandler {
                     header
                 }
                 None => {
-                    if self.message_buffer.len() < SLIDE_WINDOW as usize / 10 {
+                    if self.message_receive_buffer.len() < SLIDE_WINDOW as usize / 10 {
                         sleep(RECEIVE_INTERVAL);
                     }
                     continue;
@@ -558,14 +558,11 @@ impl ClientHandler {
                 }
                 MessageType::Data => {
                     let content = self.recv_data(message_size)?;
-                        if self.message_buffer.iter().find(|x| x.0 == message_number).is_some() {
-                            println!("[UDP] received duplicate msg n:{} s:{}", message_number, message_size);
-                        }else{
-                            self.message_buffer.push((message_number, content));
+                        if self.message_receive_buffer.iter().find(|x| x.0 == message_number).is_none() {
+                            self.message_receive_buffer.push((message_number, content));
                         }
                         self.send_acknowledgement(message_number)?;
 
-                        println!("SLIDE WINDOW, {} | {}", self.received_counter, self.message_buffer.len());
 
                 }
                 MessageType::Acknowledge => {
@@ -584,35 +581,34 @@ impl ClientHandler {
     }
 
     fn read_messages(&mut self) -> Result<(), P2pError>{
-        self.message_buffer.sort_by(|a, b| a.0.cmp(&b.0));
-        for i in 0..self.message_buffer.len() {
-            if i >= self.message_buffer.len() {
+        self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
+        for i in 0..self.message_receive_buffer.len() {
+            if i >= self.message_receive_buffer.len() {
                 break;
             }
 
-            let (number, _) = &self.message_buffer[i];
+            let (number, _) = &self.message_receive_buffer[i];
 
             if number > &self.received_counter {
                 break;
             }
 
             if number == &self.received_counter {
-                let (_number, content) = self.message_buffer.remove(i);
-                //println!("RECEIVED number: {} content: {:2x?}", _number, content.as_slice());
+                let (_number, content) = self.message_receive_buffer.remove(i);
                 self.message_sender.send(content)?;
                 self.received_counter = self.received_counter.wrapping_add(1);
             }
-
-
         }
+
+        println!("RECV WINDOW {}/{} from {} to {}", self.message_receive_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.first().unwrap_or(&(0, vec![])).0, self.message_receive_buffer.last().unwrap_or(&(0, vec![])).0);
 
         Ok(())
     }
 
     fn acknowledge_package(&mut self, message_number: u16) {
-        if let Some(index) = self.message_window.iter().position(|package| &&package.number == &&message_number) {
-            println!("ACKNOWLEDGE {}", message_number);
-            self.message_window.remove(index);
+        if let Some(index) = self.message_send_buffer.iter().position(|package| &&package.number == &&message_number) {
+            self.message_send_buffer.remove(index);
+            println!("ACKNOWLEDGE {} RECV SLIDE {}/{}", message_number, self.message_send_buffer.len(), SLIDE_WINDOW);
         }
     }
 
@@ -650,7 +646,7 @@ impl ClientHandler {
 
     fn repeat_messages(&mut self) -> Result<(), P2pError> {
         let mut i = 0;
-        self.message_window.iter().for_each(|package| {
+        self.message_send_buffer.iter().for_each(|package| {
             i += 1;
             if package.timestamp.elapsed() > SEND_INTERVAL {
                 if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
@@ -668,7 +664,7 @@ impl ClientHandler {
 
     fn send_messages(&mut self) -> Result<(), P2pError> {
         loop {
-            if self.message_window.len() >= SLIDE_WINDOW as usize {
+            if self.message_send_buffer.len() >= SLIDE_WINDOW as usize {
                 break;
             }
 
@@ -677,7 +673,7 @@ impl ClientHandler {
                     let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
                     //println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
                     self.udp_socket.send(content.as_slice())?;
-                    self.message_window.push(Package::new(content, size, self.send_counter, MessageType::Data));
+                    self.message_send_buffer.push(Package::new(content, size, self.send_counter, MessageType::Data));
                     self.send_counter = self.send_counter.wrapping_add(1);
                 }
                 Err(_) => break,
