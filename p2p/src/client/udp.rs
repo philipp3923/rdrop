@@ -573,6 +573,7 @@ impl ClientHandler {
                         println!("early package {}, missing package {}, total buff {}", message_number, self.received_counter, self.message_receive_buffer.len());
                         self.message_receive_buffer.push((message_number, content));
                     } else if message_number == self.received_counter {
+                        println!("good package {}, total buff {}", message_number, self.message_receive_buffer.len());
                         self.message_sender.send(content)?;
                         self.received_counter = self.received_counter.wrapping_add(1);
 
@@ -658,11 +659,11 @@ impl ClientHandler {
 
     fn peek_header(&mut self) -> Option<(MessageType, u32, u16)> {
         let mut header = [0u8; 7];
-        if (self.udp_socket.peek(&mut header).is_err()) && header[0] == 0 {
-            return None;
+        if self.udp_socket.peek(&mut header).is_err() {
+            //ok if no data is available
         };
 
-        if header[0] == 0 {
+        if header[0] == 0 && header[1] == 0 && header[2] == 0 && header[3] == 0 && header[4] == 0 && header[5] == 0 && header[6] == 0 {
             return None;
         }
 
