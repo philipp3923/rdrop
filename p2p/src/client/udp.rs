@@ -590,6 +590,7 @@ impl ClientHandler {
             let (number, _) = &self.message_receive_buffer[i];
 
             if number > &self.received_counter {
+                println!("RECV WINDOW {}/{} from {} to {}", self.message_receive_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.first().unwrap_or(&(0, vec![])).0, self.message_receive_buffer.last().unwrap_or(&(0, vec![])).0);
                 break;
             }
 
@@ -599,9 +600,6 @@ impl ClientHandler {
                 self.received_counter = self.received_counter.wrapping_add(1);
             }
         }
-
-        println!("RECV WINDOW {}/{} from {} to {}", self.message_receive_buffer.len(), SLIDE_WINDOW, self.message_receive_buffer.first().unwrap_or(&(0, vec![])).0, self.message_receive_buffer.last().unwrap_or(&(0, vec![])).0);
-
         Ok(())
     }
 
