@@ -479,6 +479,7 @@ struct ClientHandler {
     received_counter: u32,
     message_send_buffer: Vec<Package>,
     message_receive_buffer: Vec<(u32, Vec<u8>)>,
+    lower_bound: u32,
 }
 
 impl ClientHandler {
@@ -495,6 +496,7 @@ impl ClientHandler {
             closed_sender,
             send_counter: 0,
             received_counter: 0,
+            lower_bound: 0,
             message_send_buffer: Vec::new(),
             message_receive_buffer: Vec::new(),
         }
@@ -622,6 +624,17 @@ impl ClientHandler {
             self.message_send_buffer.remove(index);
             //println!("ACKNOWLEDGE {} RECV SLIDE {}/{}", message_number, self.message_send_buffer.len(), SLIDE_WINDOW);
         }
+
+        while let Some(first) = self.message_send_buffer.first() {
+            if first.number == self.lower_bound {
+                self.message_send_buffer.remove(0);
+                self.lower_bound = self.lower_bound.wrapping_add(1);
+                //println!("SLIDE WINDOW {}/{}", self.message_send_buffer.len(), SLIDE_WINDOW);
+            }
+            else {
+                break;
+            }
+        }
     }
 
     fn send_acknowledgement(&mut self, message_number: u32) -> Result<(), P2pError> {
@@ -678,7 +691,7 @@ impl ClientHandler {
 
     fn send_messages(&mut self) -> Result<(), P2pError> {
         loop {
-            if self.message_send_buffer.len() >= SLIDE_WINDOW as usize {
+            if self.message_send_buffer.len() >= SLIDE_WINDOW as usize || self.lower_bound + SLIDE_WINDOW >= self.send_counter {
                 break;
             }
 
