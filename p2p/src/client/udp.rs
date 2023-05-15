@@ -633,7 +633,7 @@ impl ClientHandler {
         if let Some(first) = self.message_send_buffer.first() {
             self.lower_bound = first.number;
         } else {
-            self.lower_bound = 0;
+            self.lower_bound = self.send_counter;
         }
     }
 
@@ -691,7 +691,7 @@ impl ClientHandler {
     }
 
     fn send_messages(&mut self) -> Result<(), P2pError> {
-        if self.message_send_buffer.len() >= SLIDE_WINDOW as usize || self.send_counter - self.lower_bound >= SLIDE_WINDOW {
+        if self.message_send_buffer.len() >= SLIDE_WINDOW as usize || self.send_counter >= SLIDE_WINDOW + self.lower_bound{
             return Ok(());
         }
 
