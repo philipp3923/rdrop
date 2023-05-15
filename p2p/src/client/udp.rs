@@ -10,7 +10,7 @@ use crate::error::Error as P2pError;
 
 const SEND_INTERVAL: Duration = Duration::from_millis(100);
 //time between each resend
-const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200);
+const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(50);
 //time between each keep alive message
 const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time after which the connection is considered dead
