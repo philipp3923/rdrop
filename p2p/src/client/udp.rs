@@ -691,7 +691,7 @@ impl ClientHandler {
     }
 
     fn send_messages(&mut self) -> Result<(), P2pError> {
-        if self.message_send_buffer.len() >= SLIDE_WINDOW as usize || self.send_counter >= SLIDE_WINDOW + self.lower_bound{
+        if self.message_send_buffer.len() >= SLIDE_WINDOW as usize{
             return Ok(());
         }
 
