@@ -587,9 +587,6 @@ impl ClientHandler {
         self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
 
         self.message_receive_buffer.retain(|(number, content)| {
-            if number > &self.received_counter {
-                false;
-            }
 
             if number == &self.received_counter && self.message_sender.send(content.clone()).is_ok() {
                 self.received_counter = self.received_counter.wrapping_add(1);
