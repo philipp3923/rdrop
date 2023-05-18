@@ -20,45 +20,63 @@ use crate::events::{send_disconnect, send_file_state, FileState};
 
 const READ_TIMEOUT: Duration = Duration::from_millis(50);
 
+
+/// Wrapper for a file.
 #[derive(Clone)]
 pub struct File {
     pub(crate) hash: String,
     pub(crate) path: String,
     pub(crate) size: u64,
     pub(crate) name: String,
-    cache: Vec<u8>,
 }
 
 impl File {
-    fn new(hash: String, path: String, name: String, size: u64, cache: Vec<u8>) -> Self {
+    fn new(hash: String, path: String, name: String, size: u64) -> Self {
         File {
             hash,
             path,
             name,
             size,
-            cache,
         }
     }
 }
 
+/// A Client for communicating with a peer.
 pub struct Client<W: ClientWriter + Send, R: ClientReader + Send> {
     app_handle: AppHandle<Wry>,
+    /// Used instead of phantom data. May be used in the future.
+    #[allow(dead_code)]
     reader: Arc<Mutex<R>>,
+    /// Used instead of phantom data. May be used in the future.
+    #[allow(dead_code)]
     writer: Arc<Mutex<W>>,
     drop_threads: Arc<RwLock<bool>>,
     port: u16,
-    reader_thread: JoinHandle<Result<(), ClientError>>,
-    writer_thread: JoinHandle<Result<(), ClientError>>,
+    reader_thread: Option<JoinHandle<Result<(), ClientError>>>,
+    writer_thread: Option<JoinHandle<Result<(), ClientError>>>,
     read_command: Sender<ReadCommand>,
     write_command: Sender<WriteCommand>,
 }
 
+
 impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<W, R> {
+    /// Creates a new `Client`.
+    ///
+    /// # Arguments
+    ///
+    /// * `app_handle` - A handle to the tauri application.
+    /// * `reader` - A `ClientReader` to read from.
+    /// * `writer` - A `ClientWriter` to write to.
+    /// * `timeout` - An optional timeout duration.
+    /// * `port` - The port number, to which the client is bound.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `Client`.
     pub fn new(
         app_handle: AppHandle<Wry>,
         reader: R,
         writer: W,
-        timeout: Option<Duration>,
         port: u16,
     ) -> Self {
         let drop_threads = Arc::new(RwLock::new(false));
@@ -83,7 +101,6 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
                 drop_threads_clone_1,
                 reader_clone,
                 app_handle_clone_1,
-                timeout,
                 read_command_receiver,
                 write_command_clone,
             );
@@ -124,20 +141,35 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
             writer,
             drop_threads,
             port,
-            reader_thread,
-            writer_thread,
+            reader_thread : Some(reader_thread),
+            writer_thread: Some(writer_thread),
         }
     }
 
+
+    /// Gets the port to which the client is bound.
+    ///
+    /// Returns the port as a `u16`.
     pub fn get_port(&self) -> u16 {
         self.port
     }
 
+    /// Offers sending a file.
+    ///
+    /// # Arguments
+    ///
+    /// * `hash` - The hash of the file to accept.
+    /// * `path` - The path where the file is saved.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the command was transmitted successfully,
+    /// or an `Err` containing a `ClientError`.
     pub fn offer_file(&mut self, path: String) -> Result<(), ClientError> {
         let (file, file_name, file_size) = chunk::general::general::get_file_data(&path)?;
         let file_hash = chunk::hash::hash::get_hash_from_file(&file)?;
 
-        let new_file = File::new(file_hash, path, file_name, file_size, Vec::new());
+        let new_file = File::new(file_hash, path, file_name, file_size);
 
         send_file_state(
             &self.app_handle,
@@ -151,23 +183,64 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
         Ok(())
     }
 
+    /// Accepts receiving a file.
+    ///
+    /// # Arguments
+    ///
+    /// * `hash` - The hash of the file to accept.
+    /// * `path` - The path to save the file to.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the command was transmitted successfully,
+    /// or an `Err` containing a `ClientError`.
     pub fn accept_file(&mut self, hash: String, path: String) -> Result<(), ClientError> {
-        let file = File::new(hash, path, "".to_string(), 0, Vec::new());
+        let file = File::new(hash, path, "".to_string(), 0);
 
         self.read_command.send(ReadCommand::Receive(file))?;
         Ok(())
     }
 
+    /// Denies receiving a file.
+    ///
+    /// # Arguments
+    ///
+    /// * `hash` - The hash of the file to deny.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the command was transmitted successfully,
+    /// or an `Err` containing a `ClientError`.
     pub fn deny_file(&mut self, hash: String) -> Result<(), ClientError> {
         self.read_command.send(ReadCommand::Stop(hash))?;
         Ok(())
     }
 
-    pub fn stop_file(&mut self, hash: String) -> Result<(), ClientError> {
+    /// Stops sending a file.
+    ///
+    /// # Arguments
+    ///
+    /// * `hash` - The hash of the file to stop.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the command was transmitted successfully,
+    /// or an `Err` containing a `ClientError`.
+    pub fn stop_sending_file(&mut self, hash: String) -> Result<(), ClientError> {
         self.write_command.send(WriteCommand::StopSend(hash))?;
         Ok(())
     }
 
+    /// Pause receiving a file.
+    ///
+    /// # Arguments
+    ///
+    /// * `hash` - The hash of the file to pause.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the command was transmitted successfully,
+    /// or an `Err` containing a `ClientError`.
     pub fn pause_file(&mut self, hash: String) -> Result<(), ClientError> {
         self.read_command.send(ReadCommand::Pause(hash))?;
         Ok(())
@@ -176,34 +249,65 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
 
 impl<W: ClientWriter + Send, R: ClientReader + Send> Drop for Client<W, R> {
     fn drop(&mut self) {
-        //should panic if this fails
+        //should panic if this fails. It could be that one of the threads is already dead and there would be no way to stop the other one.
         let mut dropper = self.drop_threads.write().unwrap();
         *dropper = true;
+
+        if let Some(thread) = self.writer_thread.take() {
+            if thread.join().is_err() {
+                println!("[CLIENT]: Failed to join writer thread");
+            }
+        }
+
+        if let Some(thread) = self.reader_thread.take() {
+            if thread.join().is_err() {
+                println!("[CLIENT]: Failed to join reader thread");
+            }
+        }
     }
 }
 
+/// Commands to send to the read thread.
 enum ReadCommand {
+    /// Activate receiving for a file.
     Receive(File),
+    /// Pause receiving for a file. Contains the file hash.
     Pause(String),
+
+    /// Resume receiving for a file. Contains the file hash.
+    // TODO implement resume
+    #[allow(dead_code)]
     Resume(String),
+    /// Stop receiving a file. Contains the file hash.
     Stop(String),
 }
 
+/// Commands to send to the write thread.
 enum WriteCommand {
+    /// Sends a request for a file.
     Request(ActiveFile),
+    /// Sends a offer for a file. Contains the file hash.
     Offer(File),
+    /// Stop sending a file. Contains the file hash.
     Stop(String),
-    // Sends stop command to other client
+    /// Send a stop sending signal to the peer. Contains the file hash.
     StopSend(String),
-    // Stops self sending
-    Send(String, u64, u64), // HASH + START CHUNK + END CHUNK
+    /// Send a chunk to the peer. Contains the file hash, the chunk start point and endpoint.
+    Send(String, u64, u64),
 }
 
+/// Function in charge of handling all incoming messages.
+///
+/// # Arguments
+/// * `dropper` - A boolean that indicates if the thread should stop.
+/// * `reader` - The `ClientReader` that is used to read from the peer.
+/// * `app_handle` - A handle to the tauri application.
+/// * `command_receiver` - A receiver for the read commands.
+/// * `command_sender` - A writer for the write commands.
 fn read_thread<R: ClientReader>(
     dropper: Arc<RwLock<bool>>,
     reader: Arc<Mutex<R>>,
     app_handle: AppHandle<Wry>,
-    _timeout: Option<Duration>,
     command_receiver: mpsc::Receiver<ReadCommand>,
     command_sender: Sender<WriteCommand>,
 ) -> Result<(), ClientError> {
@@ -324,7 +428,7 @@ fn read_thread<R: ClientReader>(
 
                 println!("[READER] : offer {}", offer.file_hash);
 
-                let file = File::new(offer.file_hash, "".to_string(), offer.name, offer.size, msg);
+                let file = File::new(offer.file_hash, "".to_string(), offer.name, offer.size);
                 pending_files.push(file.clone());
 
                 //send_offer(&app_handle, file.path, file.hash, file.size)?;
@@ -411,6 +515,7 @@ fn read_thread<R: ClientReader>(
 }
 
 #[derive(Clone)]
+/// Wrapper for File objects which are currently active, that means transmitted.
 struct ActiveFile {
     file: File,
     start: u64,
@@ -419,7 +524,6 @@ struct ActiveFile {
 }
 
 impl ActiveFile {
-    //TODO @Simon anhand der file und groesse anzahl der chunks berechnen und entsprechend anfuegen
     fn from_file(file: File) -> Self {
         let stop = get_chunk_count(file.size);
         Self {
@@ -431,6 +535,14 @@ impl ActiveFile {
     }
 }
 
+/// Function which handles writing to the peer.
+///
+/// # Arguments
+///
+/// * `dropper` - A boolean which is used to signal the thread to stop.
+/// * `app_handle` - A handle to the tauri application.
+/// * `writer` - A `ClientWriter` which is used to write to the peer.
+/// * `command_receiver` - A receiver for the commands to handle.
 fn write_thread<W: ClientWriter>(
     dropper: Arc<RwLock<bool>>,
     app_handle: AppHandle<Wry>,

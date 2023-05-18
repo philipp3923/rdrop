@@ -1,5 +1,5 @@
 use crate::client::tcp::{TcpActiveClient, TcpClientReader, TcpClientWriter, TcpWaitingClient};
-use crate::client::udp::{UdpActiveClient, UdpClientReader, UdpClientWriter, UdpWaitingClient};
+use crate::client::udp_slide::{UdpActiveClient, UdpClientReader, UdpClientWriter, UdpWaitingClient};
 use crate::client::{
     ActiveClient, ClientReader, ClientWriter, EncryptedReader, EncryptedWriter, WaitingClient,
 };

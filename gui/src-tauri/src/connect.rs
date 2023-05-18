@@ -18,6 +18,22 @@ use crate::handle::Current;
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(1);
 const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
+
+/// Establishes a connection with a remote peer.
+///
+/// # Arguments
+///
+/// * `app_handle` - Handle for the tauri application.
+/// * `current` - The current state of the client.
+/// * `connection` - The waiting connection, which now should be connected.
+/// * `receiver` - A Receiver for receiving termination signals.
+/// * `ipv6` - The IPv6 address of the remote server.
+/// * `port` - The port number of the remote server.
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the connection is established successfully, or an `Err` containing a `ClientError`
+/// if an error occurs during the connection process.
 pub fn thread_connect(
     app_handle: AppHandle<Wry>,
     current: Arc<Mutex<Current>>,
@@ -60,23 +76,9 @@ pub fn thread_connect(
 
                 let mut write_state = current.lock().unwrap();
 
-                let (writer, reader) = active_connection.accept();
-                let client = Client::new(
-                    app_handle.clone(),
-                    reader,
-                    writer,
-                    Some(DISCONNECT_TIMEOUT),
-                    self_port,
-                );
-
-                *write_state = Current::ConnectedUdp(client);
-                send_connected(&app_handle, Protocol::UDP)?;
-
-                return Ok(());
-
                 send_connect_status(&app_handle, "Upgrading", "Sampling time difference.")?;
 
-                let active_connection = match active_connection.upgrade() {
+                return match active_connection.upgrade() {
                     Ok(connection) => {
                         let mut write_state = current.lock().unwrap();
                         send_connect_status(&app_handle, "Connected successfully", "")?;
@@ -87,71 +89,31 @@ pub fn thread_connect(
                             app_handle.clone(),
                             reader,
                             writer,
-                            Some(DISCONNECT_TIMEOUT),
                             self_port,
                         );
 
                         *write_state = Current::ConnectedTcp(client);
                         send_connected(&app_handle, Protocol::TCP)?;
-                        return Ok(());
+                        Ok(())
                     }
                     Err(err) => {
                         let (old_connection, err) = err.split();
 
                         println!("{}", err);
 
-                        old_connection
-                    }
-                };
-
-                send_connect_status(&app_handle, "Upgrading", "Synchronizing using NTP server.")?;
-
-                match active_connection.upgrade_using_ntp() {
-                    Ok(connection) => {
-                        let mut write_state = current.lock().unwrap();
-                        send_connect_status(&app_handle, "Connected successfully", "")?;
-                        let _port = connection.get_port();
-
-                        let (writer, reader) = connection.accept();
+                        let (writer, reader) = old_connection.accept();
                         let client = Client::new(
                             app_handle.clone(),
                             reader,
                             writer,
-                            Some(DISCONNECT_TIMEOUT),
-                            self_port,
-                        );
-
-                        *write_state = Current::ConnectedTcp(client);
-                        send_connected(&app_handle, Protocol::TCP)?;
-                    }
-                    Err(err) => {
-                        send_connect_status(
-                            &app_handle,
-                            "Upgrading failed",
-                            "Using fallback UDP protocol.",
-                        )?;
-
-                        let (connection, err) = err.split();
-
-                        println!("{}", err);
-
-                        let mut write_state = current.lock().unwrap();
-
-                        let (writer, reader) = connection.accept();
-                        let client = Client::new(
-                            app_handle.clone(),
-                            reader,
-                            writer,
-                            Some(DISCONNECT_TIMEOUT),
                             self_port,
                         );
 
                         *write_state = Current::ConnectedUdp(client);
                         send_connected(&app_handle, Protocol::UDP)?;
+                        Ok(())
                     }
-                }
-
-                return Ok(());
+                };
             }
             Err(err) => {
                 let (old_c, err) = err.split();
@@ -170,8 +132,6 @@ pub fn thread_connect(
             }
         }
     }
-
-    println!("Dummer hs");
 
     let mut write_state = current.lock().unwrap();
 

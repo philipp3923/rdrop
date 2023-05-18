@@ -8,13 +8,10 @@ use std::str::FromStr;
 use std::sync::mpsc::SyncSender;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-
 use tauri::{AppHandle, State, Wry};
-
 use p2p::client::tcp::{TcpClientReader, TcpClientWriter};
-use p2p::client::udp::{UdpClientReader, UdpClientWriter};
-use p2p::client::{EncryptedReader, EncryptedWriter, WaitingClient};
-
+use p2p::client::udp_slide::{UdpClientReader, UdpClientWriter};
+use p2p::client::{EncryptedReader, EncryptedWriter};
 use p2p::protocol::{Connection, Waiting};
 
 use crate::client::Client;
@@ -22,6 +19,7 @@ use crate::connect::thread_connect;
 use crate::error::{ClientError, ClientErrorKind};
 use crate::events::{send_bind_port, send_connect_status};
 
+/// Wrapper for the application state.
 pub struct AppState(Arc<Mutex<Current>>);
 
 impl AppState {
@@ -34,6 +32,7 @@ impl AppState {
     }
 }
 
+/// Holds the current state of the application.
 pub enum Current {
     Broken,
     Disconnected(Connection<Waiting>),
@@ -61,6 +60,7 @@ impl Current {
     }
 }
 
+/// Connects to the peer.
 #[tauri::command]
 pub fn connect(
     app_handle: AppHandle<Wry>,
@@ -105,6 +105,7 @@ pub fn connect(
     return Ok(());
 }
 
+/// Disconnects from the peer.
 #[tauri::command]
 pub fn disconnect(
     app_handle: AppHandle<Wry>,
@@ -128,6 +129,7 @@ pub fn disconnect(
     }
 }
 
+/// Offers a file to the peer.
 #[tauri::command]
 pub fn offer_file(app_state: State<AppState>, path: String) -> Result<(), ClientError> {
     println!("[EVENT] offer_file");
@@ -140,6 +142,7 @@ pub fn offer_file(app_state: State<AppState>, path: String) -> Result<(), Client
     }
 }
 
+/// Accepts the receive of a file.
 #[tauri::command]
 pub fn accept_file(
     app_state: State<AppState>,
@@ -156,6 +159,7 @@ pub fn accept_file(
     }
 }
 
+/// Denies the receive of a file.
 #[tauri::command]
 pub fn deny_file(app_state: State<AppState>, hash: String) -> Result<(), ClientError> {
     println!("[EVENT] deny_file");
@@ -168,18 +172,20 @@ pub fn deny_file(app_state: State<AppState>, hash: String) -> Result<(), ClientE
     }
 }
 
+/// Stops the sending of a file.
 #[tauri::command]
 pub fn stop_file(app_state: State<AppState>, hash: String) -> Result<(), ClientError> {
     println!("[EVENT] stop_file");
     let mut unlocked_state = (*app_state).0.lock()?;
 
     match unlocked_state.deref_mut() {
-        &mut Current::ConnectedUdp(ref mut client) => client.stop_file(hash),
-        &mut Current::ConnectedTcp(ref mut client) => client.stop_file(hash),
+        &mut Current::ConnectedUdp(ref mut client) => client.stop_sending_file(hash),
+        &mut Current::ConnectedTcp(ref mut client) => client.stop_sending_file(hash),
         _ => Err(ClientError::new(ClientErrorKind::WrongState)),
     }
 }
 
+/// Pauses the sending of a file.
 #[tauri::command]
 pub fn pause_file(app_state: State<AppState>, hash: String) -> Result<(), ClientError> {
     println!("[EVENT] pause_file");
@@ -192,6 +198,7 @@ pub fn pause_file(app_state: State<AppState>, hash: String) -> Result<(), Client
     }
 }
 
+/// Starts or restarts the client.
 #[tauri::command]
 pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(), ClientError> {
     println!("[EVENT] start");

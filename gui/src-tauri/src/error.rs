@@ -7,6 +7,8 @@ use std::sync::PoisonError;
 
 use serde::{Serialize, Serializer};
 
+
+/// Error kinds for the client.
 #[derive(Debug)]
 pub enum ClientErrorKind {
     LockPoisoned,
@@ -15,12 +17,12 @@ pub enum ClientErrorKind {
     MpscSendError,
     Ipv6ParseFailed,
     SendToFrontendFailed,
-    NotFound,
     IOError,
     DataCorruptionError,
     CommunicationError,
 }
 
+/// Error type for the client.
 #[derive(Debug)]
 pub struct ClientError {
     kind: ClientErrorKind,
@@ -31,17 +33,10 @@ impl ClientError {
     pub(crate) fn new(kind: ClientErrorKind) -> Self {
         ClientError { kind, source: None }
     }
-
-    fn with_source(kind: ClientErrorKind, source: Box<dyn Error + Send + Sync>) -> Self {
-        ClientError {
-            kind,
-            source: Some(source),
-        }
-    }
 }
 
 impl Error for ClientError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self.source.as_ref() {
             None => None,
             Some(b) => Some(b.as_ref()),

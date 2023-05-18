@@ -51,23 +51,6 @@ pub fn send_connect_error(
     Ok(())
 }
 
-pub fn send_init_error(
-    handle: &AppHandle<Wry>,
-    status: &str,
-    description: &str,
-) -> Result<(), ClientError> {
-    handle.emit_all(
-        "app://socket-failed",
-        Status {
-            status: status.into(),
-            description: description.into(),
-            error: true,
-        },
-    )?;
-
-    Ok(())
-}
-
 #[derive(Clone, Copy, Serialize)]
 pub enum Protocol {
     TCP,
@@ -91,7 +74,6 @@ pub enum FileState {
     Transferring,
     Pending,
     Completed,
-    Aborted,
     Stopped,
     Corrupted,
 }

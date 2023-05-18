@@ -30,6 +30,7 @@ impl TcpWaitingClient {
         Ok(TcpWaitingClient { tcp_socket })
     }
 
+    /// Connects to a peer.
     pub fn connect(
         mut self,
         peer: Ipv6Addr,
@@ -38,6 +39,8 @@ impl TcpWaitingClient {
         timeout: Option<Duration>,
     ) -> Result<TcpActiveClient, ChangeStateError<Self>> {
         let port = self.get_port();
+
+        // drop the old socket and create a new one to prevent socket is busy error.
         let tmp_socket = match Socket::new(Domain::IPV6, Type::STREAM, None) {
             Ok(socket) => socket,
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
@@ -89,8 +92,10 @@ impl TcpWaitingClient {
 }
 
 impl WaitingClient for TcpWaitingClient {
+    /// Returns the port the socket is bound to.
     fn get_port(&self) -> u16 {
         self.tcp_socket
+            // should panic if it fails. This is fine.
             .local_addr()
             .expect("Failed to retrieve local address")
             .as_socket()
