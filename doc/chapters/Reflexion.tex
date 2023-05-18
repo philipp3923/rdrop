@@ -7,20 +7,16 @@ Ursprünglich war nicht geplant eine Kommunikation über das UDP-Protokoll zu un
 
 Ebenfalls war zu Beginn des Projekts kein Verständnis für Netzwerkadressübersetzung vorhanden. Dies stellte sich als Problem heraus, weil dardurch keine direkte Kommunikation zwischen zwei Clients hinter seperaten Rechnernetzen zuverlässig aufgebaut werden kann. Somit musste im Verlauf des Projekts die Kommunikation mithilfe von IPv4 Adressen verworfen werden. Da Ipv6 keine Netzwerkadressübersetzung verwendet, war somit jedoch eine Alternative geboten.
 
-Ein weiterer nicht miteinberechneter Faktor war der asymmetrische Netzwerkjitter. Dieser tritt insbesondere bei der Verwendung von Mobilen Daten auf und sorgt dafür, dass keine TCP-Verbindung hergestellt werden kann. Alternativ wird in diesem die UDP-Verbindung für den Dateiaustausch verwendet. Aufgrund der spezifischen Implementierung des UDP-Clients ist die Übertragungsgeschwindigkeit allerdings stark eingeschränkt.
-
-Trifft man die Annahme, dass eine Verzögerung von 50 Millisekunden für den Weg von dem Sender zum Empfänger bei einer UDP-Paketgröße von einem Kilobyte besteht, so ergibt dies eine maximale Übertragungsgeschwindigkeit von maximal 10 Kilobyte pro Sekunde.
+Ein weiterer nicht miteinberechneter Faktor war der asymmetrische Netzwerkjitter. Dieser tritt insbesondere bei der Verwendung von Mobilen Daten auf und sorgt dafür, dass keine TCP-Verbindung hergestellt werden kann. Alternativ wird in diesem die UDP-Verbindung für den Dateiaustausch verwendet. Aufgrund der spezifischen Implementierung des UDP-Clients ist die Übertragungsgeschwindigkeit allerdings, auch bei Verwendung des verbesserten Protokolls, eingeschränkt.
 
 \subsection{Ausblick}
 Die Softwarelösung bietet eine gute Grundlage für eine sichere und zuverlässige Kommunikation zwischen zwei Parteien. 
 
 Die Applikation soll in Zukunft weiterentwickelt werden, um zusätzliche Funktionen und Anpassungsmöglichkeiten zu bieten.
-Es wurden bereits einige Möglichkeiten im Code integriert, um die Applikation mit mehr Einstellungsmöglichkeiten zu versehen.
+Es wurden bereits einige Möglichkeiten im Code implementiert, um die Applikation mit mehr Einstellungsmöglichkeiten zu versehen. Jedoch fehlt noch die entsprechende Integration in die Benutzeroberfläche.
 
-Ein Beispiel wäre, mit variabler Buffergröße zu arbeiten, die je nach Bedarf die Speichereffizienz oder die Geschwindigkeitsoptimierung ermöglichen würde.
-Diese soll in naher Zukunft in die Benutzeroberfläche integriert werden.
+Ein Beispiel wäre, mit variabler Buffergröße zu arbeiten, die je nach Bedarf die Speichereffizienz oder die Geschwindigkeitsoptimierung ermöglichen würde. Diese soll in naher Zukunft in die Benutzeroberfläche integriert werden.
 
 Weiterhin ist geplant, dass Benutzer die Paketgröße, in die die Dateien aufgeteilt werden, sowie die verwendeten Hashalgorithmen individuell anpassen können.
 
-Ein weiteres wichtiges Ziel ist die Implementierung eines Ablaufs, der es mehreren Sendern ermöglicht, dem Empfänger jeweils Teile einer Datei zu übermitteln.
-Durch diese Funktionalität würde die Applikation einen beträchtlichen Mehrwert bieten und flexibler einsetzbar sein.
+Ein weiteres wichtiges Ziel ist die Implementierung eines Ablaufs, der es mehreren Sendern ermöglicht, dem Empfänger jeweils Teile einer Datei zu übermitteln. Durch diese Funktionalität würde die Applikation einen beträchtlichen Mehrwert bieten und flexibler einsetzbar sein.

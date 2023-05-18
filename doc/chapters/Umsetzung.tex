@@ -31,7 +31,7 @@ Der erste Status des Protokolls ist eine wartendes UDP-Sockets, dessen Port ange
 
 Im nächsten Schritt werden die Rollen der Parteien festgelegt, da diese für die Verschlüsselung der Kommunikation benötigt werden. Dazu generiert jeder Client eine zufällige Zahl und tauscht diese mit dem Gegenüber aus. Sind beide Zahlen gleich, wird der Prozess wiederholt.
 
-Anschließend werden die öffentlichen Schlüssel ausgetaucht und die Verschlüsselungsstreams initialisiert.
+Anschließend werden die öffentlichen Schlüssel ausgetauscht und die Verschlüsselungsstreams initialisiert.
 
 Falls gewünscht kann nun versucht werden die Kommunikation auf eine TCP-Verbindung umzutellen. Dafür müssen beide Parteien zeitlich synchronisiert werden, da beide TCP-Pakete gleichzeitig abgesendet werden müssen. Das implementierte Protokoll verwendet dazu zwei Ansätze.
 
@@ -41,17 +41,21 @@ Alternativ besteht die Möglichkeit über einen externen NTP-Server die Zeit zu 
 
 Sind beide Uhren vermeintlich synchronisiert stimmen beide Clients einen Zeitpunkt ab an dem das TCP-Paket abgesendet wird. Ist der Verbindungsaufbau erfolgreich, wird die UDP-Verbindung geschlossen. Andernfalls kann die UDP-Verbindung weiterhin verwendet werden.
 
+Da das ursprüngliche Send-And-Wait Protokoll für das versenden von Dateien deutlich zulangsam ist, wurde zusätzlich ein weiteres UDP basiertes Protokoll implementiert. Dieses Protokoll verwendet einen Sliding-Window Mechanismus, um so die Anzahl gleichzeitig übertragener Pakete zu erhöhen. Die Anzahl ist dabei variabel und kann durch die Puffergröße bestimmt werden.
+
+Während der Übertragung werden so lange Pakete versendet bis der Sendepuffer voll ist. Der Empfänger bestätigt jeweils das letzte Paket, welches in korrekter Reihenfolge empfangen wurde. Somit werden alle Pakete die kleiner als das zuletzt bestätigte Paket aus dem Sendepuffer enternt. Alle Pakete die nach einer gewissen Zeit nicht bestätigt werden, werden erneut versendet.
+
 \subsection{Datei-Ein-/Ausgabe}
 Im Folgenden wird die Funktionsweise des I/O-Moduls beschrieben.
 
 Im Modul Error wurde ein eigener Fehler-Typ implementiert, um die verschiedenen Fehlertypen in den Funktionen zusammenzuführen.
 
-Im Hash-Modul werden Funktionen implementiert, um einen Hash von einer Datei oder einem "u8"-Vektor zu erstellen. Dafür werden die Rust-Bibliotheken "sha2" und "md-5" eingebunden. 
+Im Hash-Modul werden Funktionen implementiert, um einen Hash von einer Datei oder einem \"u8\"-Vektor zu erstellen. Dafür werden die Rust-Bibliotheken \"sha2\" und \"md-5\" eingebunden. 
 Wichtig dabei ist, dass die Puffergröße, die die Datei liest, durch eine Konstante gesteuert wird, sodass zum Hashen nicht der Gesamte Dateiinhalt in den Arbeitsspeicher geladen werden muss.
 Außerdem kann durch die Implementierung der Puffergröße als Parameter dieser in Zukunft beispielsweise vom Anwender angepasst werden. Ein großer Puffer bringt Geschwindigkeitsvorteile, da seltener auf den Festplattenspeicher zugegriffen werden muss. Allerdings wird auch deutlich mehr RAM benötigt. Dieser Ansatz wird auch in den anderen Modulen beibehalten, die auf Dateien zugreifen. Ein zu großer Puffer kann auch bei kleinen Dateien zu unnötigen Lese- und Schreibvorgängen führen, was vermieden werden sollte.
 
 Die beiden Module Offer und Order enthalten die Logik, damit die Teilnehmer sich über die Dateien einigen können, die sie austauschen wollen.
-Die Nachrichten werden als "u8"-Vektoren kodiert und dem Verbindungsprotokoll zur Verfügung gestellt. Dabei beginnen Offer-Nachrichten mit der Binärsequenz 0000 0001, während Order-Nachrichten mit 0000 0010 beginnen.
+Die Nachrichten werden als \"u8\"-Vektoren kodiert und dem Verbindungsprotokoll zur Verfügung gestellt. Dabei beginnen Offer-Nachrichten mit der Binärsequenz 0000 0001, während Order-Nachrichten mit 0000 0010 beginnen.
 Dadurch kann der Client die Nachrichten klassifizieren und den entsprechenden Vorgang starten.
 
 Das Modul File beinhaltet Funktionen, um eine Datei in mehrere Pakete zu zerlegen. Es ist auch möglich, nur einen bestimmten Teil aus einer Datei zu lesen.
@@ -66,7 +70,7 @@ Die vollständige Logik, um die fehlenden Pakete direkt beim Sender durch eine n
 
 Als letzten Nachrichtentyp wurde ein Stopsignal implementiert, das den offenen Kanal zwischen Sender und Receiver unterbricht. Dies beginnt mit 0000 0011.
 
-Zum Lesen der Nachrichten, die zwischen Sender und Receiver ausgetauscht werden, sowie dem Auslesen der Logfiles, wird jeweils ein REGEX (Regular Expression) verwendet. Dafür wird die Rust-Bibliothek "regex" verwendet.
+Zum Lesen der Nachrichten, die zwischen Sender und Receiver ausgetauscht werden, sowie dem Auslesen der Logfiles, wird jeweils ein REGEX (Regular Expression) verwendet. Dafür wird die Rust-Bibliothek \"regex\" verwendet.
 Dadurch können die Nachrichten ohne großen Aufwand ausgelesen und die einzelnen Werte zugeordnet werden.
 Da Verschlüsselung bereits durch die Transportprotokolle implementiert wurde, wurde hier darauf verzichtet.
 
