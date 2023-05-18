@@ -10,13 +10,15 @@ Ebenfalls war zu Beginn des Projekts kein Verständnis für Netzwerkadressübers
 Ein weiterer nicht miteinberechneter Faktor war der asymmetrische Netzwerkjitter. Dieser tritt insbesondere bei der Verwendung von Mobilen Daten auf und sorgt dafür, dass keine TCP-Verbindung hergestellt werden kann. Alternativ wird in diesem die UDP-Verbindung für den Dateiaustausch verwendet. Aufgrund der spezifischen Implementierung des UDP-Clients ist die Übertragungsgeschwindigkeit allerdings, auch bei Verwendung des verbesserten Protokolls, eingeschränkt.
 
 \subsection{Ausblick}
-Die Softwarelösung bietet eine gute Grundlage für eine sichere und zuverlässige Kommunikation zwischen zwei Parteien. 
-
 Die Applikation soll in Zukunft weiterentwickelt werden, um zusätzliche Funktionen und Anpassungsmöglichkeiten zu bieten.
 Es wurden bereits einige Möglichkeiten im Code implementiert, um die Applikation mit mehr Einstellungsmöglichkeiten zu versehen. Jedoch fehlt noch die entsprechende Integration in die Benutzeroberfläche.
+
+Insbesondere fehlt noch die Anzeige diverser Fehlermeldungen, die während der Kommunikation auftreten können. In der aktuellen Version der Applikation wird der Nutzer nicht über die Art des Fehlers informiert. Die Verbindung wird lediglich geschlossen.
 
 Ein Beispiel wäre, mit variabler Buffergröße zu arbeiten, die je nach Bedarf die Speichereffizienz oder die Geschwindigkeitsoptimierung ermöglichen würde. Diese soll in naher Zukunft in die Benutzeroberfläche integriert werden.
 
 Weiterhin ist geplant, dass Benutzer die Paketgröße, in die die Dateien aufgeteilt werden, sowie die verwendeten Hashalgorithmen individuell anpassen können.
 
 Ein weiteres wichtiges Ziel ist die Implementierung eines Ablaufs, der es mehreren Sendern ermöglicht, dem Empfänger jeweils Teile einer Datei zu übermitteln. Durch diese Funktionalität würde die Applikation einen beträchtlichen Mehrwert bieten und flexibler einsetzbar sein.
+
+Es bleibt zu sagen, dass sich die Applikation in einem frühen Entwicklungsstadium befindet und noch viele Funktionen und Verbesserungen benötigt, um als vollwertige Alternative zu bestehenden Lösungen verwendet werden zu können.

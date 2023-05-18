@@ -1,4 +1,4 @@
-Dieses Kapitel beschreibt die Umsetzung der in Kapitel \ref{sec:architektur} beschriebenen Architektur. Dabei wird auf die einzelnen Module eingegangen und die Umsetzung erläutert. 
+Dieses Kapitel beschreibt die Umsetzung der in Kapitel \ref{sc:architektur} beschriebenen Architektur. Dabei wird auf die einzelnen Module eingegangen und die implementierten Funktionen erläutert. 
 
 Die Module Kommunikation und Datei-Ein-/Ausgabe werden dabei als Bibliotheken implementiert, die von der Benutzeroberfläche verwendet werden. Die Benutzeroberfläche wird als eigenständiges Programm implementiert.
 
@@ -31,7 +31,7 @@ Der erste Status des Protokolls ist eine wartendes UDP-Sockets, dessen Port ange
 
 Im nächsten Schritt werden die Rollen der Parteien festgelegt, da diese für die Verschlüsselung der Kommunikation benötigt werden. Dazu generiert jeder Client eine zufällige Zahl und tauscht diese mit dem Gegenüber aus. Sind beide Zahlen gleich, wird der Prozess wiederholt.
 
-Anschließend werden die öffentlichen Schlüssel ausgetauscht und die Verschlüsselungsstreams initialisiert.
+Anschließend werden die öffentlichen Schlüssel ausgetauscht und die darauf basierenden Streams initialisiert.
 
 Falls gewünscht kann nun versucht werden die Kommunikation auf eine TCP-Verbindung umzutellen. Dafür müssen beide Parteien zeitlich synchronisiert werden, da beide TCP-Pakete gleichzeitig abgesendet werden müssen. Das implementierte Protokoll verwendet dazu zwei Ansätze.
 
