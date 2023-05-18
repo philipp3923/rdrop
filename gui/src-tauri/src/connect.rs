@@ -78,7 +78,7 @@ pub fn thread_connect(
 
                 send_connect_status(&app_handle, "Upgrading", "Sampling time difference.")?;
 
-                return match active_connection.upgrade() {
+                return match active_connection.upgrade_direct() {
                     Ok(connection) => {
                         let mut write_state = current.lock().unwrap();
                         send_connect_status(&app_handle, "Connected successfully", "")?;
@@ -101,7 +101,16 @@ pub fn thread_connect(
 
                         println!("{}", err);
 
-                        let (writer, reader) = old_connection.accept();
+
+                        let (writer, reader) = match old_connection.transform_to_slide() {
+                            Ok(wr) => wr,
+                            Err(_) => {
+                                *write_state = Current::Broken;
+                                send_connect_error(&app_handle, "Failed to connect.", "Could not establish sliding window.")?;
+                                return Err(ClientError::new(ClientErrorKind::SocketClosed));
+                            }
+                        };
+
                         let client = Client::new(
                             app_handle.clone(),
                             reader,

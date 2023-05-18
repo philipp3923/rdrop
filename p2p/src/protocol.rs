@@ -1,8 +1,6 @@
 use crate::client::tcp::{TcpActiveClient, TcpClientReader, TcpClientWriter, TcpWaitingClient};
-use crate::client::udp_slide::{UdpActiveClient, UdpClientReader, UdpClientWriter, UdpWaitingClient};
-use crate::client::{
-    ActiveClient, ClientReader, ClientWriter, EncryptedReader, EncryptedWriter, WaitingClient,
-};
+use crate::client::udp_send_wait::{UdpActiveClient, UdpClientReader, UdpClientWriter, UdpWaitingClient};
+use crate::client::{ActiveClient, ClientReader, ClientWriter, EncryptedReader, EncryptedWriter, udp_slide, WaitingClient};
 use crate::error::Error as P2pError;
 use crate::error::{ChangeStateError, ErrorKind};
 use crate::ntp_time::get_diff;
@@ -13,6 +11,7 @@ use dryoc::sign::PublicKey;
 use rand::{thread_rng, Rng};
 use std::fmt::Debug;
 use std::net::Ipv6Addr;
+use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub trait EncryptionState {}
@@ -256,7 +255,37 @@ impl Connection<Active<Plain<Udp>>> {
 }
 
 impl Connection<Active<Encrypted<Udp>>> {
-    pub fn upgrade(mut self) -> Result<Connection<Active<Encrypted<Tcp>>>, ChangeStateError<Self>> {
+
+    pub fn transform_to_slide(mut self) -> Result<(EncryptedWriter<udp_slide::UdpClientWriter>, EncryptedReader<udp_slide::UdpClientReader>), ChangeStateError<Self>> {
+        let udp_client = match udp_slide::UdpWaitingClient::new(None) {
+            Ok(client) => client,
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        };
+
+        let peer_port = match self.exchange_ports(udp_client.get_port()) {
+            Ok(p) => p,
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        };
+
+        let udp_client = match udp_client.connect(self.state.peer_ip, peer_port, self.state.timeout, self.state.timeout) {
+            Ok(client) => client,
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        };
+
+        let (udp_writer, udp_reader) = udp_client.split();
+
+        let encrypted_reader =
+            EncryptedReader::new(self.state.client.encrypted_reader.pull_stream, udp_reader);
+        let encrypted_writer =
+            EncryptedWriter::new(self.state.client.encrypted_writer.push_stream, udp_writer);
+
+
+        sleep(Duration::from_millis(10));
+        return Ok((encrypted_writer, encrypted_reader));
+    }
+
+    /// Upgrades the client to a TCP connection by sampling the time difference.
+    pub fn upgrade_direct(mut self) -> Result<Connection<Active<Encrypted<Tcp>>>, ChangeStateError<Self>> {
         let tcp_client = match TcpWaitingClient::new(None) {
             Ok(client) => client,
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
@@ -267,7 +296,7 @@ impl Connection<Active<Encrypted<Udp>>> {
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
 
-        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 2) {
+        let tcp_client = match self.multi_sample_and_connect(tcp_client, peer_port, 1) {
             Ok(client) => client,
             Err(client) => match self.sample_and_connect(client, peer_port) {
                 Ok(c) => c,
@@ -300,7 +329,9 @@ impl Connection<Active<Encrypted<Udp>>> {
         return Ok(connection);
     }
 
-    pub fn upgrade_using_ntp(
+
+    /// Upgrades the client to a TCP connection by syncing with a ntp server.
+    pub fn upgrade_ntp(
         mut self,
     ) -> Result<Connection<Active<Encrypted<Tcp>>>, ChangeStateError<Self>> {
         let tcp_client = match TcpWaitingClient::new(None) {
@@ -313,9 +344,9 @@ impl Connection<Active<Encrypted<Udp>>> {
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
 
-        let tcp_client = match self.multi_connect_with_ntp(tcp_client, peer_port, 1) {
+        let tcp_client = match self.multi_ntp_and_connect(tcp_client, peer_port, 1) {
             Ok(client) => client,
-            Err(client) => match self.connect_with_ntp(client, peer_port) {
+            Err(client) => match self.ntp_and_connect(client, peer_port) {
                 Ok(c) => c,
                 Err(err) => return Err(ChangeStateError::new(self, err.to_err())),
             },
@@ -362,14 +393,14 @@ impl Connection<Active<Encrypted<Udp>>> {
         Err(tcp_client)
     }
 
-    fn multi_connect_with_ntp(
+    fn multi_ntp_and_connect(
         &mut self,
         mut tcp_client: TcpWaitingClient,
         peer_port: u16,
         tries: u8,
     ) -> Result<TcpActiveClient, TcpWaitingClient> {
         for _ in 0..tries {
-            tcp_client = match self.connect_with_ntp(tcp_client, peer_port) {
+            tcp_client = match self.ntp_and_connect(tcp_client, peer_port) {
                 Ok(c) => return Ok(c),
                 Err(err) => err.to_state(),
             };
@@ -378,12 +409,12 @@ impl Connection<Active<Encrypted<Udp>>> {
         Err(tcp_client)
     }
 
-    fn connect_with_ntp(
+    fn ntp_and_connect(
         &mut self,
         tcp_client: TcpWaitingClient,
         peer_port: u16,
     ) -> Result<TcpActiveClient, ChangeStateError<TcpWaitingClient>> {
-        let wait_time = match self.prepare_ntp_connect() {
+        let wait_time = match self.prepare_ntp() {
             Ok(dur) => dur,
             Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
         };
@@ -396,11 +427,11 @@ impl Connection<Active<Encrypted<Udp>>> {
         );
     }
 
-    fn prepare_ntp_connect(&mut self) -> Result<Duration, P2pError> {
+    fn prepare_ntp(&mut self) -> Result<Duration, P2pError> {
         let diff = get_diff()?;
         println!("diff            : {:?}", diff);
 
-        match self.state.role {
+        return match self.state.role {
             Role::Server => {
                 println!("SERVER");
                 self.collect_samples(10)?;
@@ -432,7 +463,7 @@ impl Connection<Active<Encrypted<Udp>>> {
                 println!("my_connect_time  : {:?}", real_connect_time);
                 println!("real_connect_time: {:?}", my_connect_time);
                 println!("delay            : {:?}", delay);
-                return Ok(delay);
+                Ok(delay)
             }
             Role::Client => {
                 println!("CLIENT");
@@ -467,9 +498,9 @@ impl Connection<Active<Encrypted<Udp>>> {
                 let delay = my_connect_time - SystemTime::now().duration_since(UNIX_EPOCH)?;
 
                 println!("delay            : {:?}", delay);
-                return Ok(delay);
+                Ok(delay)
             }
-            Role::None => todo!(),
+            Role::None => Err(P2pError::new(ErrorKind::UndefinedRole)),
         }
     }
 
@@ -482,7 +513,6 @@ impl Connection<Active<Encrypted<Udp>>> {
 
         match self.state.role {
             Role::Server => {
-                println!("sampling 255");
                 match self.collect_samples(100) {
                     Ok(_) => {}
                     Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
@@ -493,7 +523,6 @@ impl Connection<Active<Encrypted<Udp>>> {
                 };
             }
             Role::Client => {
-                println!("providing 255");
                 match self.provide_samples() {
                     Ok(_) => {}
                     Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
@@ -504,10 +533,13 @@ impl Connection<Active<Encrypted<Udp>>> {
                     Err(err) => return Err(ChangeStateError::new(tcp_client, Box::new(err))),
                 };
             }
-            Role::None => todo!(),
+            Role::None => return Err(ChangeStateError::new(tcp_client, Box::new(P2pError::new(ErrorKind::UndefinedRole)))),
         }
 
-        println!("trying to connect tcp");
+        while let Ok(_) = self.state.client.encrypted_reader.read(Some(Duration::from_millis(100))) {
+
+        }
+
         return tcp_client.connect(
             self.state.peer_ip,
             peer_port,
@@ -525,8 +557,6 @@ impl Connection<Active<Encrypted<Udp>>> {
         } else {
             diffs[diffs.len() / 2]
         };
-
-        println!("median_diff {}", median_diff);
 
         let connect_time = (SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos()
             + self.state.client.max_delay * 10) as i128;
@@ -672,6 +702,7 @@ impl Connection<Active<Encrypted<Udp>>> {}
 #[cfg(test)]
 mod tests {
     use std::thread;
+    use std::thread::sleep;
 
     use dryoc::dryocstream::Tag;
 
@@ -715,7 +746,7 @@ mod tests {
         Connection<Active<Plain<Udp>>>,
         Connection<Active<Plain<Udp>>>,
     ) {
-        let timeout = Duration::from_millis(100);
+        let timeout = Duration::from_millis(5000);
 
         let c1 = Connection::<Waiting>::new(None).unwrap();
         let c2 = Connection::<Waiting>::new(None).unwrap();
@@ -739,7 +770,6 @@ mod tests {
     fn test_negotiate_roles() {
         let (mut c1, mut c2) = connect();
 
-        //260 because test with message counter overflow (max msg count = 255)
         for _ in 0..260 {
             let thread_c2 = thread::spawn(move || {
                 c2.negotiate_roles().unwrap();
@@ -866,7 +896,7 @@ mod tests {
 
         let thread_c2 = thread::spawn(move || {
             let mut c2 = c2.encrypt().unwrap();
-            c2.collect_samples(255).unwrap();
+            c2.collect_samples(100).unwrap();
             return c2.set_connect_time().unwrap();
         });
 
@@ -900,8 +930,8 @@ mod tests {
         ),
     > {
         let thread_c2 = thread::spawn(move || {
-            for _ in 0..tries {
-                c2 = match c2.upgrade() {
+            for _i in 0..tries {
+                c2 = match c2.upgrade_direct() {
                     Ok(c) => return Ok(c),
                     Err(err) => err.to_state(),
                 };
@@ -911,8 +941,8 @@ mod tests {
         });
 
         let thread_c1 = thread::spawn(move || {
-            for _ in 0..tries {
-                c1 = match c1.upgrade() {
+            for _i in 0..tries {
+                c1 = match c1.upgrade_direct() {
                     Ok(c) => return Ok(c),
                     Err(err) => err.to_state(),
                 };
@@ -950,6 +980,37 @@ mod tests {
     }
 
     #[test]
+    fn test_transform_udp() {
+        let (c1, c2) = connect();
+
+        let thread_c2 = thread::spawn(move || {
+            let c2 = c2.encrypt().unwrap();
+            let c2 = c2.transform_to_slide().unwrap();
+            return c2;
+        });
+        let c1 = c1.encrypt().unwrap();
+        let (mut c1_writer, mut c1_reader) = c1.transform_to_slide().unwrap();
+        let (mut c2_writer, mut c2_reader) = thread_c2.join().unwrap();
+
+        let c1_msg = b"Das ist ein Test. Diese Nachricht wird von c1 an c2 versendet.";
+        let c2_msg = b"Das ist ein Test. Diese Nachricht wird von c2 an c1 versendet.";
+
+        c1_writer.write(c1_msg).unwrap();
+        c2_writer.write(c2_msg).unwrap();
+
+        sleep(Duration::from_millis(100));
+
+        let _c1_recv = c1_reader.try_read().unwrap();
+        let c2_recv = c2_reader.try_read().unwrap();
+
+        assert_eq!(c1_msg.as_slice(), c2_recv.as_slice());
+        assert_eq!(c1_msg.as_slice(), c2_recv.as_slice());
+
+        drop(c1_reader);
+        drop(c2_reader);
+    }
+
+    #[test]
     fn test_read_writer_encrypted_tcp() {
         let (c1, c2) = connect();
 
@@ -973,6 +1034,8 @@ mod tests {
 
         c1_writer.write(c1_msg).unwrap();
         c2_writer.write(c2_msg).unwrap();
+
+        sleep(Duration::from_millis(1000));
 
         let _c1_recv = c1_reader.try_read().unwrap();
         let c2_recv = c2_reader.try_read().unwrap();

@@ -4,7 +4,7 @@ use std::thread;
 use std::thread::{sleep, JoinHandle};
 use std::time::{Duration, Instant};
 
-use crate::client::{ActiveClient, ClientReader, ClientWriter};
+use crate::client::{ActiveClient, ClientReader, ClientWriter, udp_send_wait};
 use crate::error::Error as P2pError;
 use crate::error::{ChangeStateError, ErrorKind, ThreadError};
 

@@ -18,7 +18,7 @@ fn main() {
 
     let connection = connection.encrypt().unwrap();
 
-    let connection = connection.upgrade().unwrap();
+    let connection = connection.upgrade_direct().unwrap();
 
     let (mut writer, mut reader) = connection.accept();
 

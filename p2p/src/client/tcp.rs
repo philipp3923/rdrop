@@ -16,6 +16,7 @@ pub struct TcpWaitingClient {
 
 impl TcpWaitingClient {
     pub fn new(port: Option<u16>) -> Result<TcpWaitingClient, P2pError> {
+
         let tcp_socket = Socket::new(Domain::IPV6, Type::STREAM, None)?;
 
         tcp_socket.set_write_timeout(Some(CONNECT_TIMEOUT))?;
@@ -34,7 +35,7 @@ impl TcpWaitingClient {
     pub fn connect(
         mut self,
         peer: Ipv6Addr,
-        _port: u16,
+        peer_port: u16,
         wait: Option<Duration>,
         timeout: Option<Duration>,
     ) -> Result<TcpActiveClient, ChangeStateError<Self>> {
@@ -72,11 +73,11 @@ impl TcpWaitingClient {
             sleep(wait_duration);
         }
 
-        let sock_addr = SockAddr::from(SocketAddr::new(IpAddr::from(peer), port));
+        let peer_addr = SockAddr::from(SocketAddr::new(IpAddr::from(peer), peer_port));
 
         let connect_result = self
             .tcp_socket
-            .connect_timeout(&sock_addr, timeout.unwrap_or(Duration::from_secs(1)));
+            .connect_timeout(&peer_addr, timeout.unwrap_or(Duration::from_secs(1)));
 
         match connect_result {
             Ok(_) => {
@@ -201,7 +202,7 @@ impl TcpClientWriter {
 impl ClientWriter for TcpClientWriter {
     fn write(&mut self, msg: &[u8]) -> Result<(), P2pError> {
         let msg = self.prepare_msg(msg);
-        self.tcp_stream.write(&msg)?;
+        self.tcp_stream.write_all(&msg)?;
         Ok(())
     }
 }
@@ -279,11 +280,11 @@ mod tests {
 
         let (mut c1, mut c2) = clients.unwrap();
 
-        let c1_msg = b"Das ist ein Test. Diese Nachricht wird von c1 an c2 versendet.";
-        let c2_msg = b"Das ist ein Test. Diese Nachricht wird von c2 an c1 versendet.";
+        let c1_msg = [0x1, 0x2];
+        let c2_msg = [0x3, 0x4];
 
-        c1.writer_client.write(c1_msg).unwrap();
-        c2.writer_client.write(c2_msg).unwrap();
+        c1.writer_client.write(c1_msg.as_slice()).unwrap();
+        c2.writer_client.write(c2_msg.as_slice()).unwrap();
 
         let c1_recv = c1.reader_client.try_read().unwrap();
         let c2_recv = c2.reader_client.try_read().unwrap();
