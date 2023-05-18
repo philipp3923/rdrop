@@ -4,31 +4,46 @@ use crate::error::Error as P2pError;
 
 use std::time::Duration;
 pub mod tcp;
-pub mod udp;
 pub mod udp_slide;
+pub mod udp_send_wait;
 
+/// A Client waiting to be connected to a peer.
+/// The Client is already bound to a port.
 pub trait WaitingClient {
+    /// Get the port the Client is bound to.
     fn get_port(&self) -> u16;
 }
 
+/// A Client connected to a peer.
 pub trait ActiveClient {
+    /// The type of the Reader.
     type Reader: ClientReader;
+    /// The type of the Writer.
     type Writer: ClientWriter;
 
+    /// Split the Client into a Reader and a Writer.
     fn split(self) -> (Self::Writer, Self::Reader);
+    /// Get a reference to the Reader.
     fn reader_ref(&mut self) -> &mut Self::Reader;
+    /// Get a reference to the Writer.
     fn writer_ref(&mut self) -> &mut Self::Writer;
 }
 
+/// Reader part of a Client connected to a peer.
 pub trait ClientReader {
+    /// Try to read a message from the peer.
     fn try_read(&mut self) -> Result<Vec<u8>, P2pError>;
+    /// Read a message from the peer, in a given timeout.
     fn read(&mut self, timeout: Option<Duration>) -> Result<Vec<u8>, P2pError>;
 }
 
+/// Writer part of a Client connected to a peer.
 pub trait ClientWriter {
+    /// Write a message to the peer.
     fn write(&mut self, msg: &[u8]) -> Result<(), P2pError>;
 }
 
+/// A Client connected to a peer, which encrypts the communication.
 pub struct EncryptedClient<AC: ActiveClient> {
     _active_client: AC,
 }
@@ -48,8 +63,12 @@ impl<AC: ActiveClient> EncryptedClient<AC> {
     }
 }
 
+/// Encryption block size.
+/// Warning: cannot be too big, as it is limited by the maximum size
+/// of a UDP/TCP packet.
 const BLOCK_SIZE: usize = 1024;
 
+/// Reader part of an EncryptedClient.
 pub struct EncryptedReader<CR: ClientReader> {
     pub(crate) pull_stream: DryocStream<Pull>,
     client_reader: CR,
@@ -118,6 +137,7 @@ impl<CR: ClientReader> ClientReader for EncryptedReader<CR> {
     }
 }
 
+/// Writer part of an EncryptedClient.
 pub struct EncryptedWriter<CW: ClientWriter> {
     pub(crate) push_stream: DryocStream<Push>,
     client_writer: CW,
@@ -165,6 +185,7 @@ mod tests {
     use crate::protocol::{Active, Connection, Encrypted, Udp, Waiting};
     use std::net::Ipv6Addr;
     use std::thread;
+    use std::thread::sleep;
 
     fn connect() -> (
         Connection<Active<Encrypted<Udp>>>,
@@ -205,6 +226,8 @@ mod tests {
         c1_writer.write(c1_msg.as_slice()).unwrap();
         c2_writer.write(c2_msg.as_slice()).unwrap();
 
+        sleep(Duration::from_millis(100));
+
         let c1_recv = c1_reader.try_read().unwrap();
         let c2_recv = c2_reader.try_read().unwrap();
 
@@ -224,6 +247,8 @@ mod tests {
 
         c1_writer.write(fitting_msg.as_slice()).unwrap();
         c2_writer.write(overflow_msg.as_slice()).unwrap();
+
+        sleep(Duration::from_millis(100));
 
         let c1_recv = c1_reader.try_read().unwrap();
         let c2_recv = c2_reader.try_read().unwrap();

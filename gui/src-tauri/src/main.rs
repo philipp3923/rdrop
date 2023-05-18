@@ -5,7 +5,6 @@
 
 use tauri::Manager;
 use window_shadows::set_shadow;
-
 use crate::handle::AppState;
 
 mod client;
@@ -14,11 +13,6 @@ mod error;
 mod events;
 mod handle;
 
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
 
 fn main() {
     tauri::Builder::default()
@@ -38,7 +32,6 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            greet,
             handle::connect,
             handle::disconnect,
             handle::offer_file,
@@ -46,7 +39,8 @@ fn main() {
             handle::deny_file,
             handle::pause_file,
             handle::start,
-            handle::show_in_folder
+            handle::show_in_folder,
+            handle::stop_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
