@@ -2,11 +2,12 @@ use crate::client::{ActiveClient, ClientReader, ClientWriter, WaitingClient};
 use crate::error::{ChangeStateError, Error as P2pError};
 use socket2::{Domain, SockAddr, Socket, Type};
 
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
 
 use std::thread::sleep;
 use std::time::Duration;
+use crate::error;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -165,7 +166,16 @@ impl ClientReader for TcpClientReader {
 
         let mut header = [0u8; 4];
 
-        self.tcp_stream.read_exact(header.as_mut_slice())?;
+        match self.tcp_stream.read_exact(header.as_mut_slice()) {
+            Ok(_) => {}
+            Err(err) => {
+                return if err.kind() == ErrorKind::WouldBlock || err.kind() == ErrorKind::TimedOut {
+                    Err(P2pError::new(error::ErrorKind::TimedOut))
+                } else {
+                    Err(P2pError::new(error::ErrorKind::CommunicationFailed))
+                }
+            }
+        };
 
         let size = u32::from_be_bytes(header) as usize;
 
@@ -291,6 +301,22 @@ mod tests {
 
         assert_eq!(c1_msg.as_slice(), c2_recv.as_slice());
         assert_eq!(c2_msg.as_slice(), c1_recv.as_slice());
+    }
+
+    #[test]
+    fn test_timeout() {
+        let mut clients = connect();
+        for _ in 0..10 {
+            if clients.is_ok() {
+                break;
+            }
+            clients = connect();
+        }
+
+        let (mut c1, mut c2) = clients.unwrap();
+
+        assert!(c1.reader_client.read(Some(Duration::from_millis(100))).is_err());
+        assert!(c2.reader_client.read(Some(Duration::from_millis(100))).is_err());
     }
 
     #[test]

@@ -250,8 +250,10 @@ impl<W: ClientWriter + Send + 'static, R: ClientReader + Send + 'static> Client<
 impl<W: ClientWriter + Send, R: ClientReader + Send> Drop for Client<W, R> {
     fn drop(&mut self) {
         //should panic if this fails. It could be that one of the threads is already dead and there would be no way to stop the other one.
-        let mut dropper = self.drop_threads.write().unwrap();
-        *dropper = true;
+        {
+            let mut dropper = self.drop_threads.write().unwrap();
+            *dropper = true;
+        }
 
         if let Some(thread) = self.writer_thread.take() {
             if thread.join().is_err() {

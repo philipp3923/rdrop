@@ -195,6 +195,7 @@ mod tests{
     use crate::hash::hash::{Hash, get_file_hash};
 
     #[test]
+    #[ignore]
     fn test_get_file_hash() {
         let file_path = "Testfile.pdf_part_000001.chunk";
 

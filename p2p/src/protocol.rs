@@ -261,16 +261,22 @@ impl Connection<Active<Encrypted<Udp>>> {
             Ok(client) => client,
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
+        println!("timeout: {:?}", self.state.timeout.unwrap_or_default());
+
+        println!("UDP client created");
 
         let peer_port = match self.exchange_ports(udp_client.get_port()) {
             Ok(p) => p,
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
+        println!("Peer port: {}", peer_port);
 
         let udp_client = match udp_client.connect(self.state.peer_ip, peer_port, self.state.timeout, self.state.timeout) {
             Ok(client) => client,
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
+
+        println!("UDP client connected");
 
         let (udp_writer, udp_reader) = udp_client.split();
 

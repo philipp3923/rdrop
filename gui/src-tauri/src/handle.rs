@@ -226,9 +226,11 @@ pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(
             let port = c.get_port();
 
             let old_state = replace(&mut *unlocked_state, Current::Broken);
+            println!("drop old_state");
             drop(old_state);
 
             *unlocked_state = Current::try_with_port(port);
+            println!("drop unlocked_state");
             drop(unlocked_state);
             start(app_handle, app_state)
         }

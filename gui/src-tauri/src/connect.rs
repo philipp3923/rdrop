@@ -67,20 +67,18 @@ pub fn thread_connect(
                         )?;
 
                         let active_connection = err.to_state();
-                        let mut write_state = current.lock().unwrap();
-
-                        *write_state = Current::try_with_port(active_connection.get_port());
+                        {
+                            let mut write_state = current.lock().unwrap();
+                            *write_state = Current::try_with_port(active_connection.get_port());
+                        }
                         return Err(ClientError::new(ClientErrorKind::SocketClosed));
                     }
                 };
-
-                let mut write_state = current.lock().unwrap();
 
                 send_connect_status(&app_handle, "Upgrading", "Sampling time difference.")?;
 
                 return match active_connection.upgrade_direct() {
                     Ok(connection) => {
-                        let mut write_state = current.lock().unwrap();
                         send_connect_status(&app_handle, "Connected successfully", "")?;
                         let _port = connection.get_port();
 
@@ -92,7 +90,12 @@ pub fn thread_connect(
                             self_port,
                         );
 
-                        *write_state = Current::ConnectedTcp(client);
+
+                        {
+                            let mut write_state = current.lock()?;
+                            *write_state = Current::ConnectedTcp(client);
+
+                        }
                         send_connected(&app_handle, Protocol::TCP)?;
                         Ok(())
                     }
@@ -105,11 +108,16 @@ pub fn thread_connect(
                         let (writer, reader) = match old_connection.transform_to_slide() {
                             Ok(wr) => wr,
                             Err(_) => {
-                                *write_state = Current::Broken;
+                                {
+                                    let mut write_state = current.lock()?;
+                                    *write_state = Current::Broken;
+                                }
                                 send_connect_error(&app_handle, "Failed to connect.", "Could not establish sliding window.")?;
                                 return Err(ClientError::new(ClientErrorKind::SocketClosed));
                             }
                         };
+
+                        println!("transformed to slide");
 
                         let client = Client::new(
                             app_handle.clone(),
@@ -118,6 +126,8 @@ pub fn thread_connect(
                             self_port,
                         );
 
+
+                        let mut write_state = current.lock()?;
                         *write_state = Current::ConnectedUdp(client);
                         send_connected(&app_handle, Protocol::UDP)?;
                         Ok(())
@@ -142,9 +152,10 @@ pub fn thread_connect(
         }
     }
 
-    let mut write_state = current.lock().unwrap();
-
-    *write_state = Current::Disconnected(connection);
+    {
+        let mut write_state = current.lock().unwrap();
+        *write_state = Current::Disconnected(connection);
+    }
 
     return Err(ClientError::new(ClientErrorKind::SocketClosed));
 }
