@@ -3,16 +3,16 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
 
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
-use std::thread::{JoinHandle, sleep};
+use std::thread::{sleep, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crate::client::{ActiveClient, ClientReader, ClientWriter};
-use crate::error::{ChangeStateError, ErrorKind};
 use crate::error::Error as P2pError;
+use crate::error::{ChangeStateError, ErrorKind};
 
 const SEND_INTERVAL: Duration = Duration::from_millis(70);
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(200); //time between each keep alive message
-//time between each resend
+                                                                  //time between each resend
 const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time after which the connection is considered dead
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(10); //time between each receive timeout
@@ -138,10 +138,7 @@ impl UdpWaitingClient {
         }
 
         if let Err(e) = self.ping_and_wait(connect_timeout) {
-            return Err(ChangeStateError::new(
-                self,
-                Box::new(e),
-            ));
+            return Err(ChangeStateError::new(self, Box::new(e)));
         };
 
         // program should panic if this fails
@@ -257,7 +254,13 @@ impl UdpClientReader {
 
         let thread_handle: JoinHandle<Result<(), Box<dyn Error + Send + Sync>>> =
             thread::spawn(move || {
-                UdpClientReader::read_thread(udp_socket, stop_receiver, ack_sender, closed_sender, message_sender)
+                UdpClientReader::read_thread(
+                    udp_socket,
+                    stop_receiver,
+                    ack_sender,
+                    closed_sender,
+                    message_sender,
+                )
             });
 
         return Ok(UdpClientReader {
@@ -327,7 +330,7 @@ impl UdpClientReader {
             //println!("[UDP] received message type: {:?}", MessageType::from(header[0]));
             if header[0] != 0 {
                 dead_time = Instant::now();
-            }else {
+            } else {
                 sleep(RECEIVE_INTERVAL);
                 continue;
             }
@@ -381,8 +384,8 @@ impl UdpClientReader {
                 MessageType::Invalid => {
                     udp_socket.recv(header.as_mut_slice())?;
                     println!("[UDP] received invalid msg {}", msg_type);
-                    continue
-                },
+                    continue;
+                }
             }
         }
     }
@@ -508,7 +511,9 @@ impl ClientWriter for UdpClientWriter {
                 return Err(P2pError::new(ErrorKind::CommunicationFailed));
             }
 
-            self.udp_socket.send(msg.as_slice()).map_err(|_| P2pError::new(ErrorKind::CommunicationFailed))?;
+            self.udp_socket
+                .send(msg.as_slice())
+                .map_err(|_| P2pError::new(ErrorKind::CommunicationFailed))?;
 
             match self.ack_receiver.recv_timeout(SEND_INTERVAL) {
                 Ok(msg_number) => {

@@ -1,21 +1,11 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-
-
-use std::sync::{PoisonError};
+use std::io;
 use std::sync::mpsc::SendError;
-use std::{io};
+use std::sync::PoisonError;
 
 use serde::{Serialize, Serializer};
-
-
-
-
-
-
-
-
 
 #[derive(Debug)]
 pub enum ClientErrorKind {
@@ -28,7 +18,7 @@ pub enum ClientErrorKind {
     NotFound,
     IOError,
     DataCorruptionError,
-    CommunicationError
+    CommunicationError,
 }
 
 #[derive(Debug)]
@@ -43,7 +33,10 @@ impl ClientError {
     }
 
     fn with_source(kind: ClientErrorKind, source: Box<dyn Error + Send + Sync>) -> Self {
-        ClientError { kind, source: Some(source) }
+        ClientError {
+            kind,
+            source: Some(source),
+        }
     }
 }
 
@@ -51,7 +44,7 @@ impl Error for ClientError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self.source.as_ref() {
             None => None,
-            Some(b) => Some(b.as_ref())
+            Some(b) => Some(b.as_ref()),
         }
     }
 }
@@ -59,8 +52,16 @@ impl Error for ClientError {
 impl Display for ClientError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.source.as_ref() {
-            None => { write!(f, "ClientError of kind {:?} occurred.", self.kind) }
-            Some(src) => { write!(f, "ClientError of kind {:?} occurred. Source: {}", self.kind, src) }
+            None => {
+                write!(f, "ClientError of kind {:?} occurred.", self.kind)
+            }
+            Some(src) => {
+                write!(
+                    f,
+                    "ClientError of kind {:?} occurred. Source: {}",
+                    self.kind, src
+                )
+            }
         }
     }
 }
@@ -96,8 +97,10 @@ impl From<io::Error> for ClientError {
 }
 
 impl Serialize for ClientError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         serializer.serialize_str(format!("{:?}", self.kind).as_str())
     }
 }
-

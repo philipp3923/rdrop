@@ -2,11 +2,9 @@ use crate::client::{ActiveClient, ClientReader, ClientWriter, WaitingClient};
 use crate::error::{ChangeStateError, Error as P2pError};
 use socket2::{Domain, SockAddr, Socket, Type};
 
-
-
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
-use std::ptr::replace;
+
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -35,11 +33,10 @@ impl TcpWaitingClient {
     pub fn connect(
         mut self,
         peer: Ipv6Addr,
-        port: u16,
+        _port: u16,
         wait: Option<Duration>,
         timeout: Option<Duration>,
     ) -> Result<TcpActiveClient, ChangeStateError<Self>> {
-
         let port = self.get_port();
         let tmp_socket = match Socket::new(Domain::IPV6, Type::STREAM, None) {
             Ok(socket) => socket,
@@ -55,17 +52,14 @@ impl TcpWaitingClient {
         };
 
         match tcp_socket.set_write_timeout(Some(CONNECT_TIMEOUT)) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         }
 
-        let sock_addr = SockAddr::from(SocketAddr::new(
-            IpAddr::from(Ipv6Addr::from(0)),
-            port,
-        ));
+        let sock_addr = SockAddr::from(SocketAddr::new(IpAddr::from(Ipv6Addr::from(0)), port));
 
         match tcp_socket.bind(&sock_addr) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         }
 
@@ -89,7 +83,7 @@ impl TcpWaitingClient {
             Err(err) => {
                 println!("{}", err);
                 Err(ChangeStateError::new(self, Box::new(err)))
-            },
+            }
         }
     }
 }

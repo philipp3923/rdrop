@@ -1,12 +1,12 @@
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, UdpSocket};
-use std::sync::mpsc::{channel, Receiver, Sender, sync_channel, SyncSender, TrySendError};
+use std::sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender, TrySendError};
 use std::thread;
-use std::thread::{JoinHandle, sleep};
+use std::thread::{sleep, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crate::client::{ActiveClient, ClientReader, ClientWriter};
-use crate::error::{ChangeStateError, ErrorKind, ThreadError};
 use crate::error::Error as P2pError;
+use crate::error::{ChangeStateError, ErrorKind, ThreadError};
 
 const SEND_INTERVAL: Duration = Duration::from_millis(100);
 //time between each resend
@@ -22,7 +22,6 @@ const SLIDE_WINDOW: u32 = 1024 * 128; //number of packets in the slide window
 pub struct UdpWaitingClient {
     udp_socket: UdpSocket,
 }
-
 
 struct Package {
     message_type: MessageType,
@@ -45,8 +44,7 @@ impl Package {
 }
 
 #[repr(u8)]
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum MessageType {
     Open = 0x01,
     Data = 0x02,
@@ -161,10 +159,7 @@ impl UdpWaitingClient {
         }
 
         if let Err(e) = self.ping_and_wait(connect_timeout) {
-            return Err(ChangeStateError::new(
-                self,
-                Box::new(e),
-            ));
+            return Err(ChangeStateError::new(self, Box::new(e)));
         };
 
         // program should panic if this fails
@@ -280,22 +275,23 @@ impl UdpClientReader {
         udp_socket.set_read_timeout(Some(RECEIVE_INTERVAL))?;
         udp_socket.set_nonblocking(false)?;
 
-        let thread_handle: JoinHandle<Result<(), ThreadError>> =
-            thread::spawn(move || {
-                let mut client_handler = ClientHandler::new(
-                    udp_socket,
-                    stop_receiver, package_receiver,
-                    closed_sender, message_sender,
-                );
+        let thread_handle: JoinHandle<Result<(), ThreadError>> = thread::spawn(move || {
+            let mut client_handler = ClientHandler::new(
+                udp_socket,
+                stop_receiver,
+                package_receiver,
+                closed_sender,
+                message_sender,
+            );
 
-                match client_handler.run() {
-                    Ok(_) => Ok(()),
-                    Err(e) => {
-                        println!("ERR: {}", e);
-                        Err(e)
-                    }
+            match client_handler.run() {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    println!("ERR: {}", e);
+                    Err(e)
                 }
-            });
+            }
+        });
 
         return Ok(UdpClientReader {
             message_receiver,
@@ -413,7 +409,9 @@ impl ClientWriter for UdpClientWriter {
 
         let now = Instant::now();
 
-        while self.timeout.is_none() || now.elapsed() <= self.timeout.unwrap_or(Duration::from_secs(0)) {
+        while self.timeout.is_none()
+            || now.elapsed() <= self.timeout.unwrap_or(Duration::from_secs(0))
+        {
             match self.package_sender.try_send(Vec::from(msg)) {
                 Ok(_) => {
                     return Ok(());
@@ -451,8 +449,7 @@ impl UdpActiveClient {
         let (closed_writer, closed_receiver) = channel::<()>();
 
         let reader = UdpClientReader::new(udp_socket, package_receiver, closed_writer)?;
-        let writer =
-            UdpClientWriter::new(package_sender, closed_receiver, timeout);
+        let writer = UdpClientWriter::new(package_sender, closed_receiver, timeout);
 
         return Ok(UdpActiveClient {
             reader_client: reader,
@@ -478,7 +475,6 @@ impl ActiveClient for UdpActiveClient {
     }
 }
 
-
 struct ClientHandler {
     udp_socket: UdpSocket,
     stop_receiver: Receiver<()>,
@@ -493,11 +489,13 @@ struct ClientHandler {
 }
 
 impl ClientHandler {
-    fn new(udp_socket: UdpSocket,
-           stop_receiver: Receiver<()>,
-           package_receiver: Receiver<Vec<u8>>,
-           closed_sender: Sender<()>,
-           message_sender: Sender<Vec<u8>>) -> ClientHandler {
+    fn new(
+        udp_socket: UdpSocket,
+        stop_receiver: Receiver<()>,
+        package_receiver: Receiver<Vec<u8>>,
+        closed_sender: Sender<()>,
+        message_sender: Sender<Vec<u8>>,
+    ) -> ClientHandler {
         ClientHandler {
             message_sender,
             udp_socket,
@@ -561,7 +559,7 @@ impl ClientHandler {
 
             match message_type {
                 MessageType::Open => {
-                    if let Err(e) =  self.udp_socket.recv([0; 7].as_mut_slice()) {
+                    if let Err(e) = self.udp_socket.recv([0; 7].as_mut_slice()) {
                         println!("18recv error: {:?}", e);
                     };
                     if opening {
@@ -574,8 +572,19 @@ impl ClientHandler {
                 MessageType::Data => {
                     let content = self.recv_data(message_size)?;
 
-                    if message_number > self.received_counter && self.message_receive_buffer.iter().find(|(number, _)| *number == message_number).is_none() {
-                        println!("16early package {}, missing package {}, total buff {}", message_number, self.received_counter, self.message_receive_buffer.len());
+                    if message_number > self.received_counter
+                        && self
+                            .message_receive_buffer
+                            .iter()
+                            .find(|(number, _)| *number == message_number)
+                            .is_none()
+                    {
+                        println!(
+                            "16early package {}, missing package {}, total buff {}",
+                            message_number,
+                            self.received_counter,
+                            self.message_receive_buffer.len()
+                        );
                         self.message_receive_buffer.push((message_number, content));
                     } else if message_number == self.received_counter {
                         //println!("good package {}, total buff {}", message_number, self.message_receive_buffer.len());
@@ -604,7 +613,7 @@ impl ClientHandler {
                             return true;
                         });
 
-                        self.send_acknowledgement(self.received_counter-1)?;
+                        self.send_acknowledgement(self.received_counter - 1)?;
 
                         //println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
 
@@ -616,22 +625,25 @@ impl ClientHandler {
                     }
                 }
                 MessageType::Acknowledge => {
-                    if let Err(e) = self.udp_socket.recv([0; 7].as_mut_slice())  {
+                    if let Err(e) = self.udp_socket.recv([0; 7].as_mut_slice()) {
                         println!("14recv error: {:?}", e);
                     };
                     self.acknowledge_package(message_number);
                 }
                 MessageType::KeepAlive => {
                     //println!("KEEP ALIVE");
-                    if let Err(e) = self.udp_socket.recv([0; 7].as_mut_slice())  {
+                    if let Err(e) = self.udp_socket.recv([0; 7].as_mut_slice()) {
                         println!("13recv error: {:?}", e);
                     };
                 }
                 MessageType::Invalid => {
-                    if let Err(e) = self.udp_socket.recv([0; 7].as_mut_slice())  {
+                    if let Err(e) = self.udp_socket.recv([0; 7].as_mut_slice()) {
                         println!("12recv error: {:?}", e);
                     };
-                    println!("11[UDP] received invalid msg n:{} s:{}", message_number, message_size);
+                    println!(
+                        "11[UDP] received invalid msg n:{} s:{}",
+                        message_number, message_size
+                    );
                 }
             }
         }
@@ -659,7 +671,8 @@ impl ClientHandler {
     }
 
     fn send_acknowledgement(&mut self, message_number: u32) -> Result<(), P2pError> {
-        let message = ClientHandler::encode_msg([0].as_slice(), MessageType::Acknowledge, message_number);
+        let message =
+            ClientHandler::encode_msg([0].as_slice(), MessageType::Acknowledge, message_number);
         //sleep(Duration::from_nanos(50));
         self.udp_socket.send(message.0.as_slice())?;
         //println!("SEND ACKNOWLEDGE {}", message_number);
@@ -668,7 +681,7 @@ impl ClientHandler {
 
     fn recv_data(&mut self, message_size: u16) -> Result<Vec<u8>, P2pError> {
         let mut buffer = vec![0u8; message_size as usize + 7];
-        if let Err(e) = self.udp_socket.recv(&mut buffer){
+        if let Err(e) = self.udp_socket.recv(&mut buffer) {
             println!("10recv error: {:?}", e);
         };
 
@@ -686,7 +699,14 @@ impl ClientHandler {
             //ok if no data is available
         };
 
-        if header[0] == 0 && header[1] == 0 && header[2] == 0 && header[3] == 0 && header[4] == 0 && header[5] == 0 && header[6] == 0 {
+        if header[0] == 0
+            && header[1] == 0
+            && header[2] == 0
+            && header[3] == 0
+            && header[4] == 0
+            && header[5] == 0
+            && header[6] == 0
+        {
             return None;
         }
 
@@ -714,18 +734,24 @@ impl ClientHandler {
     }
 
     fn send_messages(&mut self) -> Result<(), P2pError> {
-        if self.message_send_buffer.len() >= SLIDE_WINDOW as usize{
+        if self.message_send_buffer.len() >= SLIDE_WINDOW as usize {
             return Ok(());
         }
 
         if let Ok(content) = self.package_receiver.try_recv() {
-            let (content, size) = ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
+            let (content, size) =
+                ClientHandler::encode_msg(&content, MessageType::Data, self.send_counter);
             //println!("SEND number: {} size: {} content {:2x?}", self.send_counter, size, content);
             //sleep(Duration::from_nanos(50));
             if let Err(e) = self.udp_socket.send(content.as_slice()) {
                 println!("8[UDP] send error: {:?}", e);
             };
-            self.message_send_buffer.push(Package::new(content, size, self.send_counter, MessageType::Data));
+            self.message_send_buffer.push(Package::new(
+                content,
+                size,
+                self.send_counter,
+                MessageType::Data,
+            ));
             self.send_counter = self.send_counter.wrapping_add(1);
         }
 
@@ -875,7 +901,6 @@ mod tests {
         for i in 0..1000u32 {
             c1.writer_ref().write(&i.to_be_bytes()).unwrap();
         }
-
 
         sleep(Duration::from_secs(1));
 

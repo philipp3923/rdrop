@@ -8,8 +8,11 @@ pub struct RError {
 }
 
 impl RError {
-    pub fn new(error_kind:RErrorKind, msg: &str) -> RError {
-        RError{kind:error_kind, details: msg.to_string()}
+    pub fn new(error_kind: RErrorKind, msg: &str) -> RError {
+        RError {
+            kind: error_kind,
+            details: msg.to_string(),
+        }
     }
 }
 
@@ -26,16 +29,16 @@ impl Error for RError {
 }
 
 #[derive(Debug)]
-pub enum RErrorKind{
+pub enum RErrorKind {
     RegexError,
     ConvertionError,
     InputOutputError,
     ReadHeaderError,
 }
 
-impl RErrorKind{
-    pub fn to_string(&self) -> String{
-        match self{
+impl RErrorKind {
+    pub fn to_string(&self) -> String {
+        match self {
             RErrorKind::RegexError => "RegexError".to_string(),
             RErrorKind::ConvertionError => "ConvertionError".to_string(),
             RErrorKind::InputOutputError => "InputOutputError".to_string(),

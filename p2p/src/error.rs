@@ -21,7 +21,7 @@ pub enum ErrorKind {
     UndefinedRole,
     ChannelError,
     NoDelayGiven,
-    IO
+    IO,
 }
 
 /// Error type for the P2p crate.
@@ -172,7 +172,7 @@ impl<C> Display for ChangeStateError<C> {
     }
 }
 
-impl<T> From<SendError<T>>  for Error {
+impl<T> From<SendError<T>> for Error {
     fn from(_value: SendError<T>) -> Self {
         Error {
             source: None,
@@ -208,7 +208,6 @@ impl<C> ChangeStateError<C> {
         (self.0, self.1)
     }
 }
-
 
 #[derive(Debug)]
 pub struct ThreadError(ErrorKind);

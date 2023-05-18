@@ -1,4 +1,3 @@
-
 use std::fs::metadata;
 use std::mem::replace;
 use std::net::Ipv6Addr;
@@ -6,10 +5,9 @@ use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
-use std::sync::mpsc::{SyncSender};
+use std::sync::mpsc::SyncSender;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-
 
 use tauri::{AppHandle, State, Wry};
 
@@ -209,7 +207,7 @@ pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(
             println!("ConnectedUdp");
             let port = c.get_port();
 
-            let old_state = replace(&mut *unlocked_state,Current::Broken);
+            let old_state = replace(&mut *unlocked_state, Current::Broken);
             drop(old_state);
 
             *unlocked_state = Current::try_with_port(port);
@@ -220,7 +218,7 @@ pub fn start(app_handle: AppHandle<Wry>, app_state: State<AppState>) -> Result<(
             println!("ConnectedTcp");
             let port = c.get_port();
 
-            let old_state = replace(&mut *unlocked_state,Current::Broken);
+            let old_state = replace(&mut *unlocked_state, Current::Broken);
             drop(old_state);
 
             *unlocked_state = Current::try_with_port(port);

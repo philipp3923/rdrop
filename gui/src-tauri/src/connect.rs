@@ -1,31 +1,36 @@
-
 use std::net::Ipv6Addr;
 
-use std::sync::{Arc, Mutex};
 use std::sync::mpsc::Receiver;
+use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Wry};
-
 
 use p2p::error::ErrorKind;
 use p2p::protocol::{Connection, Waiting};
 
 use crate::client::Client;
 use crate::error::{ClientError, ClientErrorKind};
-use crate::events::{Protocol, send_connect_error, send_connect_status, send_connected};
-use crate::handle::{Current};
+use crate::events::{send_connect_error, send_connect_status, send_connected, Protocol};
+use crate::handle::Current;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(1);
 const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
-pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, mut connection: Connection<Waiting>, receiver: Receiver<()>, ipv6: Ipv6Addr, port: u16) -> Result<(), ClientError> {
+pub fn thread_connect(
+    app_handle: AppHandle<Wry>,
+    current: Arc<Mutex<Current>>,
+    mut connection: Connection<Waiting>,
+    receiver: Receiver<()>,
+    ipv6: Ipv6Addr,
+    port: u16,
+) -> Result<(), ClientError> {
     let mut i = 0;
     let mut instant = Instant::now();
     let self_port = connection.get_port();
     while receiver.try_recv().is_err() {
-        if instant.elapsed() < Duration::from_millis(50){
+        if instant.elapsed() < Duration::from_millis(50) {
             sleep(Duration::from_millis(51) - instant.elapsed());
         }
         instant = Instant::now();
@@ -39,7 +44,11 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                 let active_connection = match active_connection.encrypt() {
                     Ok(connection) => connection,
                     Err(err) => {
-                        send_connect_error(&app_handle, "Encryption failed", "Aborting connection protocol.")?;
+                        send_connect_error(
+                            &app_handle,
+                            "Encryption failed",
+                            "Aborting connection protocol.",
+                        )?;
 
                         let active_connection = err.to_state();
                         let mut write_state = current.lock().unwrap();
@@ -52,7 +61,13 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                 let mut write_state = current.lock().unwrap();
 
                 let (writer, reader) = active_connection.accept();
-                let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), self_port);
+                let client = Client::new(
+                    app_handle.clone(),
+                    reader,
+                    writer,
+                    Some(DISCONNECT_TIMEOUT),
+                    self_port,
+                );
 
                 *write_state = Current::ConnectedUdp(client);
                 send_connected(&app_handle, Protocol::UDP)?;
@@ -68,14 +83,19 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                         let _port = connection.get_port();
 
                         let (writer, reader) = connection.accept();
-                        let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), self_port);
+                        let client = Client::new(
+                            app_handle.clone(),
+                            reader,
+                            writer,
+                            Some(DISCONNECT_TIMEOUT),
+                            self_port,
+                        );
 
                         *write_state = Current::ConnectedTcp(client);
                         send_connected(&app_handle, Protocol::TCP)?;
                         return Ok(());
                     }
                     Err(err) => {
-
                         let (old_connection, err) = err.split();
 
                         println!("{}", err);
@@ -93,13 +113,23 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                         let _port = connection.get_port();
 
                         let (writer, reader) = connection.accept();
-                        let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), self_port);
+                        let client = Client::new(
+                            app_handle.clone(),
+                            reader,
+                            writer,
+                            Some(DISCONNECT_TIMEOUT),
+                            self_port,
+                        );
 
                         *write_state = Current::ConnectedTcp(client);
                         send_connected(&app_handle, Protocol::TCP)?;
                     }
                     Err(err) => {
-                        send_connect_status(&app_handle, "Upgrading failed", "Using fallback UDP protocol.")?;
+                        send_connect_status(
+                            &app_handle,
+                            "Upgrading failed",
+                            "Using fallback UDP protocol.",
+                        )?;
 
                         let (connection, err) = err.split();
 
@@ -108,7 +138,13 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                         let mut write_state = current.lock().unwrap();
 
                         let (writer, reader) = connection.accept();
-                        let client = Client::new(app_handle.clone(), reader, writer, Some(DISCONNECT_TIMEOUT), self_port);
+                        let client = Client::new(
+                            app_handle.clone(),
+                            reader,
+                            writer,
+                            Some(DISCONNECT_TIMEOUT),
+                            self_port,
+                        );
 
                         *write_state = Current::ConnectedUdp(client);
                         send_connected(&app_handle, Protocol::UDP)?;
@@ -122,15 +158,13 @@ pub fn thread_connect(app_handle: AppHandle<Wry>, current: Arc<Mutex<Current>>, 
                 connection = old_c;
 
                 match err.downcast_ref::<p2p::error::Error>() {
-                    Some(err) => {
-                        match err.kind() {
-                            ErrorKind::CannotConnectToSelf => {
-                                send_connect_error(&app_handle, "Cannot connect to self", "")?;
-                                break;
-                            }
-                            _ => continue,
+                    Some(err) => match err.kind() {
+                        ErrorKind::CannotConnectToSelf => {
+                            send_connect_error(&app_handle, "Cannot connect to self", "")?;
+                            break;
                         }
-                    }
+                        _ => continue,
+                    },
                     None => {}
                 }
             }
