@@ -9,7 +9,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use crate::error;
 
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const CONNECT_TIMEOUT: Duration = Duration::from_millis(500);
 
 pub struct TcpWaitingClient {
     tcp_socket: Socket,
