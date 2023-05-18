@@ -35,9 +35,17 @@ pub fn get_hash_from_file(file: &File) -> Result<String, Error> {
     return get_file_hash(file, BUFFER_HASH_SIZE, &Hash::SIPHASH24, 0);
 }
 
-/*
-    calc hash of byte-vector
-*/
+/// Calculates the hash value of a data vector using the specified hash algorithm.
+///
+/// # Arguments
+///
+/// * byte_vec - The data vector for which the hash value will be calculated.
+/// * hash_algorithm - The hash algorithm to use for calculating the hash value.
+///
+/// # Returns
+///
+/// The function returns the hash value as a hexadecimal string.
+/// 
 pub fn get_hash(byte_vec: &Vec<u8>, hash_algorithm: &Hash) -> String {
     match hash_algorithm {
         Hash::SIPHASH24 => {
@@ -75,10 +83,24 @@ pub fn get_hash(byte_vec: &Vec<u8>, hash_algorithm: &Hash) -> String {
     }
 }
 
-// generates hash for a file with choosen hash-algorithm
-/*
-    limits space-use of RAM with chosen buffer-size
-*/
+
+/// Calculates the hash value of a file using the specified hash algorithm.
+///
+/// # Arguments
+///
+/// * file - The file for which the hash value will be calculated.
+/// * buffer_size - The size of the buffer used for reading the file.
+/// * file_hash - The hash algorithm to use for calculating the hash value.
+/// * start_pos - The position within the file to start calculating the hash from.
+///
+/// # Returns
+///
+/// The function returns the hash value as a hexadecimal string.
+///
+/// # Errors
+///
+/// The function can return an error if there is an error reading the file or performing hash calculations. The Error type contains details about the error.
+/// 
 pub fn get_file_hash(
     file: &File,
     buffer_size: usize,
@@ -159,6 +181,10 @@ pub fn get_file_hash(
     }
 }
 
+
+
+//hash-test-speed
+//add file to test speed with
 #[cfg(test)]
 mod tests{
 
@@ -171,7 +197,6 @@ mod tests{
     #[test]
     fn test_get_file_hash() {
         let file_path = "Testfile.pdf_part_000001.chunk";
-        //let file = File::open(file_path).unwrap();
 
         let app_settings = AppSettings::default();
 

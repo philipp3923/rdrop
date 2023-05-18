@@ -1,9 +1,6 @@
-//split file function
-
 use std::{
-    fs::{create_dir_all, metadata, File, OpenOptions},
-    io::{BufReader, Error, Read, Seek, SeekFrom, Write},
-    path::Path,
+    fs::{metadata, File, OpenOptions},
+    io::{BufReader, Error, Read, Seek, SeekFrom, Write}
 };
 
 use crate::{
@@ -13,27 +10,45 @@ use crate::{
 };
 use crate::{
     general::general::{
-        calc_chunk_count, check_chunk_hash, create_header, get_filename_from_dir, read_send_header,
-        separate_header, write_to_log_file, HeaderData, BUFFER_SIZE, CHUNK_HASH_TYPE, CHUNK_SIZE,
+        calc_chunk_count, check_chunk_hash, create_header,
+        write_to_log_file, HeaderData, BUFFER_SIZE, CHUNK_HASH_TYPE, CHUNK_SIZE,
         USER_HASH,
     },
     hash::hash::Hash,
 };
 
-//wrapper for writing data in vector
+
+/// Writes a data vector to a file.
+///
+/// # Arguments
+/// 
+/// * header_data - The header data containing information about the file.
+/// * data_vector - The vector of data to be written to the file.
+/// * output_path - The path where the file will be written.
+///
+/// # Returns
+///
+/// The function returns a Result with two possible outcomes:
+/// * Ok(log_path) - If the data vector is successfully written to the file. log_path is the path of the log file generated during the write operation.
+/// * Err(error) - If there is an error during the write operation, including cases where the data is corrupted and the hash cannot be verified.
+/// 
+/// # Errors
+///
+/// The function can return an error if the data vector is corrupted and the hash cannot be verified. The Error type contains details about the error.
+/// 
 pub fn write_data_vec(
     header_data: &HeaderData,
     data_vector: &Vec<u8>,
     output_path: &str,
 ) -> Result<String, Error> {
-    let mut outpath: String = "".to_string();
+
     if check_chunk_hash(
         &header_data.chunk_hash,
         &header_data.chunk_hash_alg,
         &data_vector,
     ) == true
     {
-        outpath = merge_file_on_path(
+        _ = merge_file_on_path(
             &output_path,
             &data_vector,
             header_data.chunk_pos,
@@ -60,7 +75,26 @@ pub fn write_data_vec(
     ));
 }
 
-// splits a file and returns ordered part
+/// Splits a file into a single part.
+///
+/// # Arguments:
+/// 
+/// * buf_reader - A mutable reference to a BufReader wrapping the file to be split.
+/// * part_num - The part number indicating the current part being split.
+/// * file_size - The total size of the file.
+/// * reg_chunk_size - The regular chunk size used for splitting the file.
+/// * file_hash - The hash of the file.
+/// * chunk_count_max - The maximum number of chunks the file can be split into.
+/// * user_hash - The user hash.
+/// * header - A mutable reference to the Header struct containing header information.
+/// * chunk_hash - An optional hash value for the chunk.
+///
+/// # Returns
+///
+/// The function returns a Result with the following outcomes:
+/// * Ok(byte_vec) - If the file part is successfully split. byte_vec is a vector of bytes containing the header and the data of the part.
+/// * Err(error) - If there is an error during the splitting process, including input/output errors.
+/// 
 pub fn split_file_single(
     buf_reader: &mut BufReader<&mut File>,
     part_num: usize,
@@ -143,7 +177,26 @@ pub fn split_file_single(
     return Ok(byte_vec);
 }
 
-// writes byte-vec in file
+
+/// Merges a data vector into a file at the specified position.
+///
+/// # Arguments
+///
+/// * output_path - The path of the output file.
+/// * byte_vec - The data vector to be merged into the file.
+/// * chunk_number - The chunk number indicating the position within the file where the data vector should be merged.
+/// * reg_chunk_size - The regular chunk size used for calculating the start position.
+///
+/// # Returns
+///
+/// The function returns a Result with two possible outcomes:
+/// * Ok(result_path) - If the data vector is successfully merged into the file. result_path is the path of the output file.
+/// * Err(error) - If there is an error during the merging process, including file I/O errors.
+///
+/// # Errors
+///
+/// The function can return an error if there is an error creating or opening the output file, checking the file size, or performing file I/O operations. The Error type contains details about the error.
+/// 
 pub fn merge_file_on_path(
     output_path: &str,
     byte_vec: &Vec<u8>,
@@ -169,6 +222,8 @@ pub fn merge_file_on_path(
     //check file_size
     let output_file_size = output_file.metadata().unwrap().len();
 
+
+    //fill file with 0
     if output_file_size < start_pos {
         output_file.seek(SeekFrom::End(0)).unwrap();
 
@@ -195,109 +250,27 @@ pub fn merge_file_on_path(
     return Ok(output_path.to_string());
 }
 
-// writes byte-vec in file
-pub fn merge_file(
-    output_path: &str,
-    file_name: &str,
-    byte_vec: &Vec<u8>,
-    chunk_number: u64,
-    reg_chunk_size: usize,
-) -> Result<String, Error> {
-    let result_path = format!("{}/{}", &output_path, &file_name);
-    let result_path = Path::new(&result_path);
 
-    if let Some(parent) = result_path.parent() {
-        create_dir_all(parent)?;
-    }
-    //create output file in outputDir if not there
-    let mut output_file = match OpenOptions::new()
-        .write(true)
-        .append(false)
-        .create(true)
-        .open(&result_path)
-    {
-        Ok(file) => file,
-        Err(err) => {
-            return Err(err);
-        }
-    };
 
-    //get start_pos
-    let start_pos = reg_chunk_size as u64 * (chunk_number - 1);
 
-    //check file_size
-    let output_file_size = output_file.metadata().unwrap().len();
 
-    if output_file_size < start_pos {
-        output_file.seek(SeekFrom::End(0)).unwrap();
-
-        let size_to_append = start_pos - output_file_size;
-
-        let zero_byte_vec: [u8; 256000] = [0; 256000];
-
-        for _ in 0..(size_to_append / zero_byte_vec.len() as u64) {
-            output_file.write_all(&zero_byte_vec).unwrap();
-        }
-
-        let size_modulo = size_to_append % zero_byte_vec.len() as u64;
-
-        if size_modulo != 0 {
-            output_file
-                .write_all(&zero_byte_vec[0..size_modulo as usize])
-                .unwrap();
-        }
-    }
-
-    output_file.seek(SeekFrom::Start(start_pos)).unwrap();
-    output_file.write_all(byte_vec).unwrap();
-
-    return Ok(result_path.to_str().to_owned().unwrap().to_string());
-}
-
-//wrapper for writing data in vector
-pub fn r_w_data_vec(byte_vec: &Vec<u8>, output_dir: &str) -> Result<HeaderData, RError> {
-    let (header_vector, data_vector) = separate_header(&byte_vec)?;
-    let header_data = read_send_header(&header_vector)?;
-
-    let outpath = format!("{}/{}", &output_dir, &header_data.file_hash);
-    let file_name = get_filename_from_dir(&outpath)?;
-
-    let mut output_path = "".to_string();
-
-    if check_chunk_hash(
-        &header_data.chunk_hash,
-        &header_data.chunk_hash_alg,
-        &data_vector,
-    ) == true
-    {
-        output_path = merge_file(
-            &outpath,
-            &file_name,
-            &data_vector,
-            header_data.chunk_pos,
-            CHUNK_SIZE,
-        )
-        .map_err(|err| RError::new(RErrorKind::InputOutputError, &err.to_string()))?;
-    }
-
-    let logfile_path = format!("{}.rdroplog", output_path);
-    let _log_written = write_to_log_file(
-        &logfile_path,
-        &header_data.user_hash,
-        &header_data.file_hash_alg,
-        header_data.chunk_pos,
-        header_data.chunk_max,
-        header_data.chunk_length as u64,
-        &header_data.file_hash,
-        &header_data.chunk_hash_alg,
-        &header_data.chunk_hash,
-    )
-    .map_err(|err| RError::new(RErrorKind::InputOutputError, &err.to_string()))?;
-
-    return Ok(header_data);
-}
-
-// create data byte-vector
+/// Creates a data vector from a file.
+///
+/// # Arguments
+///
+/// * path - The path of the file.
+/// * chunk_num - The chunk number indicating the position of the data vector within the file.
+/// * file_hash - The file hash.
+///
+/// # Returns
+///
+/// The function returns a Result with two possible outcomes:
+/// * Ok(split_vec) - If the data vector is successfully created from the file. split_vec is the resulting data vector.
+/// * Err(error) - If there is an error during the creation of the data vector, including file I/O errors.
+///
+/// # Errors
+///
+/// The function can return an error if there is an error opening the file, reading its metadata, or performing file I/O operations. The RError type contains details about the error.
 pub fn create_data_vec(path: &str, chunk_num: u64, file_hash: &str) -> Result<Vec<u8>, RError> {
     let mut file = File::open(path)
         .map_err(|err| RError::new(RErrorKind::InputOutputError, &err.to_string()))?;
@@ -327,3 +300,5 @@ pub fn create_data_vec(path: &str, chunk_num: u64, file_hash: &str) -> Result<Ve
 
     return Ok(split_vec);
 }
+
+

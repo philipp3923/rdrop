@@ -1,7 +1,5 @@
 use std::{
-    fs::{create_dir_all, File},
     io::{Error, ErrorKind, Write},
-    path::PathBuf,
 };
 
 use regex::Regex;
@@ -9,11 +7,11 @@ use regex::Regex;
 use crate::{
     error::error::{RError, RErrorKind},
     general::general::{
-        append_header, calc_chunk_count, read_log_file, validate_log_file, HeaderByte,
-        CHUNK_HASH_TYPE, CHUNK_SIZE, LOGGER_REGEX,
+        append_header, HeaderByte,
+        CHUNK_HASH_TYPE, CHUNK_SIZE,
     },
     hash::hash::Hash,
-    offer::offer::Offer,
+
 };
 
 pub const ORDER_REGEX: &str = r"\[(\d+)\]\s-\s\[(SHA256|SHA512|MD5|SIPHASH24)\]\s-\s\[([a-fA-F0-9]+)\]\s-\s\[(.*)\]\s-\s\[(\d+)\]\s-\s\[(\d+)\](\s-\s\[(SHA256|SHA512|MD5|SIPHASH24)\])?";
@@ -67,6 +65,23 @@ impl Order {
     }
 }
 
+
+/// Creates an order byte vector for sending order information.
+///
+/// # Arguments
+///
+/// * start - The starting position of the ordered chunk.
+/// * end - The ending position of the ordered chunk.
+/// * file_hash - The hash of the file.
+///
+/// # Returns
+///
+/// The function returns a Result containing the order byte vector if successful.
+///
+/// # Errors
+///
+/// The function can return an error if there is an error while creating the order or appending the header. The Error type contains details about the error.
+/// 
 pub fn create_order_byte_vec(start: u64, end: u64, file_hash: &str) -> Result<Vec<u8>, Error> {
     let mut order_byte_vec = create_order(
         start,
@@ -83,7 +98,20 @@ pub fn create_order_byte_vec(start: u64, end: u64, file_hash: &str) -> Result<Ve
     return Ok(order_byte_vec);
 }
 
-//read_order
+/// Reads an order from a byte vector.
+///
+/// # Arguments
+///
+/// * byte_vec - The byte vector containing the order information.
+///
+/// # Returns
+///
+/// The function returns a Result with the parsed Order if successful.
+///
+/// # Errors
+///
+/// The function can return an error if there is an error while parsing the order or applying regular expressions. The RError type contains details about the error.
+/// 
 pub fn read_order(byte_vec: &mut Vec<u8>) -> Result<Order, RError> {
     //removes first entry
     byte_vec.remove(0);
@@ -118,7 +146,27 @@ pub fn read_order(byte_vec: &mut Vec<u8>) -> Result<Order, RError> {
     ));
 }
 
-//create_order
+
+
+/// Creates an order in the form of a byte vector.
+///
+/// # Arguments
+///
+/// * start_pos - The starting position of the order.
+/// * end_pos - The ending position of the order.
+/// * chunk_size - The size of each chunk.
+/// * file_hash_alg - The hash algorithm used for file hashing.
+/// * file_hash - The hash value of the file.
+/// * file_name - The name of the file.
+/// * _chunk_hash_type - (Optional) The hash algorithm used for chunk hashing. This argument is currently unused.
+///
+/// # Returns
+///
+/// The function returns a Result with the byte vector representing the order if successful.
+///
+/// # Errors
+///
+/// The function can return an error if there is an error while formatting the order or writing to the byte vector.
 pub fn create_order(
     start_pos: u64,
     end_pos: u64,
@@ -143,97 +191,3 @@ pub fn create_order(
     return Ok(byte_vec);
 }
 
-//creates file and logfile in new dir (filehash)
-pub fn create_file_with_order(
-    parent_path: &str,
-    parent_hash: &str,
-    file_name: &str,
-) -> Result<String, Error> {
-    let dir_path = format!("{}/{}", &parent_path, &parent_hash);
-    create_dir_all(&dir_path)?;
-
-    let log_path = format!("{}/{}.rdroplog", dir_path, file_name);
-
-    if !File::open(&log_path).is_ok() {
-        File::create(&log_path)?;
-    }
-
-    let file_path = format!("{}/{}", dir_path, file_name);
-
-    if !File::open(&file_path).is_ok() {
-        File::create(&file_path)?;
-    }
-
-    Ok(file_path)
-}
-
-//reads offer data and creates an order
-pub fn create_order_from_offer(
-    chunk_size: usize,
-    file_hash_alg: &Hash,
-    chunk_hash_type: &Option<Hash>,
-    output_dir: &str,
-    offer: &Offer,
-) -> Result<Vec<u8>, RError> {
-    let max_count = calc_chunk_count(chunk_size, offer.size)?;
-
-    let mut order_byte_vec = create_order(
-        1,
-        max_count,
-        chunk_size,
-        &file_hash_alg,
-        &offer.file_hash,
-        &offer.name,
-        &chunk_hash_type,
-    )
-    .map_err(|err| {
-        RError::new(
-            RErrorKind::ConvertionError,
-            &format!("Can't create offer-byte-vector. Error: {}", err),
-        )
-    })?;
-
-    order_byte_vec = append_header(order_byte_vec, HeaderByte::SendOrder);
-
-    let _file_name = create_file_with_order(&output_dir, &offer.file_hash, &offer.name)
-        .map_err(|err| RError::new(RErrorKind::RegexError, &err.to_string()))?;
-
-    return Ok(order_byte_vec);
-}
-
-//reads and validates logfile and create order
-pub fn create_order_from_logfile(
-    path: &str,
-    buffer_size: usize,
-    chunk_size: usize,
-) -> Result<Vec<u8>, Error> {
-    let vec = read_log_file(path, buffer_size, LOGGER_REGEX)?;
-
-    let (start_pos, end_pos) = validate_log_file(&vec);
-
-    let file_hash_alg = &vec[0].file_hash_alg;
-    let file_hash = &vec[0].file_hash;
-    let chunk_hash_type = &vec[0].chunk_hash_alg;
-
-    let mut file_name = PathBuf::from(path)
-        .file_name()
-        .unwrap()
-        .to_string_lossy()
-        .to_string();
-
-    if file_name.ends_with(".rdroplog") {
-        file_name.truncate(file_name.len() - 4);
-    }
-
-    let byte_vec = create_order(
-        start_pos,
-        end_pos,
-        chunk_size,
-        file_hash_alg,
-        file_hash,
-        &file_name,
-        chunk_hash_type,
-    )?;
-
-    return Ok(byte_vec);
-}
