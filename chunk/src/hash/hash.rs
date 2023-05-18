@@ -159,62 +159,73 @@ pub fn get_file_hash(
     }
 }
 
-#[test]
-fn test_get_file_hash() {
-    let file_path = "Testfile.pdf_part_000001.chunk";
-    //let file = File::open(file_path).unwrap();
+#[cfg(test)]
+mod tests{
 
-    let app_settings = AppSettings::default();
+    use std::fs::File;
+    use std::time::Instant;
 
-    let mut alg = Vec::new();
-    alg.push(Hash::SHA512);
-    alg.push(Hash::SHA256);
-    alg.push(Hash::MD5);
-    alg.push(Hash::SIPHASH24);
+    use crate::general::general::AppSettings;
+    use crate::hash::hash::{Hash, get_file_hash};
 
-    let header_length = 0;
+    #[test]
+    fn test_get_file_hash() {
+        let file_path = "Testfile.pdf_part_000001.chunk";
+        //let file = File::open(file_path).unwrap();
 
-    let mut total_durations = Vec::new();
-    total_durations.push(0);
-    total_durations.push(0);
-    total_durations.push(0);
-    total_durations.push(0);
+        let app_settings = AppSettings::default();
 
-    let x = 3;
+        let mut alg = Vec::new();
+        alg.push(Hash::SHA512);
+        alg.push(Hash::SHA256);
+        alg.push(Hash::MD5);
+        alg.push(Hash::SIPHASH24);
 
-    for _ in 0..x {
-        for (i, a) in alg.iter().enumerate() {
-            let file = File::open(file_path).unwrap();
+        let header_length = 0;
 
-            let hash = match a {
-                &Hash::MD5 => Hash::MD5,
-                &Hash::SIPHASH24 => Hash::SIPHASH24,
-                &Hash::SHA256 => Hash::SHA256,
-                &Hash::SHA512 => Hash::SHA512,
+        let mut total_durations = Vec::new();
+        total_durations.push(0);
+        total_durations.push(0);
+        total_durations.push(0);
+        total_durations.push(0);
+
+        let x = 3;
+
+        for _ in 0..x {
+            for (i, a) in alg.iter().enumerate() {
+                let file = File::open(file_path).unwrap();
+
+                let hash = match a {
+                    &Hash::MD5 => Hash::MD5,
+                    &Hash::SIPHASH24 => Hash::SIPHASH24,
+                    &Hash::SHA256 => Hash::SHA256,
+                    &Hash::SHA512 => Hash::SHA512,
+                };
+
+                let start_time = Instant::now();
+                let result = get_file_hash(&file, app_settings.buffer_size, &hash, header_length);
+                let duration = start_time.elapsed();
+
+                assert!(result.is_ok());
+                println!("{}", result.unwrap());
+
+                total_durations[i] += duration.as_micros();
+            }
+        }
+
+        for (i, algorithm) in alg.iter().enumerate() {
+            let avg_duration = total_durations[i] / x;
+
+            let hash = match algorithm {
+                &Hash::MD5 => "Hash::MD5",
+                &Hash::SIPHASH24 => "Hash::SIPHASH24",
+                &Hash::SHA256 => "Hash::SHA256",
+                &Hash::SHA512 => "Hash::SHA512",
             };
 
-            let start_time = Instant::now();
-            let result = get_file_hash(&file, app_settings.buffer_size, &hash, header_length);
-            let duration = start_time.elapsed();
-
-            assert!(result.is_ok());
-            println!("{}", result.unwrap());
-
-            total_durations[i] += duration.as_micros();
+            println!("{}: {} microseconds", hash, avg_duration);
+            println!("{}: {} sekunden", hash, avg_duration / 1000000);
         }
     }
 
-    for (i, algorithm) in alg.iter().enumerate() {
-        let avg_duration = total_durations[i] / x;
-
-        let hash = match algorithm {
-            &Hash::MD5 => "Hash::MD5",
-            &Hash::SIPHASH24 => "Hash::SIPHASH24",
-            &Hash::SHA256 => "Hash::SHA256",
-            &Hash::SHA512 => "Hash::SHA512",
-        };
-
-        println!("{}: {} microseconds", hash, avg_duration);
-        println!("{}: {} sekunden", hash, avg_duration / 1000000);
-    }
 }
