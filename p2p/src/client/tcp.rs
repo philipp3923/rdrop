@@ -174,6 +174,7 @@ impl ClientReader for TcpClientReader {
                     Err(P2pError::new(error::ErrorKind::TimedOut))
                 } else {
                     println!("{}", err);
+                    println!("{}", err.kind());
                     Err(P2pError::new(error::ErrorKind::CommunicationFailed))
                 }
             }
