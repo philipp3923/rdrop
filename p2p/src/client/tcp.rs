@@ -3,7 +3,8 @@ use crate::error::{ChangeStateError, Error as P2pError};
 use socket2::{Domain, SockAddr, Socket, Type};
 
 use std::io::{ErrorKind, Read, Write};
-use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpStream};
+use std::net::{IpAddr, Ipv6Addr, Shutdown, SocketAddr, TcpStream};
+use std::ptr::write;
 
 use std::thread::sleep;
 use std::time::Duration;
@@ -155,9 +156,7 @@ impl TcpClientReader {
 
 impl ClientReader for TcpClientReader {
     fn try_read(&mut self) -> Result<Vec<u8>, P2pError> {
-        self.tcp_stream.set_nonblocking(true)?;
         let msg = self.read(None);
-        self.tcp_stream.set_nonblocking(false)?;
         return msg;
     }
 
@@ -173,6 +172,7 @@ impl ClientReader for TcpClientReader {
                 return if err.kind() == ErrorKind::WouldBlock || err.kind() == ErrorKind::TimedOut {
                     Err(P2pError::new(error::ErrorKind::TimedOut))
                 } else {
+                    println!("TCP READER");
                     println!("{}", err);
                     println!("{}", err.kind());
                     Err(P2pError::new(error::ErrorKind::CommunicationFailed))
@@ -215,8 +215,37 @@ impl TcpClientWriter {
 impl ClientWriter for TcpClientWriter {
     fn write(&mut self, msg: &[u8]) -> Result<(), P2pError> {
         let msg = self.prepare_msg(msg);
-        self.tcp_stream.write_all(&msg)?;
+        self.tcp_stream.set_nonblocking(false)?;
+        match self.tcp_stream.write_all(&msg) {
+            Ok(_) => {}
+            Err(err) => {
+                if err.kind() == ErrorKind::WouldBlock || err.kind() == ErrorKind::TimedOut {
+                    sleep(Duration::from_millis(100));
+                    return self.write(msg.as_slice());
+                }
+                println!("TCP WRITER");
+                println!("{}", err);
+                println!("{}", err.kind());
+                return Err(P2pError::new(error::ErrorKind::CommunicationFailed));
+            }
+        };
         Ok(())
+    }
+}
+
+impl Drop for TcpClientWriter {
+    fn drop(&mut self) {
+        if let Err(e) = self.tcp_stream.shutdown(Shutdown::Write) {
+            println!("{}", e);
+        }
+    }
+}
+
+impl Drop for TcpClientReader {
+    fn drop(&mut self) {
+        if let Err(e) = self.tcp_stream.shutdown(Shutdown::Write) {
+            println!("{}", e);
+        }
     }
 }
 
