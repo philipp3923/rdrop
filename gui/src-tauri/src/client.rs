@@ -18,7 +18,7 @@ use p2p::error::ErrorKind;
 use crate::error::{ClientError, ClientErrorKind};
 use crate::events::{send_disconnect, send_file_state, FileState};
 
-const READ_TIMEOUT: Duration = Duration::from_millis(50);
+const READ_TIMEOUT: Duration = Duration::from_millis(1);
 
 
 /// Wrapper for a file.
