@@ -603,7 +603,7 @@ impl ClientHandler {
                         self.message_sender.send(content)?;
                         self.received_counter = self.received_counter.wrapping_add(1);
 
-                        self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
+                        self.message_receive_buffer.sort_by(|a, b| b.0.cmp(&a.0));
 
                         let mut contents = Vec::<Vec<u8>>::new();
 
@@ -654,7 +654,7 @@ impl ClientHandler {
     }
 
     fn acknowledge_package(&mut self, message_number: u32) {
-        self.message_send_buffer.sort_by(|a, b| a.number.cmp(&b.number));
+        self.message_send_buffer.sort_by(|a, b| b.number.cmp(&a.number));
         while let Some(package) = self.message_send_buffer.first() {
             if package.number <= message_number {
                 self.message_send_buffer.remove(0);
@@ -716,7 +716,7 @@ impl ClientHandler {
 
     fn repeat_messages(&mut self) -> Result<(), P2pError> {
         let mut i = 0;
-        self.message_send_buffer.sort_by(|a, b| a.number.cmp(&b.number));
+        self.message_send_buffer.sort_by(|a, b| b.number.cmp(&a.number));
         self.message_send_buffer.iter_mut().for_each(|package| {
             i += 1;
             if package.timestamp.elapsed() > SEND_INTERVAL {
