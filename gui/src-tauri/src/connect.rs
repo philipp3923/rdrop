@@ -76,7 +76,7 @@ pub fn thread_connect(
                 };
 
                 /// START TCP BLOCKER
-
+                /*
                 let (writer, reader) = match active_connection.transform_to_slide() {
                     Ok(wr) => wr,
                     Err(_) => {
@@ -103,8 +103,9 @@ pub fn thread_connect(
                 *write_state = Current::ConnectedUdp(client);
                 send_connected(&app_handle, Protocol::UDP)?;
                 return Ok(());
-
+                */
                 /// END TCP BLOCKER
+
                 send_connect_status(&app_handle, "Upgrading", "Sampling time difference.")?;
 
                 return match active_connection.upgrade_direct() {
