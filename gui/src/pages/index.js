@@ -152,11 +152,6 @@ export default function Home() {
                         defaultValue='2000'
                     />
                     <div className="home-actions">
-                        <Link href='/transfer'>
-                            <Button text large>
-                                Transfer
-                            </Button>
-                        </Link>
                         {isConnecting === 'connecting' && (
                             <Button tonal large onClick={handleAbort}>
                                 Cancel
