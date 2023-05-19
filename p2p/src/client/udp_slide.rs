@@ -718,18 +718,16 @@ impl ClientHandler {
     fn repeat_messages(&mut self) -> Result<(), P2pError> {
         let mut i = 0;
         self.message_send_buffer.sort_by(|a, b| a.number.cmp(&b.number));
-        self.message_send_buffer.iter_mut().for_each(|package| {
-            if package.timestamp.elapsed() > SEND_INTERVAL {
-                println!("REPEAT {}", package.number);
-                package.timestamp = Instant::now();
-                if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
-                    println!("9[UDP] send error: {:?}", e);
-                }
-                return;
+
+
+        if let Some(repeat) = self.message_send_buffer.iter_mut().find(|x| x.timestamp.elapsed() > SEND_INTERVAL) {
+            println!("REPEAT {}", repeat.number);
+            repeat.timestamp = Instant::now();
+            if let Err(e) = self.udp_socket.send(repeat.content.as_slice()) {
+                println!("9[UDP] send error: {:?}", e);
             }
-
-
-        });
+            return Ok(());
+        }
 
         Ok(())
     }
