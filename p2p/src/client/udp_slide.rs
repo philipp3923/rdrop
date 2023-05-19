@@ -8,7 +8,7 @@ use crate::client::{ActiveClient, ClientReader, ClientWriter};
 use crate::error::Error as P2pError;
 use crate::error::{ChangeStateError, ErrorKind, ThreadError};
 
-const SEND_INTERVAL: Duration = Duration::from_millis(100);
+const SEND_INTERVAL: Duration = Duration::from_millis(50);
 //time between each resend
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(50);
 //time between each keep alive message
@@ -616,7 +616,7 @@ impl ClientHandler {
                             return true;
                         });
 
-                        self.send_acknowledgement(self.received_counter - 1)?;
+                        self.send_acknowledgement(self.received_counter - 2)?;
 
                         //println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
 
@@ -660,11 +660,6 @@ impl ClientHandler {
                 self.message_send_buffer.remove(0);
             } else {
                 break;
-            }
-        }
-        if let Some(package) = self.message_send_buffer.first() {
-            if package.number == message_number {
-                self.message_send_buffer.remove(0);
             }
         }
 
