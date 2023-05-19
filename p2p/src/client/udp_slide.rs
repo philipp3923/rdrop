@@ -721,7 +721,7 @@ impl ClientHandler {
         self.message_send_buffer.iter_mut().for_each(|package| {
             i += 1;
 
-            if i > 50 {
+            if i > 5 {
                 return;
             }
 
