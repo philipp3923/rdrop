@@ -229,22 +229,6 @@ impl ClientWriter for TcpClientWriter {
     }
 }
 
-impl Drop for TcpClientWriter {
-    fn drop(&mut self) {
-        if let Err(e) = self.tcp_stream.shutdown(Shutdown::Write) {
-            println!("{}", e);
-        }
-    }
-}
-
-impl Drop for TcpClientReader {
-    fn drop(&mut self) {
-        if let Err(e) = self.tcp_stream.shutdown(Shutdown::Write) {
-            println!("{}", e);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

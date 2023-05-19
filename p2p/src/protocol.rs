@@ -13,6 +13,7 @@ use std::fmt::Debug;
 use std::net::Ipv6Addr;
 use std::thread::sleep;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::protocol::Role::Client;
 
 pub trait EncryptionState {}
 
@@ -296,8 +297,17 @@ impl Connection<Active<Encrypted<Udp>>> {
             Ok(client) => client,
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
+        let tcp_client_2 = match TcpWaitingClient::new(None) {
+            Ok(client) => client,
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        };
 
         let peer_port = match self.exchange_ports(tcp_client.get_port()) {
+            Ok(p) => p,
+            Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
+        };
+
+        let peer_port_2 = match self.exchange_ports(tcp_client_2.get_port()) {
             Ok(p) => p,
             Err(err) => return Err(ChangeStateError::new(self, Box::new(err))),
         };
@@ -310,7 +320,21 @@ impl Connection<Active<Encrypted<Udp>>> {
             },
         };
 
-        let (tcp_writer, tcp_reader) = tcp_client.split();
+        let tcp_client_2 = match self.multi_sample_and_connect(tcp_client_2, peer_port_2, 1) {
+            Ok(client) => client,
+            Err(client) => match self.sample_and_connect(client, peer_port_2) {
+                Ok(c) => c,
+                Err(err) => return Err(ChangeStateError::new(self, err.to_err())),
+            },
+        };
+
+        let (mut tcp_writer, tcp_reader_2) = tcp_client.split();
+        let (tcp_writer_2, mut tcp_reader) = tcp_client_2.split();
+
+        if self.state.role == Role::Server {
+            tcp_writer = tcp_writer_2;
+            tcp_reader = tcp_reader_2;
+        }
 
         let encrypted_reader =
             EncryptedReader::new(self.state.client.encrypted_reader.pull_stream, tcp_reader);
