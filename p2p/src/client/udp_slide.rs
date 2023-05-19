@@ -538,8 +538,8 @@ impl ClientHandler {
                 return Ok(());
             }
 
-            self.send_messages()?;
             self.repeat_messages()?;
+            self.send_messages()?;
 
             let (message_type, message_number, message_size) = match self.peek_header() {
                 Some(header) => {
@@ -716,9 +716,11 @@ impl ClientHandler {
 
     fn repeat_messages(&mut self) -> Result<(), P2pError> {
         let mut i = 0;
+        self.message_send_buffer.sort_by(|a, b| a.number.cmp(&b.number));
         self.message_send_buffer.iter_mut().for_each(|package| {
             i += 1;
             if package.timestamp.elapsed() > SEND_INTERVAL {
+                println!("REPEAT {}", package.number);
                 package.timestamp = Instant::now();
                 if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
                     println!("9[UDP] send error: {:?}", e);
