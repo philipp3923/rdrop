@@ -1,21 +1,22 @@
-Insgesamt konnten fast alle der gestellten Anforderungen im Projektzeitraum erfüllt werden. Ausgenommen ist die dritte funktionale Anforderungen, da die Software bisher keine Authentisierungmethode bietet.
+Insgesamt konnten fast alle der gestellten Anforderungen im Projektzeitraum erfüllt werden. Ausgenommen ist die dritte funktionale Anforderung, da die Software bisher keine Authentisierungsmethode bietet.
 
 \subsection{Ablauf}
-Der Ablauf des Entwicklung kann als stolpernd beschrieben werden. Problematisch war insbesondere die fehlende Erfahrung mit Netzwerkkommunikation, der verwendeten Programmiersprache Rust und Multithreading. Das fehlende Wissen wurde erst mit dem Verlauf des Projekts erworben, wodurch viele früh implementierte Lösungen verworfen werden mussten.
+Der Ablauf der Entwicklung kann als holprig beschrieben werden. Problematisch war insbesondere die fehlende Erfahrung mit Netzwerkkommunikation, der verwendeten Programmiersprache Rust und Multithreading. Das fehlende Wissen wurde erst im Verlauf des Projekts erworben, wodurch viele früh implementierte Lösungen verworfen werden mussten.
 
-Ursprünglich war nicht geplant eine Kommunikation über das UDP-Protokoll zu unterstützen. Nachdem sich der Verbindungsaufbau über TCP allerdings als eindeutig zu unverlässig erwieß, blieb keine andere Wahl.
+Ursprünglich war nicht geplant, eine Kommunikation über das UDP-Protokoll zu unterstützen. Nachdem sich der Verbindungsaufbau über TCP allerdings als zu unzuverlässig erwies, blieb keine andere Wahl.
 
-Ebenfalls war zu Beginn des Projekts kein Verständnis für Netzwerkadressübersetzung vorhanden. Dies stellte sich als Problem heraus, weil dardurch keine direkte Kommunikation zwischen zwei Clients hinter seperaten Rechnernetzen zuverlässig aufgebaut werden kann. Somit musste im Verlauf des Projekts die Kommunikation mithilfe von IPv4 Adressen verworfen werden. Da Ipv6 keine Netzwerkadressübersetzung verwendet, war somit jedoch eine Alternative geboten.
+Ebenfalls war zu Beginn des Projekts kein Verständnis für Netzwerkadressübersetzung vorhanden. Dies stellte sich als Problem heraus, weil dadurch keine direkte Kommunikation zwischen zwei Clients hinter separaten Rechnernetzen zuverlässig aufgebaut werden kann. Somit musste im Verlauf des Projekts die Kommunikation mithilfe von IPv4-Adressen verworfen werden. Da IPv6 keine Netzwerkadressübersetzung verwendet, bot dies jedoch eine Alternative.
 
-Ein weiterer nicht miteinberechneter Faktor war der asymmetrische Netzwerkjitter. Dieser tritt insbesondere bei der Verwendung von Mobilen Daten auf und sorgt dafür, dass keine TCP-Verbindung hergestellt werden kann. Alternativ wird in diesem die UDP-Verbindung für den Dateiaustausch verwendet. Aufgrund der spezifischen Implementierung des UDP-Clients ist die Übertragungsgeschwindigkeit allerdings, auch bei Verwendung des verbesserten Protokolls, eingeschränkt.
+Ein weiterer nicht berücksichtigter Faktor war der asymmetrische Netzwerkjitter. Dieser tritt insbesondere bei der Verwendung von mobilen Daten auf und verhindert die Herstellung einer TCP-Verbindung. Alternativ wird in diesem Fall die UDP-Verbindung für den Dateiaustausch verwendet. Aufgrund der spezifischen Implementierung des UDP-Clients ist die Übertragungsgeschwindigkeit jedoch, auch bei Verwendung des verbesserten Protokolls, eingeschränkt.
 
 \subsection{Ausblick}
 Die Applikation soll in Zukunft weiterentwickelt werden, um zusätzliche Funktionen und Anpassungsmöglichkeiten zu bieten.
-Es wurden bereits einige Möglichkeiten im Code implementiert, um die Applikation mit mehr Einstellungsmöglichkeiten zu versehen. Jedoch fehlt noch die entsprechende Integration in die Benutzeroberfläche.
+
+Es wurden bereits einige Möglichkeiten im Code implementiert, um der Applikation mehr Einstellungsmöglichkeiten zu verleihen. Jedoch fehlt noch die entsprechende Integration in die Benutzeroberfläche.
 
 Insbesondere fehlt noch die Anzeige diverser Fehlermeldungen, die während der Kommunikation auftreten können. In der aktuellen Version der Applikation wird der Nutzer nicht über die Art des Fehlers informiert. Die Verbindung wird lediglich geschlossen.
 
-Ein Beispiel wäre, mit variabler Buffergröße zu arbeiten, die je nach Bedarf die Speichereffizienz oder die Geschwindigkeitsoptimierung ermöglichen würde. Diese soll in naher Zukunft in die Benutzeroberfläche integriert werden.
+Ein Beispiel wäre die Arbeit mit variabler Buffergröße, die je nach Bedarf die Speichereffizienz oder die Geschwindigkeitsoptimierung ermöglichen würde. Diese soll in naher Zukunft in die Benutzeroberfläche integriert werden.
 
 Weiterhin ist geplant, dass Benutzer die Paketgröße, in die die Dateien aufgeteilt werden, sowie die verwendeten Hashalgorithmen individuell anpassen können.
 

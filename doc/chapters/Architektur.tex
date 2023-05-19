@@ -1,39 +1,39 @@
 \label{sc:architektur}
 
-Insgesamt ist die Softwarelösung in die drei Module Benutzeroberfläche, Kommunikation und Datei-Ein-/Ausgabe aufgeteilt. Grund dafür ist, dass insbesondere die Module Kommunikation und Datei-Ein-/Ausgabe auch unabhängig voneinander arbeiten können.
+Insgesamt ist die Softwarelösung in die drei Module Benutzeroberfläche, Kommunikation und Datei-Ein-/Ausgabe aufgeteilt. Der Grund dafür ist, dass insbesondere die Module Kommunikation und Datei-Ein-/Ausgabe auch unabhängig voneinander funktionieren können.
 
-So wird die Kohäsion der einzelnen Module erhöht und die Kopplung verringert. Im foldenden werden die einzelnen Module genauer erklärt.
+Dadurch wird die Kohäsion der einzelnen Module erhöht und die Kopplung verringert. Im Folgenden werden die einzelnen Module genauer erklärt.
 
 \subsection{Benutzeroberfläche}
 architektur und so
 % TODO @Lars
 
 \subsection{Kommunikation}
-Das Modul Kommunikation ist für den Verbindungsaufbau und den Nachrichtenaustausch zwischen den Parteien zuständig. Nach außen soll es eine stark abstrahierte Schnittstelle bieten, die Fehlbenutzung vermeidet und die Verwendung maximal vereinfacht.
+Das Modul “Kommunikation“ ist für den Verbindungsaufbau und den Nachrichtenaustausch zwischen den Parteien zuständig. Nach außen hin soll es eine stark abstrahierte Schnittstelle bieten, die Fehlbenutzung vermeidet und die Verwendung maximal vereinfacht.
 
-Das Modul soll in die Untermodule \textit{Client} und \textit{Protokoll} aufgeteilt werden. Das Modul \textit{Client} bietet dabei die Schnittstellen für das Senden und Empfangen von Nachrichten. Mithilfe des \textit{Protokoll} Moduls wird die Möglichkeit geboten die Verbindung zweier \textit{Client} Instanzen aufzubauen und zu verschlüsseln.
+Das Modul soll in die Untermodule “Client“ und “Protokoll“ aufgeteilt werden. Das Modul “Client“ bietet dabei die Schnittstellen für das Senden und Empfangen von Nachrichten. Mithilfe des “Protokoll“-Moduls wird die Möglichkeit geboten, die Verbindung zweier “Client“-Instanzen aufzubauen und zu verschlüsseln.
 
-Insgesamt sollen drei Umsetzungen eines Clients implementiert werden. Darunter fallen zwei Basisimplementierungen, die die Kommunikation über TCP und UDP ermöglichen. Die dritte Implementation baut auf einer der Basisimplementierungen auf und verschlüsselt die entsprechende Kommunikation.
+Insgesamt sollen drei Implementierungen eines Clients entwickelt werden. Darunter fallen zwei Basisimplementierungen, die die Kommunikation über TCP und UDP ermöglichen. Die dritte Implementierung baut auf einer der Basisimplementierungen auf und verschlüsselt die entsprechende Kommunikation.
 
-Für jeden Client besteht jeweils die Möglichkeit den Sender- und Empfängerteil in zwei seperate Objekte aufzuteilen. Somit wird sichergestellt, dass Anwender die Kommunikation auf mehrere Threads aufteilen können.
+Für jeden Client besteht jeweils die Möglichkeit, den Sender- und Empfängerteil in zwei separate Objekte aufzuteilen. Dadurch wird sichergestellt, dass Anwender die Kommunikation auf mehrere Threads aufteilen können.
 
-Das Protokoll verwendet die implementierten Clients und sorgt für eine reibungslosen Übergangt zwischen den verschiedenen Implementationen. Dies ist notwendig, da zunächst nur eine UDP-Kommunikation aufgebaut werden kann, da das TCP-Protokoll eine zeitliche Synchronisation benötigt. Diese Synchronisation kann nur über eine bereits existierende Verbindung erfolgen.
+Das Protokoll verwendet die implementierten Clients und sorgt für einen reibungslosen Übergang zwischen den verschiedenen Implementierungen. Dies ist notwendig, da zunächst nur eine UDP-Kommunikation aufgebaut werden kann, da das TCP-Protokoll eine zeitliche Synchronisation benötigt. Diese Synchronisation kann nur über eine bereits bestehende Verbindung erfolgen.
 
-Um die Verbindung während des Aufbaus der TCP-Verbindung abzusichern ist der erste Schritt nachdem UDP-Verbindungsaufbau die Verschlüsselung der Verbindung. Anschließend erfolgt ein Versuch die Zeiten zu synchronisieren und eine TCP-Verbindung aufzubauen. Bei Erfolg wird die Kommunikation in eine verschlüsselte TCP-Verbindung überführt, andernfalls wird die bereits bestehende UDP-Verbindung weiter verwendet.
+Um die Verbindung während des Aufbaus der TCP-Verbindung abzusichern, ist der erste Schritt nach dem UDP-Verbindungsaufbau die Verschlüsselung der Verbindung. Anschließend wird versucht, die Zeiten zu synchronisieren und eine TCP-Verbindung aufzubauen. Bei Erfolg wird die Kommunikation in eine verschlüsselte TCP-Verbindung überführt, andernfalls wird die bereits bestehende UDP-Verbindung weiterverwendet.
 
-Benutzern der Schnittstelle ist offengestellt welche Art der Kommunikation sie verwenden möchten. Das Protokoll kann zu jedem Zeitpunkt in einen aktiven Client überführt werden, über den dann entsprechnder Datenaustausch möglich ist.
+Benutzern der Schnittstelle steht es offen, welche Art der Kommunikation sie verwenden möchten. Das Protokoll kann zu jedem Zeitpunkt in einen aktiven Client überführt werden, über den dann entsprechender Datenaustausch möglich ist.
 
 \subsection{Datei-Ein-/Ausgabe}
-Das I/O-Modul ist dafür zuständig, Dateien aufzuteilen und zusammenzuführen und Nachrichten zu kodieren, die zwischen den Clients ausgetauscht werden. Um eine klare Struktur zu gewährleisten, wird es in mehrere Untermodule aufgeteilt.
+Das I/O-Modul ist dafür zuständig, Dateien aufzuteilen und zusammenzuführen sowie Nachrichten zu kodieren, die zwischen den Clients ausgetauscht werden. Um eine klare Struktur zu gewährleisten, wird es in mehrere Untermodule aufgeteilt.
 
-Das \textit{Error}-Modul hilft, verschiedene Fehlerarten abzufangen und zu behandeln.
+Das “Error“-Modul hilft dabei, verschiedene Fehlerarten abzufangen und zu behandeln.
 
-Das \textit{Hash}-Modul sorgt dafür, dass die Integrität der übertragenen Daten gewahrt bleibt.
+Das “Hash“-Modul sorgt dafür, dass die Integrität der übertragenen Daten gewahrt bleibt.
 
-Das \textit{Order}-Modul erleichtert die Verwaltung von Bestellungen und den Informationsaustausch zwischen den Clients.
+Das “Order“-Modul erleichtert die Verwaltung von Bestellungen und den Informationsaustausch zwischen den Clients.
 
-Das \textit{Offer}-Modul hat ähnliche Funktionen wie das \textit{Order}-Modul, aber für Angebote.
+Das “Offer“-Modul hat ähnliche Funktionen wie das “Order“-Modul, jedoch für Angebote.
 
-Das \textit{File}-Modul greift auf das Dateisystem zu und liest die Daten ein, teilt sie auf und fügt sie wieder zusammen. Durch das aufteilen der Dateien in mehrere Stücke soll die Übertragen großer Datenmengen erleichtert werden.
+Das “File“-Modul greift auf das Dateisystem zu, liest die Daten ein, teilt sie auf und fügt sie wieder zusammen. Durch die Aufteilung der Dateien in mehrere Stücke soll der Übertragung großer Datenmengen erleichtert werden.
 
-Das \textit{General}-Modul beinhaltet alle weiteren Funktionen, die im System benötigt werden. Es ist eine Art \enquote{Catch-all}-Modul für alle Funktionen und Prozesse, die nicht in die anderen spezifischeren Module passen.
+Das “General“-Modul enthält alle weiteren Funktionen, die im System benötigt werden. Es dient als eine Art “Catch-all“-Modul für alle Funktionen und Prozesse, die nicht in die anderen spezifischeren Module passen.
