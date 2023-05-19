@@ -573,11 +573,6 @@ impl ClientHandler {
                     let content = self.recv_data(message_size)?;
 
                     if message_number > self.received_counter
-                        && self
-                            .message_receive_buffer
-                            .iter()
-                            .find(|(number, _)| *number == message_number)
-                            .is_none()
                     {
                         println!(
                             "16early package {}, missing package {}, total buff {}",
@@ -585,8 +580,24 @@ impl ClientHandler {
                             self.received_counter,
                             self.message_receive_buffer.len()
                         );
-                        self.message_receive_buffer.push((message_number, content));
+
+                        if self
+                            .message_receive_buffer
+                            .iter()
+                            .find(|(number, _)| *number == message_number)
+                            .is_none() {
+                            self.message_receive_buffer.push((message_number, content));
+                        }
+
                     } else if message_number == self.received_counter {
+
+                        if self
+                            .message_receive_buffer
+                            .iter()
+                            .find(|(number, _)| *number == message_number)
+                            .is_some(){
+                            println!("BIG ERROR");
+                        }
                         //println!("good package {}, total buff {}", message_number, self.message_receive_buffer.len());
                         self.message_sender.send(content)?;
                         self.received_counter = self.received_counter.wrapping_add(1);
