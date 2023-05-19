@@ -651,6 +651,7 @@ impl ClientHandler {
     }
 
     fn acknowledge_package(&mut self, message_number: u32) {
+        self.message_send_buffer.sort_by(|a, b| a.number.cmp(&b.number));
         while let Some(package) = self.message_send_buffer.first() {
             if package.number != message_number {
                 self.message_send_buffer.remove(0);
