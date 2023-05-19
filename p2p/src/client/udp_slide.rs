@@ -597,6 +597,7 @@ impl ClientHandler {
                             .position(|(number, _)| *number == message_number) {
                             self.message_receive_buffer.remove(index);
                             println!("BIG ERROR");
+                            return Ok(());
                         }
                         //println!("good package {}, total buff {}", message_number, self.message_receive_buffer.len());
                         self.message_sender.send(content)?;
@@ -605,15 +606,6 @@ impl ClientHandler {
                         self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
 
                         let mut contents = Vec::<Vec<u8>>::new();
-
-                        self.message_receive_buffer.retain(|(number, content)| {
-                            if *number == self.received_counter {
-                                contents.push(content.clone());
-                                self.received_counter = self.received_counter.wrapping_add(1);
-                                return false;
-                            }
-                            return true;
-                        });
 
                         self.message_receive_buffer.retain(|(number, content)| {
                             if *number == self.received_counter {
@@ -664,7 +656,7 @@ impl ClientHandler {
     fn acknowledge_package(&mut self, message_number: u32) {
         self.message_send_buffer.sort_by(|a, b| a.number.cmp(&b.number));
         while let Some(package) = self.message_send_buffer.first() {
-            if package.number != message_number {
+            if package.number <= message_number {
                 self.message_send_buffer.remove(0);
             } else {
                 break;
