@@ -395,11 +395,10 @@ fn read_thread<R: ClientReader>(
             Err(_) => {}
         }
 
-        let mut msg = match reader.read(Some(Duration::from_micros(100))) {
+        let mut msg = match reader.read(Some(READ_TIMEOUT)) {
             Ok(msg) => msg,
             Err(_err) => match _err.kind() {
                 ErrorKind::TimedOut => {
-                    sleep(READ_TIMEOUT);
                     continue
                 },
                 _ => {

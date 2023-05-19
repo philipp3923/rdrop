@@ -219,11 +219,6 @@ impl ClientWriter for TcpClientWriter {
         match self.tcp_stream.write_all(&msg) {
             Ok(_) => {}
             Err(err) => {
-                if err.kind() == ErrorKind::WouldBlock || err.kind() == ErrorKind::TimedOut {
-                    println!("TCP WRITER WOULD BLOCK");
-                    sleep(Duration::from_millis(100));
-                    return self.write(msg.as_slice());
-                }
                 println!("TCP WRITER");
                 println!("{}", err);
                 println!("{}", err.kind());
