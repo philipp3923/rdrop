@@ -720,6 +720,11 @@ impl ClientHandler {
         self.message_send_buffer.sort_by(|a, b| a.number.cmp(&b.number));
         self.message_send_buffer.iter_mut().for_each(|package| {
             i += 1;
+
+            if i > 50 {
+                return;
+            }
+
             if package.timestamp.elapsed() > SEND_INTERVAL {
                 println!("REPEAT {}", package.number);
                 package.timestamp = Instant::now();
@@ -730,9 +735,7 @@ impl ClientHandler {
                 return;
             }
 
-            if i > 100 {
-                return;
-            }
+
         });
 
         Ok(())
