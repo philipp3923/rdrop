@@ -3,8 +3,15 @@ Dieses Kapitel beschreibt die Umsetzung der in Kapitel \ref{sc:architektur} besc
 Die Module Kommunikation und Datei-Ein-/Ausgabe werden dabei als Bibliotheken implementiert, die von der Benutzeroberfläche verwendet werden. Die Benutzeroberfläche wird als eigenständiges Programm implementiert.
 
 \subsection{Benutzeroberfläche}
-umsetzung und so
-% TODO @Lars
+Bei der Umsetzung der Benutzeroberfläche für rdrop stand eine einfache, intuitive und benutzerfreundliche Erfahrung im Vordergrund. Um dies zu erreichen, kamen verschiedene Technologien zum Einsatz, darunter Tauri, ein Framework für plattformübergreifende Anwendungen, NextJS, ein Framework für servergerenderte React-Anwendungen, und Figma, ein kollaboratives Interface-Design-Tool.
+
+Tauri ist ein GUI Framework, das es ermöglicht, native Anwendungen aus Web-Technologien wie HTML, CSS und JavaScript zu erstellen. Tauri bietet eine einfache und intuitive API, die es ermöglicht, native Funktionen wie Dateisystemzugriff, Benachrichtigungen und Systemdialoge zu verwenden. Darüber hinaus bietet Tauri eine einfache Möglichkeit, die Anwendung für verschiedene Plattformen zu erstellen, einschließlich Windows, Linux und MacOS.
+
+Für die Website die in der Applikation gerendert wird wurde React gewählt. React bietet durch seine Komponentenstruktur eine einfache und intuitive Entwicklung. Beispielsweise können einzelne UI-Komponenten wie bespielswiese ein Textfeld in einer eigenen Datei erstellt werden. Diese Komponente kann dann in anderen Komponenten verwendet werden. Dies ermöglicht eine einfache Wiederverwendung von Komponenten und eine einfache Strukturierung der Anwendung. NextJS ist eine Erweiterung von React, welches eigentlich im verwendet wird im Server-Side-Rendering zu nutzen. Wir haben NextJS trotzdem gewählt, da dieses über viele weitere Funktionen verfügt, wie beispielsweise Routing. Mittels Static Site Generation konnte die Website dann in statisches HTML umgewandelt werden, welches von Tauri verwendet werden kann. Server-Side-Rendering wurde nicht verwendet, da dies mit Tauri nicht möglich ist und keine Vorteile bietet. Dieses würde nur die Ladezeit der Website erhöhen, welches in einem lokalen Kontext nicht notwendig ist, da die Website nicht über das Internet geladen werden muss.
+
+Figma wurde verwendet, um das Design der Benutzeroberfläche zu erstellen. In Figma wurden einige Mockups erstellt um das grobe Layout der Anwendung zu planen. Zudem wurden auch die Farben und Schriftarten der Andwendung bestimmt. Änderungen konnten somit leichter vorgenommen werden, da diese nicht im Code vorgenommen werden mussten.
+
+Um das Design der Anwendung zu vereinheitlichen wurde Material Design 3 als Referenz verwendet. Material Design ist eine Spezifikation von Google um Applikationen in einem Einheitlichen Design zu erstellen. Für die wichtigsten Elemente einer Andwendung wie Buttons, Textfelder und Schriftarten werden Größe, Abstand und andere Guidelines vorgegeben. Auch die in der Anwendung verwendeten Icons sind die Material Design Icons. Diese wurden als Schriftart in der Website eingebunden.
 
 \subsection{Kommunikation}
 Für die Umsetzung der Clients werden die notwendigen Funktionalitäten, die an einen Client gestellt werden, in Traits festgelegt. Jeder der Clients implementiert diese. Somit können alle der Clients im generischen Kontext austauschbar verwendet werden.
