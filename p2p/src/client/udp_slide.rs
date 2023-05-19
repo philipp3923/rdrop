@@ -16,7 +16,7 @@ const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time after which the connection is considered dead
 const RECEIVE_INTERVAL: Duration = Duration::from_millis(1); //time between each receive timeout
 
-const SLIDE_WINDOW: u32 = 1024 * 128; //number of packets in the slide window
+const SLIDE_WINDOW: u32 = 1024; //number of packets in the slide window
 
 /// A UDP client that waits for a connection.
 pub struct UdpWaitingClient {
@@ -616,7 +616,7 @@ impl ClientHandler {
                             return true;
                         });
 
-                        self.send_acknowledgement(self.received_counter - 2)?;
+                        self.send_acknowledgement(self.received_counter - 1)?;
 
                         //println!("MSG {} WITH {} CONTENTS", message_number, contents.len());
 
@@ -725,7 +725,7 @@ impl ClientHandler {
                 }
             }
 
-            if i > SLIDE_WINDOW {
+            if i > 100 {
                 return;
             }
         });
