@@ -52,7 +52,7 @@ impl UdpWaitingClient {
     /// ```
     /// use p2p::client::udp_slide::UdpWaitingClient;
     ///
-    /// let client = UdpWaitingClient::new(Some(8080));
+    /// let client = UdpWaitingClient::new(None);
     ///
     /// match client {
     ///     Ok(client) => {
@@ -92,7 +92,7 @@ impl UdpWaitingClient {
     /// use std::time::Duration;
     /// use p2p::client::udp_slide::UdpWaitingClient;
     ///
-    /// let client = UdpWaitingClient::new(Some(8080)).unwrap();
+    /// let client = UdpWaitingClient::new(None).unwrap();
     ///
     /// let active_client = client.connect("0:0:0:0:0:0:0:1".parse().unwrap(), 9000, Some(Duration::from_millis(1)), None);
     ///
@@ -188,7 +188,7 @@ impl UdpWaitingClient {
     /// ```
     /// use p2p::client::udp_slide::UdpWaitingClient;
     ///
-    /// let client = UdpWaitingClient::new(Some(8080)).unwrap();
+    /// let client = UdpWaitingClient::new(None).unwrap();
     ///
     /// let port = client.get_port();
     ///
