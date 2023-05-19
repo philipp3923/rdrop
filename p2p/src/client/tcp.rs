@@ -169,9 +169,11 @@ impl ClientReader for TcpClientReader {
         match self.tcp_stream.read_exact(header.as_mut_slice()) {
             Ok(_) => {}
             Err(err) => {
+
                 return if err.kind() == ErrorKind::WouldBlock || err.kind() == ErrorKind::TimedOut {
                     Err(P2pError::new(error::ErrorKind::TimedOut))
                 } else {
+                    println!("{}", err);
                     Err(P2pError::new(error::ErrorKind::CommunicationFailed))
                 }
             }
