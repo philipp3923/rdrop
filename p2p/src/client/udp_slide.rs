@@ -15,7 +15,7 @@ const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(50);
 //time after which the connection is considered dead
 const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 //time between each receive timeout
-const RECEIVE_INTERVAL: Duration = Duration::from_millis(1);
+const RECEIVE_INTERVAL: Duration = Duration::from_micros(10);
 //number of packets in the slide window
 const SLIDE_WINDOW: u32 = 1024 * 128;
 
