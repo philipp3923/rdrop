@@ -541,6 +541,7 @@ impl ClientHandler {
             self.repeat_messages()?;
             self.send_messages()?;
 
+
             let (message_type, message_number, message_size) = match self.peek_header() {
                 Some(header) => {
                     dead_time = Instant::now();
@@ -603,7 +604,7 @@ impl ClientHandler {
                         self.message_sender.send(content)?;
                         self.received_counter = self.received_counter.wrapping_add(1);
 
-                        self.message_receive_buffer.sort_by(|a, b| b.0.cmp(&a.0));
+                        self.message_receive_buffer.sort_by(|a, b| a.0.cmp(&b.0));
 
                         let mut contents = Vec::<Vec<u8>>::new();
 
@@ -654,7 +655,7 @@ impl ClientHandler {
     }
 
     fn acknowledge_package(&mut self, message_number: u32) {
-        self.message_send_buffer.sort_by(|a, b| b.number.cmp(&a.number));
+        self.message_send_buffer.sort_by(|a, b| a.number.cmp(&b.number));
         while let Some(package) = self.message_send_buffer.first() {
             if package.number <= message_number {
                 self.message_send_buffer.remove(0);
@@ -716,7 +717,7 @@ impl ClientHandler {
 
     fn repeat_messages(&mut self) -> Result<(), P2pError> {
         let mut i = 0;
-        self.message_send_buffer.sort_by(|a, b| b.number.cmp(&a.number));
+        self.message_send_buffer.sort_by(|a, b| a.number.cmp(&b.number));
         self.message_send_buffer.iter_mut().for_each(|package| {
             i += 1;
             if package.timestamp.elapsed() > SEND_INTERVAL {
@@ -725,6 +726,8 @@ impl ClientHandler {
                 if let Err(e) = self.udp_socket.send(package.content.as_slice()) {
                     println!("9[UDP] send error: {:?}", e);
                 }
+            }else {
+                return;
             }
 
             if i > 100 {
