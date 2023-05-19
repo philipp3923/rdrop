@@ -395,10 +395,13 @@ fn read_thread<R: ClientReader>(
             Err(_) => {}
         }
 
-        let mut msg = match reader.read(Some(READ_TIMEOUT)) {
+        let mut msg = match reader.try_read() {
             Ok(msg) => msg,
             Err(_err) => match _err.kind() {
-                ErrorKind::TimedOut => continue,
+                ErrorKind::TimedOut => {
+                    sleep(READ_TIMEOUT);
+                    continue
+                },
                 _ => {
                     println!("[READER] : error reading {}", _err);
                     return Err(ClientError::new(ClientErrorKind::SocketClosed));

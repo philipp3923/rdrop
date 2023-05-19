@@ -215,11 +215,12 @@ impl TcpClientWriter {
 impl ClientWriter for TcpClientWriter {
     fn write(&mut self, msg: &[u8]) -> Result<(), P2pError> {
         let msg = self.prepare_msg(msg);
-        self.tcp_stream.set_nonblocking(false)?;
+        self.tcp_stream.set_write_timeout(Some(Duration::from_secs(10)))?; // TODO: make this configurable
         match self.tcp_stream.write_all(&msg) {
             Ok(_) => {}
             Err(err) => {
                 if err.kind() == ErrorKind::WouldBlock || err.kind() == ErrorKind::TimedOut {
+                    println!("TCP WRITER WOULD BLOCK");
                     sleep(Duration::from_millis(100));
                     return self.write(msg.as_slice());
                 }
