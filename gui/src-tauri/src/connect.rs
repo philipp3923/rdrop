@@ -1,6 +1,7 @@
 use std::net::Ipv6Addr;
-use std::sync::{Arc, Mutex};
+
 use std::sync::mpsc::Receiver;
+use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -11,7 +12,7 @@ use p2p::protocol::{Connection, Waiting};
 
 use crate::client::Client;
 use crate::error::{ClientError, ClientErrorKind};
-use crate::events::{Protocol, send_connect_error, send_connect_status, send_connected};
+use crate::events::{send_connect_error, send_connect_status, send_connected, Protocol};
 use crate::handle::Current;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(1);
@@ -75,30 +76,35 @@ pub fn thread_connect(
                 };
 
                 /// START TCP BLOCKER
-                /*
-    let (writer, reader) = match active_connection.transform_to_slide() {
-        Ok(wr) => wr,
-        Err(_) => {
-            {
+
+                let (writer, reader) = match active_connection.transform_to_slide() {
+                    Ok(wr) => wr,
+                    Err(_) => {
+                        {
+                            let mut write_state = current.lock()?;
+                            *write_state = Current::Broken;
+                        }
+                        send_connect_error(&app_handle, "Failed to connect.", "Could not establish sliding window.")?;
+                        return Err(ClientError::new(ClientErrorKind::SocketClosed));
+                    }
+                };
+
+                println!("transformed to slide");
+
+                let client = Client::new(
+                    app_handle.clone(),
+                    reader,
+                    writer,
+                    self_port,
+                );
+
+
                 let mut write_state = current.lock()?;
-                *write_state = Current::Broken;
-            }
-            send_connect_error(&app_handle, "Failed to connect.", "Could not establish sliding window.")?;
-            return Err(ClientError::new(ClientErrorKind::SocketClosed));
-        }
-    };
-    println!("transformed to slide");
+                *write_state = Current::ConnectedUdp(client);
+                send_connected(&app_handle, Protocol::UDP)?;
+                return Ok(());
 
-    let client = Client::new(
-        app_handle.clone(),
-        reader,
-        writert write_state = current.lock()?;
-    *write_state = Current::ConnectedUdp(client);
-    send_connected(&app_handle, Protocol::UDP)?;
-    return Ok(());
-    */
                 /// END TCP BLOCKER
-
                 send_connect_status(&app_handle, "Upgrading", "Sampling time difference.")?;
 
                 return match active_connection.upgrade_direct() {
@@ -118,6 +124,7 @@ pub fn thread_connect(
                         {
                             let mut write_state = current.lock()?;
                             *write_state = Current::ConnectedTcp(client);
+
                         }
                         send_connected(&app_handle, Protocol::TCP)?;
                         Ok(())
