@@ -8,15 +8,16 @@ use crate::client::{ActiveClient, ClientReader, ClientWriter};
 use crate::error::Error as P2pError;
 use crate::error::{ChangeStateError, ErrorKind, ThreadError};
 
-const SEND_INTERVAL: Duration = Duration::from_millis(100);
 //time between each resend
-const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(50);
+const SEND_INTERVAL: Duration = Duration::from_millis(100);
 //time between each keep alive message
-const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(50);
 //time after which the connection is considered dead
-const RECEIVE_INTERVAL: Duration = Duration::from_millis(1); //time between each receive timeout
-
-const SLIDE_WINDOW: u32 = 1024 * 128; //number of packets in the slide window
+const DISCONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+//time between each receive timeout
+const RECEIVE_INTERVAL: Duration = Duration::from_millis(1);
+//number of packets in the slide window
+const SLIDE_WINDOW: u32 = 1024 * 128;
 
 /// A UDP client that waits for a connection.
 pub struct UdpWaitingClient {
