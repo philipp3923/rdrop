@@ -591,11 +591,11 @@ impl ClientHandler {
 
                     } else if message_number == self.received_counter {
 
-                        if self
+                        if let Some(index) = self
                             .message_receive_buffer
                             .iter()
-                            .find(|(number, _)| *number == message_number)
-                            .is_some(){
+                            .position(|(number, _)| *number == message_number) {
+                            self.message_receive_buffer.remove(index);
                             println!("BIG ERROR");
                         }
                         //println!("good package {}, total buff {}", message_number, self.message_receive_buffer.len());
