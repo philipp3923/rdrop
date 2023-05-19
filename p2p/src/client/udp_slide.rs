@@ -622,6 +622,7 @@ impl ClientHandler {
                         }
                     } else {
                         println!("15[UDP] received old message n:{}", message_number);
+                        self.send_acknowledgement(message_number)?;
                     }
                 }
                 MessageType::Acknowledge => {
