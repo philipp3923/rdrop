@@ -8,7 +8,7 @@ use crate::client::{ActiveClient, ClientReader, ClientWriter};
 use crate::error::Error as P2pError;
 use crate::error::{ChangeStateError, ErrorKind, ThreadError};
 
-const SEND_INTERVAL: Duration = Duration::from_millis(100);
+const SEND_INTERVAL: Duration = Duration::from_millis(50);
 //time between each resend
 const KEEP_ALIVE_INTERVAL: Duration = Duration::from_millis(50);
 //time between each keep alive message
