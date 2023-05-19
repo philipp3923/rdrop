@@ -486,6 +486,7 @@ struct ClientHandler {
     message_send_buffer: Vec<Package>,
     message_receive_buffer: Vec<(u32, Vec<u8>)>,
     lower_bound: u32,
+    last_repeat : Instant,
 }
 
 impl ClientHandler {
@@ -507,6 +508,7 @@ impl ClientHandler {
             lower_bound: 0,
             message_send_buffer: Vec::new(),
             message_receive_buffer: Vec::new(),
+            last_repeat: Instant::now(),
         }
     }
 
@@ -538,7 +540,10 @@ impl ClientHandler {
                 return Ok(());
             }
 
-            self.repeat_messages()?;
+            if self.last_repeat.elapsed() > Duration::from_millis(3) {
+                self.repeat_messages()?;
+                self.last_repeat = Instant::now();
+            }
             self.send_messages()?;
 
 
