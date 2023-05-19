@@ -75,6 +75,47 @@ pub fn thread_connect(
                     }
                 };
 
+
+                /// BLOCK TCP
+
+
+
+
+
+
+                let (writer, reader) = match active_connection.transform_to_slide() {
+                    Ok(wr) => wr,
+                    Err(_) => {
+                        {
+                            let mut write_state = current.lock()?;
+                            *write_state = Current::Broken;
+                        }
+                        send_connect_error(&app_handle, "Failed to connect.", "Could not establish sliding window.")?;
+                        return Err(ClientError::new(ClientErrorKind::SocketClosed));
+                    }
+                };
+
+                println!("transformed to slide");
+
+                let client = Client::new(
+                    app_handle.clone(),
+                    reader,
+                    writer,
+                    self_port,
+                );
+
+
+                let mut write_state = current.lock()?;
+                *write_state = Current::ConnectedUdp(client);
+                send_connected(&app_handle, Protocol::UDP)?;
+                return Ok(());
+
+
+
+
+
+                /// BLOCK TCP
+
                 send_connect_status(&app_handle, "Upgrading", "Sampling time difference.")?;
 
                 return match active_connection.upgrade_direct() {
