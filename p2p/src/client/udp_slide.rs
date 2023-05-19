@@ -540,7 +540,7 @@ impl ClientHandler {
                 return Ok(());
             }
 
-            if self.last_repeat.elapsed() > Duration::from_millis(3) {
+            if self.last_repeat.elapsed() > Duration::from_millis(10) {
                 self.repeat_messages()?;
                 self.last_repeat = Instant::now();
             }
